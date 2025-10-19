@@ -1,390 +1,278 @@
-# CelesteCLI - CelesteAI Command Line Interface
+# Celeste CLI
 
-A Go-based CLI tool for interacting with CelesteAI, a mischievous demon noble VTuber assistant. This tool provides various content generation capabilities while maintaining Celeste's distinctive personality and voice.
+A powerful command-line interface for interacting with CelesteAI, featuring content generation, image processing, and NSFW capabilities through Venice.ai integration.
 
-## Features
+## 🚀 Features
 
-### Content Generation
-- **Twitter/X Posts** - Generate tweets in Celeste's voice with proper hashtags and tone
-- **YouTube Descriptions** - Create detailed video descriptions with game metadata from IGDB
-- **Stream Titles** - Generate punchy, chaotic stream titles
-- **Discord Announcements** - Create stream announcements for Discord
-- **TikTok Captions** - Generate engaging short-form content captions
-- **Pixiv Posts** - Generate artistic captions for illustrations
-- **Skeb Requests** - Draft professional commission requests
-- **Tarot Readings** - Generate mystical tarot readings with Celtic or three-card spreads
-- **Goodnight Messages** - Create flirty or cozy goodnight tweets
-- **Quote Tweets** - Generate witty quote tweet responses
-- **Reply Snark** - Create snarky replies to tweets
-- **Birthday Messages** - Generate celebratory birthday content
-- **Alt Text** - Create descriptive image alt text
+### Core Functionality
+- **Content Generation**: Twitter posts, TikTok captions, YouTube descriptions, Discord announcements
+- **Personality System**: YAML-based personality configuration with multiple personas
+- **Game Integration**: IGDB API integration for game metadata
+- **S3 Sync**: DigitalOcean Spaces integration for conversation storage
+- **Bot Integration**: Discord/Twitch bot support with user isolation
 
-### Advanced Features
-- **IGDB Integration** - Automatic game metadata retrieval and caching
-- **Personality Switching** - Dynamic persona selection based on context
-- **OpenSearch Sync** - Upload conversations to Celeste's knowledge base
-- **NSFW Mode** - Uncensored content generation using Venice.ai
-- **Scaffolding System** - External JSON configuration for prompt templates
-- **Bot Integration** - Discord and Twitch bot support with user isolation
-- **Override Functionality** - PGP-signed override commands for bypassing restrictions
+### NSFW Mode (Venice.ai Integration)
+- **Text Generation**: Uncensored content using `venice-uncensored` model
+- **Image Generation**: NSFW image creation with `lustify-sdxl` model
+- **Image Upscaling**: High-quality upscaling with fidelity controls
+- **Image Editing**: Inpainting and signature removal
+- **Smart Workflows**: Optimized 2-step process for small images
 
-## Installation
+## 📦 Installation
 
+### Prerequisites
+- Go 1.19+
+- Venice.ai API key (for NSFW features)
+- DigitalOcean Spaces credentials (for S3 sync)
+
+### Quick Install
 ```bash
+git clone <repository>
+cd celesteCLI
 go build -o celestecli main.go scaffolding.go
+./install.sh
 ```
 
-## Configuration
-
-### CelesteAI Agent Configuration
-
-Create a `~/.celesteAI` config file with:
+### Manual Install
 ```bash
+go build -o celestecli main.go scaffolding.go
+cp celestecli ~/.local/bin/
+chmod +x ~/.local/bin/celestecli
+```
+
+## ⚙️ Configuration
+
+### CelesteAI Configuration (`~/.celesteAI`)
+```bash
+# CelesteAI API
 endpoint=https://your-celeste-api-endpoint
 api_key=your-api-key
+
+# IGDB Integration
 client_id=your-igdb-client-id
 secret=your-igdb-client-secret
 
-# NSFW Mode (optional)
+# NSFW Mode (Venice.ai)
 venice_api_key=your-venice-api-key
-```
-
-Or set environment variables:
-- `CELESTE_API_ENDPOINT`
-- `CELESTE_API_KEY`
-- `CELESTE_IGDB_CLIENT_ID`
-- `CELESTE_IGDB_CLIENT_SECRET`
-- `VENICE_API_KEY` (for NSFW mode)
-
-### DigitalOcean Spaces Configuration (for --sync flag)
-
-Create a `~/.celeste.cfg` config file with:
-```bash
-access_key_id=your_digitalocean_spaces_access_key_here
-secret_access_key=your_digitalocean_spaces_secret_key_here
-endpoint=https://sfo3.digitaloceanspaces.com
-region=sfo3
-bucket_name=whykusanagi
-```
-
-Or set environment variables:
-- `DO_SPACES_ACCESS_KEY_ID`
-- `DO_SPACES_SECRET_ACCESS_KEY`
-
-## Usage
-
-### Basic Commands
-
-```bash
-# Generate a tweet
-./celestecli --type tweet --tone "chaotic funny"
-
-# Create YouTube description with game context
-./celestecli --type ytdesc --game "NIKKE" --tone "lewd"
-
-# Generate stream title
-./celestecli --type title --game "Schedule I" --tone "dramatic"
-
-# Create Discord announcement
-./celestecli --type discord --game "Blue Archive" --tone "hype"
-
-# Generate Pixiv post caption
-./celestecli --type pixivpost --game "Fall of Kirara" --tone "dramatic"
-
-# Draft Skeb commission request
-./celestecli --type skebreq --game "Celeste" --tone "professional" --context "bunny outfit"
-
-# Generate tarot reading
-./celestecli --type tarot --spread celtic
-
-# Create goodnight message
-./celestecli --type goodnight --tone "sweet teasing"
-
-# NSFW Mode (uncensored content using Venice.ai)
-./celestecli --nsfw --type tweet --tone "explicit" --game "NIKKE"
-./celestecli --nsfw --type tiktok --tone "lewd" --game "NIKKE"
-./celestecli --nsfw --type ytdesc --tone "adult" --game "NIKKE"
-```
-
-### Advanced Options
-
-```bash
-# Generate content with specific persona
-./celestecli --type tweet --persona celeste_ad_read --tone "wink-and-nudge" --game "NIKKE"
-
-# Generate content with media context
-./celestecli --type tweet --media "https://example.com/image.jpg" --tone "teasing"
-
-# Generate content with additional context
-./celestecli --type ytdesc --context "This is a special stream event" --game "NIKKE"
-
-# Upload conversation to OpenSearch
-./celestecli --type tweet --sync --game "NIKKE"
-
-# Enable debug mode
-./celestecli --type tweet --debug
-```
-
-## Content Types
-
-| Type | Description | Max Length | Platform |
-|------|-------------|------------|----------|
-| `tweet` | Twitter post | 280 | Twitter |
-| `tweet_image` | Twitter post with image credit | 280 | Twitter |
-| `tweet_thread` | Multi-part Twitter thread | 280 | Twitter |
-| `title` | Stream title | 140 | Streaming |
-| `ytdesc` | YouTube description | 5000 | YouTube |
-| `tiktok` | TikTok caption | 2200 | TikTok |
-| `discord` | Discord announcement | 2000 | Discord |
-| `goodnight` | Goodnight message | 280 | Twitter |
-| `pixivpost` | Pixiv post caption | 1000 | Pixiv |
-| `skebreq` | Skeb commission request | 900 | Skeb |
-| `quote_tweet` | Quote tweet response | 280 | Twitter |
-| `reply_snark` | Snarky reply | 280 | Twitter |
-| `birthday` | Birthday message | 280 | Twitter |
-| `alt_text` | Image alt text | 125 | Accessibility |
-
-## Tone Examples
-
-- `lewd` - Suggestive and teasing
-- `explicit` - Direct and uncensored (NSFW mode)
-- `teasing` - Playful and mischievous
-- `chaotic` - Wild and unpredictable
-- `cute` - Sweet and endearing
-- `official` - Professional and formal
-- `dramatic` - Intense and emotional
-- `parody` - Humorous and satirical
-- `funny` - Comedy and entertainment
-- `suggestive` - Hinting and playful
-- `adult` - Mature and sophisticated
-- `sweet` - Gentle and caring
-- `snarky` - Sarcastic and witty
-- `playful` - Fun and lighthearted
-- `hype` - Energetic and exciting
-
-## Personas
-
-- `celeste_stream` - Default streaming persona (teasing, smug, mischievous, playful)
-- `celeste_ad_read` - Advertisement reading persona (wink-and-nudge, promotional, engaging)
-- `celeste_moderation_warning` - Moderation warning persona (authoritative, clear, firm but fair)
-
-## NSFW Mode
-
-The CLI supports NSFW mode using Venice.ai for uncensored content generation:
-
-### Configuration
-Add to `~/.celesteAI`:
-```bash
-venice_api_key=your_venice_api_key_here
 venice_base_url=https://api.venice.ai/api/v1
 venice_model=venice-uncensored
 venice_upscaler=upscaler
 ```
 
-### Usage
+### S3 Configuration (`~/.celeste.cfg`)
 ```bash
-# NSFW Twitter post
-./celestecli --nsfw --type tweet --tone "explicit" --game "NIKKE"
-
-# NSFW TikTok caption
-./celestecli --nsfw --type tiktok --tone "lewd" --game "NIKKE"
+# DigitalOcean Spaces
+endpoint=https://sfo3.digitaloceanspaces.com
+bucket_name=whykusanagi
+access_key_id=your-access-key
+secret_access_key=your-secret-key
 ```
 
-### Venice.ai Models
-- **`venice-uncensored`** - No content filtering, full NSFW content generation
-- **`lustify-sdxl`** - Uncensored image generation with SDXL
-- **`wai-Illustrious`** - Anime-style generation for VTuber content
-- **`upscaler`** - Image upscaling (2x $0.02, 4x $0.08)
+## 🎯 Usage
 
-## Scaffolding System
-
-The CLI uses an external JSON configuration system for prompt templates:
-
-### Configuration File: `scaffolding.json`
-```json
-{
-  "content_types": {
-    "tweet": {
-      "description": "Write a post for X/Twitter",
-      "scaffold": "🐦 Write a Twitter post in CelesteAI's voice...",
-      "max_length": 280,
-      "platform": "twitter"
-    }
-  },
-  "tone_examples": {
-    "lewd": "suggestive and teasing",
-    "explicit": "direct and uncensored"
-  },
-  "platforms": {
-    "twitter": {
-      "max_length": 280,
-      "hashtags": ["#CelesteAI", "#KusanagiAbyss", "#VTuberEN"],
-      "emoji_usage": "1-2 per sentence"
-    }
-  }
-}
-```
-
-### Benefits
-- ✅ **No Code Changes**: Update templates via JSON
-- ✅ **Easy Extension**: Add new content types
-- ✅ **Platform Support**: Configure platform-specific settings
-- ✅ **Maintainable**: Clear separation of data and logic
-
-## Bot Integration
-
-The CLI supports Discord and Twitch bot integration with proper user isolation:
-
-### User Isolation
+### Basic Content Generation
 ```bash
-# Discord bot integration
-CELESTE_USER_ID="discord_user_123" CELESTE_PLATFORM="discord" ./celestecli --type tweet --game "NIKKE" --tone "teasing" --sync
+# Twitter post
+celestecli --type tweet --game "NIKKE" --tone "lewd"
 
-# Twitch bot integration  
-CELESTE_USER_ID="twitch_user_456" CELESTE_PLATFORM="twitch" ./celestecli --type tweet --game "NIKKE" --tone "chaotic" --sync
+# TikTok caption
+celestecli --type tiktok --tone "playful"
+
+# YouTube description
+celestecli --type ytdesc --game "Streaming" --tone "professional"
 ```
 
-### Override Functionality
+### NSFW Mode
 ```bash
-# PGP-signed override commands
-CELESTE_OVERRIDE_ENABLED="true" CELESTE_PGP_SIGNATURE="kusanagi-abyss-override" ./celestecli --type tweet --game "NIKKE" --tone "explicit"
+# Uncensored text generation
+celestecli --nsfw --context "Generate explicit content"
+
+# Image generation
+celestecli --nsfw --image --context "Generate NSFW image of Celeste"
+
+# Image upscaling
+celestecli --nsfw --upscale --image-path "image.png"
+
+# Image editing (signature removal)
+celestecli --nsfw --edit --image-path "image.png" --edit-prompt "remove signature"
+
+# Optimized workflow for small images
+celestecli --nsfw --edit --image-path "small_image.png" --edit-prompt "remove watermark" --upscale-first
 ```
+
+### Advanced Options
+```bash
+# List available Venice.ai models
+celestecli --nsfw --list-models
+
+# Override model
+celestecli --nsfw --model "wai-Illustrious" --image --context "Anime style"
+
+# Custom output filename
+celestecli --nsfw --image --output "my_image.png" --context "Custom filename"
+
+# Preserve original size
+celestecli --nsfw --edit --image-path "large_image.png" --edit-prompt "edit" --preserve-size
+```
+
+## 🎨 Image Processing Workflows
+
+### Standard Upscaling
+- **Input**: Any image ≥256x256 pixels
+- **Output**: 2x upscaled with quality preservation
+- **Parameters**: Conservative settings for fidelity
+
+### Smart Editing Workflow
+- **Small Images** (<1024x1024): Uses `--upscale-first` (2 API calls)
+  1. Upscale to 1024x1024
+  2. Edit at native size
+- **Large Images** (≥1024x1024): Uses standard edit workflow
+- **Result**: High-quality edited images without distortion
+
+### Quality Controls
+- **Enhancement Creativity**: 0.0-1.0 (lower = more faithful)
+- **Replication Level**: 0.0-1.0 (higher = more faithful)
+- **Enhancement Prompt**: Custom instructions for upscaling
+
+## 🤖 Bot Integration
 
 ### Environment Variables
-- `CELESTE_USER_ID` - User ID for conversation tracking
-- `CELESTE_PLATFORM` - Platform (discord, twitch, cli)
-- `CELESTE_OVERRIDE_ENABLED` - Enable override mode (true/false)
-- `CELESTE_PGP_SIGNATURE` - PGP signature for override commands
-
-## OpenSearch Integration
-
-The CLI can upload conversations to DigitalOcean Spaces for OpenSearch RAG:
-
-### Data Structure
-```json
-{
-  "id": "conversation_id",
-  "timestamp": "2024-01-01T00:00:00Z",
-  "content_type": "tweet",
-  "tone": "teasing",
-  "game": "NIKKE",
-  "persona": "celeste_stream",
-  "prompt": "user_prompt",
-  "response": "ai_response",
-  "intent": "social_media",
-  "purpose": "tweet",
-  "topics": ["nikke", "gaming"],
-  "sentiment": "positive",
-  "platform": "twitter",
-  "tags": ["celeste", "ai", "content"],
-  "context": "Game: NIKKE, Tone: teasing, Persona: celeste_stream",
-  "success": true
-}
+```bash
+export CELESTE_USER_ID="user123"
+export CELESTE_PLATFORM="discord"
+export CELESTE_CHANNEL_ID="channel123"
+export CELESTE_GUILD_ID="guild123"
+export CELESTE_OVERRIDE_ENABLED="true"
+export CELESTE_PGP_SIGNATURE="signature"
 ```
 
-### S3 Path Structure
-```
-s3://whykusanagi/celeste/conversations/
-├── 1760832573516177000.json
-├── 1760832573516177001.json
-└── ...
-```
+### User Isolation
+- Each user gets separate conversation contexts
+- Platform-specific metadata tracking
+- PGP signature verification for override commands
 
-## Error Handling
+## 📊 S3 Integration & RAG
 
-The CLI provides comprehensive error handling:
+### Conversation Storage
+- **Format**: Structured JSON with intent, purpose, topics
+- **Location**: `s3://whykusanagi/celeste/conversations/`
+- **Metadata**: User ID, platform, sentiment, success tracking
 
-- **Missing Credentials**: Clear error messages for missing API keys
-- **Network Issues**: Retry logic for API requests
-- **Invalid Responses**: Graceful handling of malformed responses
-- **Configuration Errors**: Helpful error messages for config issues
+### OpenSearch Integration
+- **Purpose**: RAG (Retrieval-Augmented Generation)
+- **Data Structure**: Intent-based organization
+- **Benefits**: Contextual responses based on conversation history
 
-## Development
+## 🔧 Development
 
 ### Project Structure
 ```
 celesteCLI/
-├── main.go                 # Main application
-├── scaffolding.go         # Scaffolding logic
-├── scaffolding.json       # External prompt templates
-├── personality.yml        # Personality configuration
-├── go.mod                 # Dependencies
-├── go.sum                 # Dependency checksums
-└── README.md              # This file
+├── main.go              # Core CLI application
+├── scaffolding.go       # Prompt template loader
+├── scaffolding.json     # Prompt templates
+├── personality.yml      # Celeste personality configuration
+├── go.mod              # Go dependencies
+├── install.sh          # Installation script
+└── README.md           # This file
 ```
 
-### Adding New Content Types
+### Dependencies
+- `github.com/aws/aws-sdk-go` - S3 integration
+- `github.com/sashabaranov/go-openai` - Venice.ai integration
+- `gopkg.in/yaml.v3` - YAML configuration parsing
 
-1. **Update `scaffolding.json`**:
-```json
-{
-  "content_types": {
-    "new_type": {
-      "description": "Description of new content type",
-      "scaffold": "Prompt template for new content type",
-      "max_length": 280,
-      "platform": "twitter"
-    }
-  }
-}
+### Building
+```bash
+go mod tidy
+go build -o celestecli main.go scaffolding.go
 ```
 
-2. **Update help menu in `main.go`** (if needed)
-3. **Test the new content type**
+## 🎭 Personality System
 
-### Adding New Platforms
+### Configuration (`personality.yml`)
+- **Personas**: Multiple character modes (stream, moderation, etc.)
+- **Content Types**: Specialized templates for different platforms
+- **Voice Rules**: Tone and style guidelines
+- **Safety Modes**: Content filtering and guardrails
 
-1. **Update `scaffolding.json`**:
-```json
-{
-  "platforms": {
-    "new_platform": {
-      "max_length": 500,
-      "hashtags": ["#CelesteAI"],
-      "emoji_usage": "1-2 per sentence"
-    }
-  }
-}
-```
+### Available Personas
+- `celeste_stream` - Default streaming persona
+- `celeste_ad_read` - Advertisement reading
+- `celeste_moderation_warning` - Discord moderation
 
-2. **Update platform detection logic** (if needed)
+## 🚨 NSFW Mode Details
 
-## Troubleshooting
+### Venice.ai Models
+- **Text**: `venice-uncensored` - Uncensored text generation
+- **Images**: `lustify-sdxl` - NSFW image generation
+- **Anime**: `wai-Illustrious` - Anime-style generation
+- **Upscaling**: `upscaler` - High-quality upscaling
+
+### API Endpoints
+- `/image/generate` - Image generation
+- `/image/upscale` - Image upscaling
+- `/image/edit` - Image editing/inpainting
+- `/models` - List available models
+
+### Quality Controls
+- **Conservative Settings**: 0.05 creativity, 0.9 replication
+- **Fidelity Prompts**: "preserve original details exactly"
+- **Smart Workflows**: Automatic optimization based on image size
+
+## 🔍 Troubleshooting
 
 ### Common Issues
-
-1. **Missing API Key**
-   ```
-   Missing CELESTE_API_ENDPOINT or CELESTE_API_KEY
-   ```
-   **Solution**: Set environment variables or update `~/.celesteAI`
-
-2. **Venice.ai Configuration Error**
-   ```
-   Venice.ai configuration error: missing Venice.ai API key
-   ```
-   **Solution**: Set `VENICE_API_KEY` or add `venice_api_key` to `~/.celesteAI`
-
-3. **S3 Upload Failed**
-   ```
-   Warning: Failed to upload conversation to S3
-   ```
-   **Solution**: Check DigitalOcean Spaces credentials in `~/.celeste.cfg`
+1. **Venice.ai API errors**: Check API key and endpoint
+2. **S3 sync failures**: Verify DigitalOcean Spaces credentials
+3. **Image dimension errors**: Ensure images meet minimum requirements (256x256)
+4. **Permission errors**: Check file permissions and PATH configuration
 
 ### Debug Mode
-Use `--debug` flag to see raw API responses:
 ```bash
-./celestecli --type tweet --debug
+celestecli --debug --type tweet --context "Debug output"
 ```
 
-## License
+## 📈 Performance
 
-This project is part of the CelesteAI ecosystem and is intended for use with the CelesteAI agent.
+### API Call Optimization
+- **Standard Edit**: 1 API call
+- **Upscale-First**: 2 API calls (optimized)
+- **Previous Workflow**: 3 API calls (deprecated)
 
-## Support
+### Timing Examples
+- **Text Generation**: ~2-5 seconds
+- **Image Generation**: ~10-15 seconds
+- **Image Upscaling**: ~8-12 seconds
+- **Smart Editing**: ~14-20 seconds
+
+## 🔒 Security
+
+### PGP Signature Verification
+- Override commands require PGP signatures
+- Keybase integration for signature verification
+- Environment variable configuration
+
+### Content Safety
+- Platform-specific content filtering
+- Age-gated content handling
+- Moderation capabilities for Discord/Twitch
+
+## 📝 License
+
+This project is part of the CelesteAI ecosystem. See individual component licenses for details.
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## 📞 Support
 
 For issues and questions:
-1. Check the troubleshooting section
-2. Verify configuration files
-3. Test with debug mode
-4. Check API endpoint status
+- Check the troubleshooting section
+- Review configuration examples
+- Test with debug mode enabled

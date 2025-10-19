@@ -11,7 +11,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -60,6 +62,19 @@ type VeniceConfig struct {
 	BaseURL  string `json:"base_url"`
 	Model    string `json:"model"`
 	Upscaler string `json:"upscaler"`
+}
+
+// VeniceModel represents a Venice.ai model
+type VeniceModel struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Type        string `json:"type"`
+}
+
+// VeniceModelsResponse represents the response from Venice.ai models endpoint
+type VeniceModelsResponse struct {
+	Models []VeniceModel `json:"models"`
 }
 
 // ConversationEntry represents a single conversation for storage
@@ -546,6 +561,101 @@ func loadVeniceConfig() (*VeniceConfig, error) {
 	return config, nil
 }
 
+// listVeniceModels lists available Venice.ai models
+func listVeniceModels(config *VeniceConfig) ([]VeniceModel, error) {
+	url := config.BaseURL + "/models"
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %v", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+config.APIKey)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("venice.ai request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %v", err)
+	}
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("Venice.ai API error: %s", string(body))
+	}
+
+	var response VeniceModelsResponse
+	if err := json.Unmarshal(body, &response); err != nil {
+		// If the response is not in the expected format, try parsing as a direct array
+		var models []VeniceModel
+		if err2 := json.Unmarshal(body, &models); err2 != nil {
+			return nil, fmt.Errorf("failed to parse models response: %v (also tried direct array: %v)", err, err2)
+		}
+		return models, nil
+	}
+
+	return response.Models, nil
+}
+
+// makeVeniceEditRequest makes a request to Venice.ai for image editing/inpainting
+func makeVeniceEditRequest(imagePath, prompt string, config *VeniceConfig) ([]byte, error) {
+	url := config.BaseURL + "/image/edit"
+
+	// Read the image file and convert to base64
+	imageData, err := os.ReadFile(imagePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read image file: %v", err)
+	}
+
+	// Convert to base64
+	imageBase64 := base64.StdEncoding.EncodeToString(imageData)
+
+	// Create a proper JSON structure for editing
+	requestData := map[string]interface{}{
+		"image":  imageBase64,
+		"prompt": prompt,
+	}
+
+	// Marshal to JSON
+	jsonData, err := json.Marshal(requestData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal JSON: %v", err)
+	}
+
+	payload := string(jsonData)
+
+	req, err := http.NewRequest("POST", url, strings.NewReader(payload))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %v", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+config.APIKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("Venice.ai edit request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %v", err)
+	}
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("Venice.ai edit API error: %s", string(body))
+	}
+
+	// The edit endpoint returns the image file directly
+	return body, nil
+}
+
 // makeVeniceRequest makes a request to Venice.ai API
 func makeVeniceRequest(prompt string, config *VeniceConfig) (string, error) {
 	clientConfig := openai.DefaultConfig(config.APIKey)
@@ -575,23 +685,31 @@ func makeVeniceRequest(prompt string, config *VeniceConfig) (string, error) {
 // makeVeniceImageRequest makes a request to Venice.ai for image generation
 func makeVeniceImageRequest(prompt string, config *VeniceConfig) (string, error) {
 	url := config.BaseURL + "/image/generate"
-	
-	// Build the request payload based on Venice.ai API structure
-	payload := fmt.Sprintf(`{
-		"cfg_scale": 7.5,
+
+	// Create a proper JSON structure
+	requestData := map[string]interface{}{
+		"cfg_scale":           7.5,
 		"embed_exif_metadata": false,
-		"format": "webp",
-		"height": 1024,
-		"hide_watermark": false,
-		"model": "%s",
-		"negative_prompt": "blurry, low quality, distorted",
-		"prompt": "%s",
-		"return_binary": false,
-		"variants": 1,
-		"safe_mode": false,
-		"steps": 20,
-		"width": 1024
-	}`, config.Model, prompt)
+		"format":              "webp",
+		"height":              1024,
+		"hide_watermark":      false,
+		"model":               config.Model,
+		"negative_prompt":     "blurry, low quality, distorted",
+		"prompt":              prompt,
+		"return_binary":       false,
+		"variants":            1,
+		"safe_mode":           false,
+		"steps":               20,
+		"width":               1024,
+	}
+
+	// Marshal to JSON
+	jsonData, err := json.Marshal(requestData)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal JSON: %v", err)
+	}
+
+	payload := string(jsonData)
 
 	req, err := http.NewRequest("POST", url, strings.NewReader(payload))
 	if err != nil {
@@ -623,30 +741,39 @@ func makeVeniceImageRequest(prompt string, config *VeniceConfig) (string, error)
 }
 
 // makeVeniceUpscaleRequest makes a request to Venice.ai for image upscaling
-func makeVeniceUpscaleRequest(imagePath string, config *VeniceConfig) (string, error) {
+func makeVeniceUpscaleRequest(imagePath string, config *VeniceConfig, enhanceCreativity, replication float64, enhancePrompt string) ([]byte, error) {
 	url := config.BaseURL + "/image/upscale"
-	
+
 	// Read the image file and convert to base64
 	imageData, err := os.ReadFile(imagePath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read image file: %v", err)
+		return nil, fmt.Errorf("failed to read image file: %v", err)
 	}
-	
+
 	// Convert to base64
 	imageBase64 := base64.StdEncoding.EncodeToString(imageData)
-	
-	// Build the request payload based on Venice.ai upscale API structure
-	payload := fmt.Sprintf(`{
-		"enhance": true,
-		"enhanceCreativity": 0.5,
-		"enhancePrompt": "high quality, detailed, sharp",
-		"image": "%s",
-		"scale": 2
-	}`, imageBase64)
+
+	// Create a proper JSON structure for upscaling
+	requestData := map[string]interface{}{
+		"enhance":           true,
+		"enhanceCreativity": enhanceCreativity,
+		"enhancePrompt":     enhancePrompt,
+		"replication":       replication,
+		"image":             imageBase64,
+		"scale":             2,
+	}
+
+	// Marshal to JSON
+	jsonData, err := json.Marshal(requestData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal JSON: %v", err)
+	}
+
+	payload := string(jsonData)
 
 	req, err := http.NewRequest("POST", url, strings.NewReader(payload))
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %v", err)
+		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
 
 	req.Header.Set("Authorization", "Bearer "+config.APIKey)
@@ -655,20 +782,186 @@ func makeVeniceUpscaleRequest(imagePath string, config *VeniceConfig) (string, e
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("Venice.ai upscale request failed: %v", err)
+		return nil, fmt.Errorf("Venice.ai upscale request failed: %v", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read response: %v", err)
+		return nil, fmt.Errorf("failed to read response: %v", err)
 	}
 
 	if resp.StatusCode != 200 {
-		return "", fmt.Errorf("Venice.ai upscale API error: %s", string(body))
+		return nil, fmt.Errorf("Venice.ai upscale API error: %s", string(body))
 	}
 
-	return string(body), nil
+	// The upscale endpoint returns the image file directly
+	return body, nil
+}
+
+// generateFilename generates a filename for saved images
+func generateFilename(prefix string, isUpscaled bool) string {
+	timestamp := time.Now().Format("2006-01-02_15-04-05")
+
+	if isUpscaled {
+		return fmt.Sprintf("%s_upscaled_%s.png", prefix, timestamp)
+	}
+	return fmt.Sprintf("%s_%s.png", prefix, timestamp)
+}
+
+// saveImageData saves image data to a file
+func saveImageData(imageData []byte, filename string) error {
+	// Create the file
+	file, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("failed to create file %s: %v", filename, err)
+	}
+	defer file.Close()
+
+	// Write the image data
+	_, err = file.Write(imageData)
+	if err != nil {
+		return fmt.Errorf("failed to write image data: %v", err)
+	}
+
+	return nil
+}
+
+// extractImageFromResponse extracts image data from Venice.ai response
+func extractImageFromResponse(response string) ([]byte, error) {
+	// Try to parse as JSON first to extract image URL or data
+	var responseData map[string]interface{}
+	if err := json.Unmarshal([]byte(response), &responseData); err == nil {
+		fmt.Fprintf(os.Stderr, "Debug: Parsed JSON structure: %+v\n", responseData)
+
+		// Check for nested data structure (Venice.ai format)
+		if data, ok := responseData["data"].(map[string]interface{}); ok {
+			fmt.Fprintf(os.Stderr, "Debug: Found data object: %+v\n", data)
+
+			// Check for image URL in data
+			if imageURL, ok := data["image_url"].(string); ok {
+				fmt.Fprintf(os.Stderr, "Debug: Found image URL: %s\n", imageURL)
+				// Download image from URL
+				resp, err := http.Get(imageURL)
+				if err != nil {
+					return nil, fmt.Errorf("failed to download image: %v", err)
+				}
+				defer resp.Body.Close()
+
+				return io.ReadAll(resp.Body)
+			}
+
+			// Check for base64 image data in data
+			if imageData, ok := data["image_data"].(string); ok {
+				fmt.Fprintf(os.Stderr, "Debug: Found image_data field\n")
+				return base64.StdEncoding.DecodeString(imageData)
+			}
+
+			// Check for any field that might contain image data
+			for key, value := range data {
+				if str, ok := value.(string); ok && len(str) > 100 {
+					fmt.Fprintf(os.Stderr, "Debug: Found potential image data in field '%s' (length: %d)\n", key, len(str))
+					// Try to decode as base64
+					if decoded, err := base64.StdEncoding.DecodeString(str); err == nil {
+						return decoded, nil
+					}
+				}
+			}
+		}
+
+		// Check for direct image URL
+		if imageURL, ok := responseData["image_url"].(string); ok {
+			fmt.Fprintf(os.Stderr, "Debug: Found direct image URL: %s\n", imageURL)
+			// Download image from URL
+			resp, err := http.Get(imageURL)
+			if err != nil {
+				return nil, fmt.Errorf("failed to download image: %v", err)
+			}
+			defer resp.Body.Close()
+
+			return io.ReadAll(resp.Body)
+		}
+
+		// Check for direct base64 image data
+		if imageData, ok := responseData["image_data"].(string); ok {
+			fmt.Fprintf(os.Stderr, "Debug: Found direct image_data field\n")
+			return base64.StdEncoding.DecodeString(imageData)
+		}
+
+		// Check for other possible fields
+		if data, ok := responseData["data"].(string); ok {
+			fmt.Fprintf(os.Stderr, "Debug: Found data as string\n")
+			return base64.StdEncoding.DecodeString(data)
+		}
+		if result, ok := responseData["result"].(string); ok {
+			fmt.Fprintf(os.Stderr, "Debug: Found result field\n")
+			return base64.StdEncoding.DecodeString(result)
+		}
+
+		// Check for image field
+		if image, ok := responseData["image"].(string); ok {
+			fmt.Fprintf(os.Stderr, "Debug: Found image field\n")
+			return base64.StdEncoding.DecodeString(image)
+		}
+
+		// Check for output field
+		if output, ok := responseData["output"].(string); ok {
+			fmt.Fprintf(os.Stderr, "Debug: Found output field\n")
+			return base64.StdEncoding.DecodeString(output)
+		}
+
+		// Check for files field (array of files)
+		if files, ok := responseData["files"].([]interface{}); ok {
+			fmt.Fprintf(os.Stderr, "Debug: Found files array with %d items\n", len(files))
+			if len(files) > 0 {
+				if file, ok := files[0].(map[string]interface{}); ok {
+					if url, ok := file["url"].(string); ok {
+						fmt.Fprintf(os.Stderr, "Debug: Found file URL: %s\n", url)
+						resp, err := http.Get(url)
+						if err != nil {
+							return nil, fmt.Errorf("failed to download image: %v", err)
+						}
+						defer resp.Body.Close()
+						return io.ReadAll(resp.Body)
+					}
+				}
+			}
+		}
+
+		// Check for images field (array of images)
+		if images, ok := responseData["images"].([]interface{}); ok {
+			fmt.Fprintf(os.Stderr, "Debug: Found images array with %d items\n", len(images))
+			if len(images) > 0 {
+				if image, ok := images[0].(string); ok {
+					fmt.Fprintf(os.Stderr, "Debug: Found image as string, attempting base64 decode\n")
+					return base64.StdEncoding.DecodeString(image)
+				}
+			}
+		}
+
+		// Check for any field that might contain image data
+		for key, value := range responseData {
+			if str, ok := value.(string); ok && len(str) > 100 {
+				fmt.Fprintf(os.Stderr, "Debug: Found potential image data in field '%s' (length: %d)\n", key, len(str))
+				// Try to decode as base64
+				if decoded, err := base64.StdEncoding.DecodeString(str); err == nil {
+					return decoded, nil
+				}
+			}
+		}
+	}
+
+	// If not JSON or no image data found, assume the response is base64 encoded image data
+	fmt.Fprintf(os.Stderr, "Debug: Attempting to decode entire response as base64\n")
+	return base64.StdEncoding.DecodeString(response)
+}
+
+// min returns the minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // verifyPGPSignature verifies a PGP signature for override commands
@@ -715,6 +1008,54 @@ func checkOverridePermissions() bool {
 	return true
 }
 
+// getImageDimensions gets the dimensions of an image file
+func getImageDimensions(imagePath string) (int, int, error) {
+	// This is a simple implementation that assumes the image is a PNG
+	// In a production environment, you'd want to use a proper image library
+	// For now, we'll use the file command to get dimensions
+	cmd := fmt.Sprintf("file \"%s\"", imagePath)
+	output, err := runCommand(cmd)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to get image dimensions: %v", err)
+	}
+
+	// Parse the output to extract dimensions
+	// Example output: "image.png: PNG image data, 800 x 800, 8-bit/color RGBA, non-interlaced"
+	parts := strings.Split(output, ",")
+	if len(parts) < 2 {
+		return 0, 0, fmt.Errorf("could not parse image dimensions from: %s", output)
+	}
+
+	dimensionPart := strings.TrimSpace(parts[1])
+	// Extract "800 x 800" part
+	dimensionMatch := strings.Split(dimensionPart, " ")
+	if len(dimensionMatch) < 3 {
+		return 0, 0, fmt.Errorf("could not parse dimensions from: %s", dimensionPart)
+	}
+
+	width, err := strconv.Atoi(dimensionMatch[0])
+	if err != nil {
+		return 0, 0, fmt.Errorf("could not parse width: %v", err)
+	}
+
+	height, err := strconv.Atoi(dimensionMatch[2])
+	if err != nil {
+		return 0, 0, fmt.Errorf("could not parse height: %v", err)
+	}
+
+	return width, height, nil
+}
+
+// runCommand executes a shell command and returns the output
+func runCommand(command string) (string, error) {
+	cmd := exec.Command("sh", "-c", command)
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
 func main() {
 	// Command-line flags
 	var promptType, game, tone, media string
@@ -739,6 +1080,26 @@ func main() {
 	flag.BoolVar(&upscaleMode, "upscale", false, "Upscale an existing image (requires --nsfw)")
 	var imagePath string
 	flag.StringVar(&imagePath, "image-path", "", "Path to image file for upscaling (requires --upscale)")
+	var outputFile string
+	flag.StringVar(&outputFile, "output", "", "Output filename for generated/upscaled images (optional)")
+	var listModels bool
+	flag.BoolVar(&listModels, "list-models", false, "List available Venice.ai models")
+	var modelOverride string
+	flag.StringVar(&modelOverride, "model", "", "Override Venice.ai model (e.g., lustify-sdxl, wai-Illustrious)")
+	var enhanceCreativity float64
+	flag.Float64Var(&enhanceCreativity, "enhance-creativity", 0.1, "Enhancement creativity level (0.0-1.0, lower = more faithful to original)")
+	var replication float64
+	flag.Float64Var(&replication, "replication", 0.8, "Replication level to preserve original details (0.0-1.0, higher = more faithful)")
+	var enhancePrompt string
+	flag.StringVar(&enhancePrompt, "enhance-prompt", "preserve original details, maintain authenticity", "Enhancement prompt for upscaling")
+	var editMode bool
+	flag.BoolVar(&editMode, "edit", false, "Edit/inpaint an existing image (requires --nsfw)")
+	var editPrompt string
+	flag.StringVar(&editPrompt, "edit-prompt", "", "Prompt for image editing (e.g., 'remove the signature', 'change the background')")
+	var preserveSize bool
+	flag.BoolVar(&preserveSize, "preserve-size", false, "Automatically upscale edited image back to original dimensions (requires --edit)")
+	var upscaleFirst bool
+	flag.BoolVar(&upscaleFirst, "upscale-first", false, "Upscale to 1024x1024 first, then inpaint (prevents distortion, 2 API calls)")
 
 	flag.Usage = func() {
 		fmt.Println("Usage of CelesteCLI:")
@@ -768,7 +1129,17 @@ func main() {
 		fmt.Println("  --nsfw       Enable NSFW mode using Venice.ai (uncensored content generation)")
 		fmt.Println("  --image      Generate image using lustify-sdxl model (requires --nsfw)")
 		fmt.Println("  --upscale    Upscale an existing image (requires --nsfw)")
-		fmt.Println("  --image-path Path to image file for upscaling (requires --upscale)")
+		fmt.Println("  --edit       Edit/inpaint an existing image (requires --nsfw)")
+		fmt.Println("  --image-path Path to image file for upscaling/editing (requires --upscale or --edit)")
+		fmt.Println("  --edit-prompt Prompt for image editing (e.g., 'remove the signature', 'change the background')")
+		fmt.Println("  --preserve-size Automatically upscale edited image back to original dimensions (requires --edit)")
+		fmt.Println("  --upscale-first Upscale to 1024x1024 first, then inpaint (prevents distortion, 2 API calls)")
+		fmt.Println("  --output     Output filename for generated/upscaled/edited images (optional)")
+		fmt.Println("  --list-models List available Venice.ai models")
+		fmt.Println("  --model      Override Venice.ai model (e.g., lustify-sdxl, wai-Illustrious)")
+		fmt.Println("  --enhance-creativity Enhancement creativity level (0.0-1.0, lower = more faithful)")
+		fmt.Println("  --replication Replication level to preserve original details (0.0-1.0, higher = more faithful)")
+		fmt.Println("  --enhance-prompt Enhancement prompt for upscaling")
 		fmt.Println("  --debug      Show raw JSON output from API")
 		fmt.Println()
 		fmt.Println("Configuration:")
@@ -789,6 +1160,15 @@ func main() {
 		fmt.Println("  ./celestecli --type birthday --tone \"playful\"")
 		fmt.Println("  ./celestecli --nsfw --image --tone \"explicit\" --context \"Generate NSFW image of Celeste\"")
 		fmt.Println("  ./celestecli --nsfw --upscale --image-path \"/path/to/image.jpg\"")
+		fmt.Println("  ./celestecli --nsfw --list-models")
+		fmt.Println("  ./celestecli --nsfw --model \"wai-Illustrious\" --context \"Generate anime-style image\"")
+		fmt.Println("  ./celestecli --nsfw --image --output \"my_image.png\" --context \"Custom filename\"")
+		fmt.Println("  ./celestecli --nsfw --upscale --image-path \"input.png\" --enhance-creativity 0.05 --replication 0.9")
+		fmt.Println("  ./celestecli --nsfw --upscale --image-path \"input.png\" --enhance-prompt \"preserve all original details exactly\"")
+		fmt.Println("  ./celestecli --nsfw --edit --image-path \"image.png\" --edit-prompt \"remove the signature\"")
+		fmt.Println("  ./celestecli --nsfw --edit --image-path \"image.png\" --edit-prompt \"change the background to a sunset\"")
+		fmt.Println("  ./celestecli --nsfw --edit --image-path \"image.png\" --edit-prompt \"remove watermark\" --preserve-size")
+		fmt.Println("  ./celestecli --nsfw --edit --image-path \"small_image.png\" --edit-prompt \"remove signature\" --upscale-first")
 	}
 
 	flag.Parse()
@@ -834,36 +1214,242 @@ func main() {
 			os.Exit(1)
 		}
 
+		// Handle model override
+		if modelOverride != "" {
+			veniceConfig.Model = modelOverride
+		}
+
+		// Handle model listing
+		if listModels {
+			fmt.Fprintln(os.Stderr, "📋 Fetching available Venice.ai models...")
+			startTime := time.Now()
+			models, err := listVeniceModels(veniceConfig)
+			duration := time.Since(startTime)
+
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to list models: %v\n", err)
+				os.Exit(1)
+			}
+
+			fmt.Printf("Available Venice.ai models (fetched in %v):\n", duration)
+			for _, model := range models {
+				fmt.Printf("  • %s (%s) - %s\n", model.ID, model.Type, model.Description)
+			}
+			return
+		}
+
 		if upscaleMode {
 			if imagePath == "" {
 				fmt.Fprintf(os.Stderr, "Error: --image-path is required for upscaling\n")
 				os.Exit(1)
 			}
+
 			fmt.Fprintln(os.Stderr, "🔍 NSFW Upscale Mode: Using Venice.ai upscaler")
-			response, err := makeVeniceUpscaleRequest(imagePath, veniceConfig)
+			startTime := time.Now()
+			imageData, err := makeVeniceUpscaleRequest(imagePath, veniceConfig, enhanceCreativity, replication, enhancePrompt)
+			duration := time.Since(startTime)
+
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Venice.ai upscaling failed: %v\n", err)
 				os.Exit(1)
 			}
-			fmt.Println(response)
+
+			// Generate filename
+			filename := outputFile
+			if filename == "" {
+				baseName := strings.TrimSuffix(filepath.Base(imagePath), filepath.Ext(imagePath))
+				filename = generateFilename(baseName, true)
+			}
+
+			// Save image
+			if err := saveImageData(imageData, filename); err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to save image: %v\n", err)
+				os.Exit(1)
+			}
+
+			fmt.Printf("✅ Image upscaled and saved as '%s' (took %v)\n", filename, duration)
+
 		} else if imageMode {
 			fmt.Fprintln(os.Stderr, "🎨 NSFW Image Mode: Using lustify-sdxl for image generation")
 			// Switch to image generation model
 			veniceConfig.Model = "lustify-sdxl"
+			startTime := time.Now()
 			response, err := makeVeniceImageRequest(prompt, veniceConfig)
+			duration := time.Since(startTime)
+
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Venice.ai image generation failed: %v\n", err)
 				os.Exit(1)
 			}
-			fmt.Println(response)
+
+			// Extract and save image data
+			imageData, err := extractImageFromResponse(response)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to extract image data: %v\n", err)
+				os.Exit(1)
+			}
+
+			// Generate filename
+			filename := outputFile
+			if filename == "" {
+				filename = generateFilename("nsfw_image", false)
+			}
+
+			// Save image
+			if err := saveImageData(imageData, filename); err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to save image: %v\n", err)
+				os.Exit(1)
+			}
+
+			fmt.Printf("✅ Image generated and saved as '%s' (took %v)\n", filename, duration)
+
+		} else if editMode {
+			if imagePath == "" {
+				fmt.Fprintf(os.Stderr, "Error: --image-path is required for editing\n")
+				os.Exit(1)
+			}
+			if editPrompt == "" {
+				fmt.Fprintf(os.Stderr, "Error: --edit-prompt is required for editing\n")
+				os.Exit(1)
+			}
+
+			// Declare variables for the edit workflow
+			var imageData []byte
+			var duration time.Duration
+			var err error
+
+			// Handle upscale-first workflow
+			if upscaleFirst {
+				fmt.Fprintln(os.Stderr, "🔄 Upscale-First Mode: Upscaling image first to prevent distortion")
+
+				// Get original dimensions
+				originalWidth, originalHeight, err := getImageDimensions(imagePath)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: Could not get original image dimensions: %v\n", err)
+					originalWidth, originalHeight = 1024, 1024 // Default fallback
+				}
+
+				// Check if image is smaller than Venice.ai's output size
+				if originalWidth < 1024 || originalHeight < 1024 {
+					fmt.Fprintf(os.Stderr, "📏 Original: %dx%d - Upscaling to 1024x1024 for optimal inpainting\n", originalWidth, originalHeight)
+
+					// Step 1: Upscale the original image to 1024x1024 (Venice.ai's inpainting size)
+					fmt.Fprintln(os.Stderr, "🔍 Step 1: Upscaling to 1024x1024...")
+					upscaledData, err := makeVeniceUpscaleRequest(imagePath, veniceConfig, 0.05, 0.9, "preserve original details exactly")
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "Failed to upscale original image: %v\n", err)
+						os.Exit(1)
+					}
+
+					// Save upscaled image temporarily
+					tempUpscaledFile := "temp_upscaled_" + filepath.Base(imagePath)
+					if err := saveImageData(upscaledData, tempUpscaledFile); err != nil {
+						fmt.Fprintf(os.Stderr, "Failed to save upscaled image: %v\n", err)
+						os.Exit(1)
+					}
+					defer os.Remove(tempUpscaledFile) // Clean up temp file
+
+					// Step 2: Edit the upscaled image (should stay at 1024x1024)
+					fmt.Fprintln(os.Stderr, "🎨 Step 2: Inpainting at 1024x1024 (no resizing)...")
+					startTime := time.Now()
+					imageData, err = makeVeniceEditRequest(tempUpscaledFile, editPrompt, veniceConfig)
+					duration = time.Since(startTime)
+
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "Venice.ai editing failed: %v\n", err)
+						os.Exit(1)
+					}
+
+					fmt.Fprintf(os.Stderr, "✅ Optimized workflow completed (took %v) - 2 API calls instead of 3\n", duration)
+				} else {
+					fmt.Fprintf(os.Stderr, "ℹ️  Original image (%dx%d) is already large enough, using standard edit workflow\n", originalWidth, originalHeight)
+
+					// Use standard edit workflow for large images
+					fmt.Fprintln(os.Stderr, "🎨 NSFW Edit Mode: Using Venice.ai for image editing")
+					fmt.Fprintln(os.Stderr, "⚠️  Warning: Venice.ai edit may resize your image to 1024x1024, potentially causing pixelation")
+					startTime := time.Now()
+					imageData, err = makeVeniceEditRequest(imagePath, editPrompt, veniceConfig)
+					duration = time.Since(startTime)
+
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "Venice.ai editing failed: %v\n", err)
+						os.Exit(1)
+					}
+
+					// Handle preserve-size for large images
+					if preserveSize {
+						fmt.Fprintln(os.Stderr, "🔄 Preserving original size: upscaling edited image back to original dimensions")
+
+						// Calculate scale factor needed
+						scaleFactor := float64(originalWidth) / 1024.0
+						if scaleFactor > 1.0 {
+							fmt.Fprintf(os.Stderr, "📏 Original: %dx%d, Venice.ai output: 1024x1024, Scale factor: %.2f\n",
+								originalWidth, originalHeight, scaleFactor)
+
+							// Save the edited image temporarily
+							tempFile := "temp_preserve_" + filepath.Base(imagePath)
+							if err := saveImageData(imageData, tempFile); err != nil {
+								fmt.Fprintf(os.Stderr, "Warning: Could not save temp file for upscaling: %v\n", err)
+							} else {
+								// Upscale back to original dimensions
+								upscaledData, err := makeVeniceUpscaleRequest(tempFile, veniceConfig, 0.05, 0.9, "preserve original details exactly")
+								if err != nil {
+									fmt.Fprintf(os.Stderr, "Warning: Could not upscale back to original size: %v\n", err)
+								} else {
+									// Replace the image data with upscaled version
+									imageData = upscaledData
+									fmt.Fprintf(os.Stderr, "✅ Upscaled back to original dimensions\n")
+								}
+
+								// Clean up temp file
+								os.Remove(tempFile)
+							}
+						} else {
+							fmt.Fprintf(os.Stderr, "ℹ️  Original image is smaller than Venice.ai output, no upscaling needed\n")
+						}
+					}
+				}
+			} else {
+				// Standard edit workflow
+				fmt.Fprintln(os.Stderr, "🎨 NSFW Edit Mode: Using Venice.ai for image editing")
+				fmt.Fprintln(os.Stderr, "⚠️  Warning: Venice.ai edit may resize your image to 1024x1024, potentially causing pixelation")
+				startTime := time.Now()
+				imageData, err = makeVeniceEditRequest(imagePath, editPrompt, veniceConfig)
+				duration = time.Since(startTime)
+
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Venice.ai editing failed: %v\n", err)
+					os.Exit(1)
+				}
+			}
+
+			// Generate filename
+			filename := outputFile
+			if filename == "" {
+				baseName := strings.TrimSuffix(filepath.Base(imagePath), filepath.Ext(imagePath))
+				filename = generateFilename(baseName+"_edited", false)
+			}
+
+			// Save image
+			if err := saveImageData(imageData, filename); err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to save image: %v\n", err)
+				os.Exit(1)
+			}
+
+			fmt.Printf("✅ Image edited and saved as '%s' (took %v)\n", filename, duration)
+
 		} else {
 			fmt.Fprintln(os.Stderr, "🔥 NSFW Mode: Using Venice.ai (uncensored text)")
+			startTime := time.Now()
 			response, err := makeVeniceRequest(prompt, veniceConfig)
+			duration := time.Since(startTime)
+
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Venice.ai request failed: %v\n", err)
 				os.Exit(1)
 			}
-			fmt.Println(response)
+
+			fmt.Printf("Response (took %v):\n%s\n", duration, response)
 		}
 		return
 	}
