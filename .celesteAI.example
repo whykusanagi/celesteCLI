@@ -1,0 +1,22 @@
+# CelesteAI Configuration File
+# Copy this file to ~/.celesteAI and fill in your credentials
+
+# CelesteAI Agent Configuration
+endpoint=https://agent-2fb16e0d1ddb38cd9eb3-ajipw.ondigitalocean.app/api/v1/
+api_key=your_celeste_api_key_here
+client_id=your_client_id_here
+secret=your_secret_here
+
+# Venice.ai NSFW Mode Configuration (optional)
+# Uncomment and configure these for NSFW mode using --nsfw flag
+# venice_api_key=your_venice_api_key_here
+# venice_base_url=https://api.venice.ai/api/v1
+# venice_model=venice-uncensored
+# venice_upscaler=upscaler
+
+# DigitalOcean Spaces Configuration (for --sync flag)
+# access_key_id=your_do_spaces_access_key_here
+# secret_access_key=your_do_spaces_secret_key_here
+# endpoint=https://sfo3.digitaloceanspaces.com
+# region=sfo3
+# bucket_name=whykusanagi

@@ -1,0 +1,8 @@
+# Celeste CLI Configuration
+# Copy this file to ~/.celeste.cfg and fill in your credentials
+
+access_key_id=your_digitalocean_spaces_access_key_here
+secret_access_key=your_digitalocean_spaces_secret_key_here
+endpoint=https://sfo3.digitaloceanspaces.com
+region=sfo3
+bucket_name=whykusanagi
