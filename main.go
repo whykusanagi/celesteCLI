@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -571,6 +572,105 @@ func makeVeniceRequest(prompt string, config *VeniceConfig) (string, error) {
 	return resp.Choices[0].Message.Content, nil
 }
 
+// makeVeniceImageRequest makes a request to Venice.ai for image generation
+func makeVeniceImageRequest(prompt string, config *VeniceConfig) (string, error) {
+	url := config.BaseURL + "/image/generate"
+	
+	// Build the request payload based on Venice.ai API structure
+	payload := fmt.Sprintf(`{
+		"cfg_scale": 7.5,
+		"embed_exif_metadata": false,
+		"format": "webp",
+		"height": 1024,
+		"hide_watermark": false,
+		"model": "%s",
+		"negative_prompt": "blurry, low quality, distorted",
+		"prompt": "%s",
+		"return_binary": false,
+		"variants": 1,
+		"safe_mode": false,
+		"steps": 20,
+		"width": 1024
+	}`, config.Model, prompt)
+
+	req, err := http.NewRequest("POST", url, strings.NewReader(payload))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %v", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+config.APIKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("Venice.ai request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %v", err)
+	}
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("Venice.ai API error: %s", string(body))
+	}
+
+	// Parse the response to extract image URL
+	// The response should contain image URLs in the response
+	return string(body), nil
+}
+
+// makeVeniceUpscaleRequest makes a request to Venice.ai for image upscaling
+func makeVeniceUpscaleRequest(imagePath string, config *VeniceConfig) (string, error) {
+	url := config.BaseURL + "/image/upscale"
+	
+	// Read the image file and convert to base64
+	imageData, err := os.ReadFile(imagePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read image file: %v", err)
+	}
+	
+	// Convert to base64
+	imageBase64 := base64.StdEncoding.EncodeToString(imageData)
+	
+	// Build the request payload based on Venice.ai upscale API structure
+	payload := fmt.Sprintf(`{
+		"enhance": true,
+		"enhanceCreativity": 0.5,
+		"enhancePrompt": "high quality, detailed, sharp",
+		"image": "%s",
+		"scale": 2
+	}`, imageBase64)
+
+	req, err := http.NewRequest("POST", url, strings.NewReader(payload))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %v", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+config.APIKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("Venice.ai upscale request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %v", err)
+	}
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("Venice.ai upscale API error: %s", string(body))
+	}
+
+	return string(body), nil
+}
+
 // verifyPGPSignature verifies a PGP signature for override commands
 func verifyPGPSignature(message, signature string) bool {
 	// This is a placeholder for PGP signature verification
@@ -633,6 +733,12 @@ func main() {
 	flag.BoolVar(&debug, "debug", false, "Enable debug output (shows full JSON response)")
 	flag.BoolVar(&sync, "sync", false, "Upload conversation to DigitalOcean Spaces after completion")
 	flag.BoolVar(&nsfw, "nsfw", false, "Enable NSFW mode using Venice.ai (uncensored content generation)")
+	var imageMode bool
+	flag.BoolVar(&imageMode, "image", false, "Generate image using lustify-sdxl model (requires --nsfw)")
+	var upscaleMode bool
+	flag.BoolVar(&upscaleMode, "upscale", false, "Upscale an existing image (requires --nsfw)")
+	var imagePath string
+	flag.StringVar(&imagePath, "image-path", "", "Path to image file for upscaling (requires --upscale)")
 
 	flag.Usage = func() {
 		fmt.Println("Usage of CelesteCLI:")
@@ -660,6 +766,9 @@ func main() {
 		fmt.Println("  --context    Additional background context for Celeste to include")
 		fmt.Println("  --sync       Upload conversation to DigitalOcean Spaces after completion")
 		fmt.Println("  --nsfw       Enable NSFW mode using Venice.ai (uncensored content generation)")
+		fmt.Println("  --image      Generate image using lustify-sdxl model (requires --nsfw)")
+		fmt.Println("  --upscale    Upscale an existing image (requires --nsfw)")
+		fmt.Println("  --image-path Path to image file for upscaling (requires --upscale)")
 		fmt.Println("  --debug      Show raw JSON output from API")
 		fmt.Println()
 		fmt.Println("Configuration:")
@@ -678,6 +787,8 @@ func main() {
 		fmt.Println("  ./celestecli --type tiktok --game \"NIKKE\" --tone \"teasing\"")
 		fmt.Println("  ./celestecli --type quote_tweet --tone \"snarky\"")
 		fmt.Println("  ./celestecli --type birthday --tone \"playful\"")
+		fmt.Println("  ./celestecli --nsfw --image --tone \"explicit\" --context \"Generate NSFW image of Celeste\"")
+		fmt.Println("  ./celestecli --nsfw --upscale --image-path \"/path/to/image.jpg\"")
 	}
 
 	flag.Parse()
@@ -723,14 +834,37 @@ func main() {
 			os.Exit(1)
 		}
 
-		fmt.Fprintln(os.Stderr, "🔥 NSFW Mode: Using Venice.ai (uncensored)")
-		response, err := makeVeniceRequest(prompt, veniceConfig)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Venice.ai request failed: %v\n", err)
-			os.Exit(1)
+		if upscaleMode {
+			if imagePath == "" {
+				fmt.Fprintf(os.Stderr, "Error: --image-path is required for upscaling\n")
+				os.Exit(1)
+			}
+			fmt.Fprintln(os.Stderr, "🔍 NSFW Upscale Mode: Using Venice.ai upscaler")
+			response, err := makeVeniceUpscaleRequest(imagePath, veniceConfig)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Venice.ai upscaling failed: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Println(response)
+		} else if imageMode {
+			fmt.Fprintln(os.Stderr, "🎨 NSFW Image Mode: Using lustify-sdxl for image generation")
+			// Switch to image generation model
+			veniceConfig.Model = "lustify-sdxl"
+			response, err := makeVeniceImageRequest(prompt, veniceConfig)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Venice.ai image generation failed: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Println(response)
+		} else {
+			fmt.Fprintln(os.Stderr, "🔥 NSFW Mode: Using Venice.ai (uncensored text)")
+			response, err := makeVeniceRequest(prompt, veniceConfig)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Venice.ai request failed: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Println(response)
 		}
-
-		fmt.Println(response)
 		return
 	}
 
