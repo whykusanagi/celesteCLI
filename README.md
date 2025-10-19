@@ -121,32 +121,57 @@ celestecli --nsfw --edit --image-path "large_image.png" --edit-prompt "edit" --p
 
 ```mermaid
 graph TD
-    A[Image Input] --> B{Image Size?}
+    A[Image Input] --> B{Image Size Check}
     
     B -->|< 1024x1024| C[Small Image Workflow]
     B -->|≥ 1024x1024| D[Large Image Workflow]
     
     C --> E[getImageDimensions]
-    E --> F[makeVeniceUpscaleRequest]
-    F --> G[makeVeniceEditRequest]
-    G --> H[saveImageData]
+    E --> E1[runCommand file]
+    E1 --> E2[Parse Dimensions]
+    E2 --> F[makeVeniceUpscaleRequest]
+    F --> F1[Read Image File]
+    F1 --> F2[Base64 Encode]
+    F2 --> F3[POST /image/upscale]
+    F3 --> F4[Return Raw Image Data]
+    F4 --> G[makeVeniceEditRequest]
+    G --> G1[Read Upscaled Image]
+    G1 --> G2[Base64 Encode]
+    G2 --> G3[POST /image/edit]
+    G3 --> G4[Return Edited Image]
+    G4 --> H[saveImageData]
+    H --> H1[Generate Filename]
+    H1 --> H2[Write File to Disk]
     
-    D --> I{upscale-first?}
-    I -->|Yes| J[makeVeniceUpscaleRequest]
-    I -->|No| K[makeVeniceEditRequest]
-    J --> K
-    K --> L{preserve-size?}
-    L -->|Yes| M[makeVeniceUpscaleRequest]
-    L -->|No| N[saveImageData]
-    M --> N
+    D --> I{--upscale-first?}
+    I -->|Yes| J[getImageDimensions]
+    J --> J1[Check if < 1024x1024]
+    J1 -->|Yes| K[makeVeniceUpscaleRequest]
+    J1 -->|No| L[makeVeniceEditRequest]
+    K --> K1[Upscale to 1024x1024]
+    K1 --> L
+    L --> L1[Edit at 1024x1024]
+    L1 --> M[saveImageData]
     
-    H --> O[Final Output]
-    N --> O
+    I -->|No| N[makeVeniceEditRequest]
+    N --> N1[Read Original Image]
+    N1 --> N2[Base64 Encode]
+    N2 --> N3[POST /image/edit]
+    N3 --> N4[Return Edited Image]
+    N4 --> O{--preserve-size?}
+    O -->|Yes| P[makeVeniceUpscaleRequest]
+    O -->|No| Q[saveImageData]
+    P --> P1[Upscale Back to Original Size]
+    P1 --> Q
     
-    style A fill:#e1f5fe
-    style C fill:#fff3e0
-    style D fill:#f3e5f5
-    style O fill:#e8f5e8
+    H2 --> R[Final Output]
+    M --> R
+    Q --> R
+    
+    style A fill:#e1f5fe,stroke:#01579b,stroke-width:3px
+    style C fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style D fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    style R fill:#e8f5e8,stroke:#1b5e20,stroke-width:3px
 ```
 
 ### Standard Upscaling
@@ -188,7 +213,7 @@ export CELESTE_PGP_SIGNATURE="signature"
 ### Data Flow Architecture
 
 ```mermaid
-graph LR
+graph TD
     A[CLI Request] --> B[createConversationEntry]
     B --> C[determineIntent]
     B --> D[determinePlatform]
@@ -196,25 +221,108 @@ graph LR
     B --> F[extractTopics]
     B --> G[generateTags]
     
-    C --> H[ConversationEntry]
-    D --> H
-    E --> H
-    F --> H
-    G --> H
+    C --> C1[Analyze Content Type]
+    C1 --> C2[Map to Intent Categories]
+    C2 --> H[ConversationEntry]
     
-    H --> I{sync?}
+    D --> D1[Check Platform Context]
+    D1 --> D2[Set Platform Metadata]
+    D2 --> H
+    
+    E --> E1[Analyze Tone Keywords]
+    E1 --> E2[Classify Sentiment]
+    E2 --> H
+    
+    F --> F1[Extract Game Names]
+    F1 --> F2[Extract Keywords]
+    F2 --> F3[Generate Topic Tags]
+    F3 --> H
+    
+    G --> G1[Combine All Metadata]
+    G1 --> G2[Generate Search Tags]
+    G2 --> H
+    
+    H --> I{--sync flag?}
     I -->|Yes| J[loadS3Config]
-    J --> K[createS3Session]
-    K --> L[uploadConversationToS3]
-    L --> M[DigitalOcean Spaces]
-    M --> N[OpenSearch RAG]
+    J --> J1[Read ~/.celeste.cfg]
+    J1 --> J2[Parse S3 Credentials]
+    J2 --> K[createS3Session]
+    K --> K1[Create AWS S3 Client]
+    K1 --> K2[Configure Endpoint]
+    K2 --> L[uploadConversationToS3]
+    L --> L1[Generate S3 Key]
+    L1 --> L2[Upload JSON to S3]
+    L2 --> M[DigitalOcean Spaces]
+    M --> M1[Store in s3://whykusanagi/celeste/]
+    M1 --> N[OpenSearch RAG]
+    N --> N1[Index Conversation Data]
+    N1 --> N2[Enable Semantic Search]
     
     I -->|No| O[Local Processing]
+    O --> O1[Skip S3 Upload]
+    O1 --> O2[Return Response Only]
     
-    style A fill:#e1f5fe
-    style H fill:#fff3e0
-    style M fill:#f3e5f5
-    style N fill:#e8f5e8
+    style A fill:#e1f5fe,stroke:#01579b,stroke-width:3px
+    style H fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style M fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    style N fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    style O2 fill:#ffebee,stroke:#c62828,stroke-width:2px
+```
+
+### API Endpoint Flow
+
+```mermaid
+graph TD
+    A[celestecli Command] --> B{Mode Selection}
+    
+    B -->|Normal Mode| C[DigitalOcean API]
+    C --> C1[POST /chat/completions]
+    C1 --> C2[Model: celeste-ai]
+    C2 --> C3[Response: Text Content]
+    
+    B -->|NSFW Mode| D[Venice.ai API]
+    D --> E{Function Type}
+    
+    E -->|Text Generation| F[POST /chat/completions]
+    F --> F1[Model: venice-uncensored]
+    F1 --> F2[Response: Uncensored Text]
+    
+    E -->|Image Generation| G[POST /image/generate]
+    G --> G1[Model: lustify-sdxl]
+    G1 --> G2[Response: Image URL/Data]
+    G2 --> G3[extractImageFromResponse]
+    G3 --> G4[saveImageData]
+    
+    E -->|Image Upscaling| H[POST /image/upscale]
+    H --> H1[Base64 Image Input]
+    H1 --> H2[Response: Raw Image Data]
+    H2 --> H3[saveImageData]
+    
+    E -->|Image Editing| I[POST /image/edit]
+    I --> I1[Base64 Image + Prompt]
+    I1 --> I2[Response: Edited Image]
+    I2 --> I3[saveImageData]
+    
+    E -->|Model Listing| J[GET /models]
+    J --> J1[Response: Available Models]
+    J1 --> J2[Display Model List]
+    
+    C3 --> K[createConversationEntry]
+    F2 --> K
+    G4 --> L[Image Saved to Disk]
+    H3 --> L
+    I3 --> L
+    J2 --> M[Exit]
+    
+    K --> N{--sync?}
+    N -->|Yes| O[S3 Upload]
+    N -->|No| P[Local Response]
+    
+    style C fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style D fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style L fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    style O fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style P fill:#ffebee,stroke:#d32f2f,stroke-width:2px
 ```
 
 ### Conversation Storage
@@ -233,102 +341,170 @@ graph LR
 
 ```mermaid
 graph TD
-    A[main] --> B{Parse Flags}
-    B --> C{NSFW Mode?}
+    A[main] --> B[flag.Parse]
+    B --> C{--nsfw flag?}
     
     C -->|Yes| D[loadVeniceConfig]
     D --> E{Mode Type?}
     
-    E -->|list-models| F[listVeniceModels]
-    E -->|upscale| G[makeVeniceUpscaleRequest]
-    E -->|edit| H{upscale-first?}
-    E -->|image| I[makeVeniceImageRequest]
-    E -->|text| J[makeVeniceRequest]
+    E -->|--list-models| F[listVeniceModels]
+    F --> F1[GET /models]
+    F1 --> F2[Parse VeniceModelsResponse]
+    F2 --> F3[Display Available Models]
     
-    H -->|Yes| K[getImageDimensions]
-    K --> L{Small Image?}
-    L -->|Yes| M[makeVeniceUpscaleRequest]
-    M --> N[makeVeniceEditRequest]
-    L -->|No| O[makeVeniceEditRequest]
+    E -->|--upscale| G[makeVeniceUpscaleRequest]
+    G --> G1[Read Image File]
+    G1 --> G2[Base64 Encode]
+    G2 --> G3[POST /image/upscale]
+    G3 --> G4[Return Raw Image Data]
+    G4 --> G5[saveImageData]
     
-    G --> P[saveImageData]
-    I --> Q[extractImageFromResponse]
-    Q --> P
-    N --> P
-    O --> P
-    J --> R[Output Response]
+    E -->|--edit| H{--upscale-first?}
+    H -->|Yes| I[getImageDimensions]
+    I --> J{Image < 1024x1024?}
+    J -->|Yes| K[makeVeniceUpscaleRequest]
+    K --> L[makeVeniceEditRequest]
+    J -->|No| M[makeVeniceEditRequest]
+    L --> N[saveImageData]
+    M --> N
     
-    C -->|No| S[readCelesteConfig]
-    S --> T[loadPersonalityConfig]
-    T --> U[getPersonalityPrompt]
-    U --> V{fetchIGDBGameInfo}
-    V --> W[Create Chat Request]
-    W --> X[API Call]
-    X --> Y[createConversationEntry]
-    Y --> Z{sync?}
-    Z -->|Yes| AA[loadS3Config]
-    AA --> BB[createS3Session]
-    BB --> CC[uploadConversationToS3]
-    Z -->|No| DD[Output Response]
+    H -->|No| O[makeVeniceEditRequest]
+    O --> P{--preserve-size?}
+    P -->|Yes| Q[makeVeniceUpscaleRequest]
+    P -->|No| R[saveImageData]
+    Q --> R
     
-    style A fill:#e1f5fe
-    style D fill:#fff3e0
-    style S fill:#f3e5f5
-    style P fill:#e8f5e8
-    style R fill:#e8f5e8
-    style DD fill:#e8f5e8
+    E -->|--image| S[makeVeniceImageRequest]
+    S --> S1[POST /image/generate]
+    S1 --> S2[extractImageFromResponse]
+    S2 --> S3[saveImageData]
+    
+    E -->|text| T[makeVeniceRequest]
+    T --> T1[POST /chat/completions]
+    T1 --> T2[Return Text Response]
+    
+    C -->|No| U[readCelesteConfig]
+    U --> V[loadPersonalityConfig]
+    V --> W[getPersonalityPrompt]
+    W --> X{fetchIGDBGameInfo?}
+    X -->|Yes| Y[IGDB API Call]
+    X -->|No| Z[Build Chat Request]
+    Y --> Z
+    Z --> AA[HTTP POST to DigitalOcean]
+    AA --> BB[createConversationEntry]
+    BB --> CC[determineIntent]
+    BB --> DD[determinePlatform]
+    BB --> EE[determineSentiment]
+    BB --> FF[extractTopics]
+    BB --> GG[generateTags]
+    CC --> HH[ConversationEntry]
+    DD --> HH
+    EE --> HH
+    FF --> HH
+    GG --> HH
+    HH --> II{--sync?}
+    II -->|Yes| JJ[loadS3Config]
+    JJ --> KK[createS3Session]
+    KK --> LL[uploadConversationToS3]
+    LL --> MM[DigitalOcean Spaces]
+    II -->|No| NN[Output Response]
+    
+    style A fill:#e1f5fe,stroke:#01579b,stroke-width:3px
+    style D fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style U fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    style G5 fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    style S3 fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    style N fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    style R fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    style T2 fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    style NN fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
 ```
 
 ### Technical Architecture
 
 ```mermaid
 graph TB
-    subgraph "CLI Interface"
-        A[celestecli] --> B[Flag Parsing]
+    subgraph "CLI Interface Layer"
+        A[celestecli main] --> B[flag.Parse]
         B --> C[Configuration Loading]
+        C --> D[readCelesteConfig]
+        C --> E[loadPersonalityConfig]
+        C --> F[loadVeniceConfig]
+        C --> G[loadS3Config]
     end
     
-    subgraph "Configuration Layer"
-        C --> D[~/.celesteAI]
-        C --> E[~/.celeste.cfg]
-        C --> F[personality.yml]
+    subgraph "Configuration Files"
+        H[~/.celesteAI<br/>DigitalOcean API]
+        I[~/.celeste.cfg<br/>S3 Credentials]
+        J[personality.yml<br/>Celeste Personality]
     end
     
-    subgraph "Core Processing"
-        G[Content Generation] --> H[Personality System]
-        G --> I[IGDB Integration]
-        G --> J[Prompt Templates]
+    subgraph "Normal Mode Processing"
+        K[getPersonalityPrompt] --> L[fetchIGDBGameInfo]
+        L --> M[Build Chat Request]
+        M --> N[HTTP POST to DigitalOcean]
+        N --> O[createConversationEntry]
+        O --> P[determineIntent]
+        O --> Q[determinePlatform]
+        O --> R[determineSentiment]
+        O --> S[extractTopics]
+        O --> T[generateTags]
     end
     
     subgraph "NSFW Mode (Venice.ai)"
-        K[Venice.ai API] --> L[Text Generation]
-        K --> M[Image Generation]
-        K --> N[Image Upscaling]
-        K --> O[Image Editing]
+        U[makeVeniceRequest] --> V[POST /chat/completions]
+        W[makeVeniceImageRequest] --> X[POST /image/generate]
+        Y[makeVeniceUpscaleRequest] --> Z[POST /image/upscale]
+        AA[makeVeniceEditRequest] --> BB[POST /image/edit]
+        CC[listVeniceModels] --> DD[GET /models]
     end
     
-    subgraph "Data Persistence"
-        P[S3 Sync] --> Q[DigitalOcean Spaces]
-        Q --> R[OpenSearch RAG]
+    subgraph "Image Processing Pipeline"
+        EE[getImageDimensions] --> FF{Image Size Check}
+        FF -->|Small| GG[makeVeniceUpscaleRequest]
+        FF -->|Large| HH[makeVeniceEditRequest]
+        GG --> HH
+        HH --> II[saveImageData]
+        JJ[extractImageFromResponse] --> II
     end
     
-    subgraph "Bot Integration"
-        S[Discord Bot] --> T[User Isolation]
-        U[Twitch Bot] --> T
-        T --> V[PGP Verification]
+    subgraph "Data Persistence Layer"
+        KK[uploadConversationToS3] --> LL[createS3Session]
+        LL --> MM[DigitalOcean Spaces]
+        MM --> NN[OpenSearch RAG]
     end
     
-    A --> G
+    subgraph "Bot Integration Layer"
+        OO[Discord Bot] --> PP[User Isolation]
+        QQ[Twitch Bot] --> PP
+        PP --> RR[verifyPGPSignature]
+        RR --> SS[checkOverridePermissions]
+    end
+    
     A --> K
-    A --> P
-    A --> S
     A --> U
+    A --> W
+    A --> Y
+    A --> AA
+    A --> CC
+    A --> KK
+    A --> OO
+    A --> QQ
     
-    style A fill:#e1f5fe
-    style K fill:#fff3e0
-    style P fill:#f3e5f5
-    style S fill:#e8f5e8
-    style U fill:#e8f5e8
+    D --> H
+    E --> J
+    F --> H
+    G --> I
+    
+    style A fill:#e1f5fe,stroke:#01579b,stroke-width:3px
+    style U fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style W fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style Y fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style AA fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style CC fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style KK fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    style OO fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    style QQ fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
 ```
 
 ### Project Structure
