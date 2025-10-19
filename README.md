@@ -117,6 +117,38 @@ celestecli --nsfw --edit --image-path "large_image.png" --edit-prompt "edit" --p
 
 ## 🎨 Image Processing Workflows
 
+### Image Processing Pipeline
+
+```mermaid
+graph TD
+    A[Image Input] --> B{Image Size?}
+    
+    B -->|< 1024x1024| C[Small Image Workflow]
+    B -->|≥ 1024x1024| D[Large Image Workflow]
+    
+    C --> E[getImageDimensions]
+    E --> F[makeVeniceUpscaleRequest]
+    F --> G[makeVeniceEditRequest]
+    G --> H[saveImageData]
+    
+    D --> I{upscale-first?}
+    I -->|Yes| J[makeVeniceUpscaleRequest]
+    I -->|No| K[makeVeniceEditRequest]
+    J --> K
+    K --> L{preserve-size?}
+    L -->|Yes| M[makeVeniceUpscaleRequest]
+    L -->|No| N[saveImageData]
+    M --> N
+    
+    H --> O[Final Output]
+    N --> O
+    
+    style A fill:#e1f5fe
+    style C fill:#fff3e0
+    style D fill:#f3e5f5
+    style O fill:#e8f5e8
+```
+
 ### Standard Upscaling
 - **Input**: Any image ≥256x256 pixels
 - **Output**: 2x upscaled with quality preservation
@@ -153,6 +185,38 @@ export CELESTE_PGP_SIGNATURE="signature"
 
 ## 📊 S3 Integration & RAG
 
+### Data Flow Architecture
+
+```mermaid
+graph LR
+    A[CLI Request] --> B[createConversationEntry]
+    B --> C[determineIntent]
+    B --> D[determinePlatform]
+    B --> E[determineSentiment]
+    B --> F[extractTopics]
+    B --> G[generateTags]
+    
+    C --> H[ConversationEntry]
+    D --> H
+    E --> H
+    F --> H
+    G --> H
+    
+    H --> I{sync?}
+    I -->|Yes| J[loadS3Config]
+    J --> K[createS3Session]
+    K --> L[uploadConversationToS3]
+    L --> M[DigitalOcean Spaces]
+    M --> N[OpenSearch RAG]
+    
+    I -->|No| O[Local Processing]
+    
+    style A fill:#e1f5fe
+    style H fill:#fff3e0
+    style M fill:#f3e5f5
+    style N fill:#e8f5e8
+```
+
 ### Conversation Storage
 - **Format**: Structured JSON with intent, purpose, topics
 - **Location**: `s3://whykusanagi/celeste/conversations/`
@@ -164,6 +228,108 @@ export CELESTE_PGP_SIGNATURE="signature"
 - **Benefits**: Contextual responses based on conversation history
 
 ## 🔧 Development
+
+### Function Call Flow
+
+```mermaid
+graph TD
+    A[main] --> B{Parse Flags}
+    B --> C{NSFW Mode?}
+    
+    C -->|Yes| D[loadVeniceConfig]
+    D --> E{Mode Type?}
+    
+    E -->|list-models| F[listVeniceModels]
+    E -->|upscale| G[makeVeniceUpscaleRequest]
+    E -->|edit| H{upscale-first?}
+    E -->|image| I[makeVeniceImageRequest]
+    E -->|text| J[makeVeniceRequest]
+    
+    H -->|Yes| K[getImageDimensions]
+    K --> L{Small Image?}
+    L -->|Yes| M[makeVeniceUpscaleRequest]
+    M --> N[makeVeniceEditRequest]
+    L -->|No| O[makeVeniceEditRequest]
+    
+    G --> P[saveImageData]
+    I --> Q[extractImageFromResponse]
+    Q --> P
+    N --> P
+    O --> P
+    J --> R[Output Response]
+    
+    C -->|No| S[readCelesteConfig]
+    S --> T[loadPersonalityConfig]
+    T --> U[getPersonalityPrompt]
+    U --> V{fetchIGDBGameInfo}
+    V --> W[Create Chat Request]
+    W --> X[API Call]
+    X --> Y[createConversationEntry]
+    Y --> Z{sync?}
+    Z -->|Yes| AA[loadS3Config]
+    AA --> BB[createS3Session]
+    BB --> CC[uploadConversationToS3]
+    Z -->|No| DD[Output Response]
+    
+    style A fill:#e1f5fe
+    style D fill:#fff3e0
+    style S fill:#f3e5f5
+    style P fill:#e8f5e8
+    style R fill:#e8f5e8
+    style DD fill:#e8f5e8
+```
+
+### Technical Architecture
+
+```mermaid
+graph TB
+    subgraph "CLI Interface"
+        A[celestecli] --> B[Flag Parsing]
+        B --> C[Configuration Loading]
+    end
+    
+    subgraph "Configuration Layer"
+        C --> D[~/.celesteAI]
+        C --> E[~/.celeste.cfg]
+        C --> F[personality.yml]
+    end
+    
+    subgraph "Core Processing"
+        G[Content Generation] --> H[Personality System]
+        G --> I[IGDB Integration]
+        G --> J[Prompt Templates]
+    end
+    
+    subgraph "NSFW Mode (Venice.ai)"
+        K[Venice.ai API] --> L[Text Generation]
+        K --> M[Image Generation]
+        K --> N[Image Upscaling]
+        K --> O[Image Editing]
+    end
+    
+    subgraph "Data Persistence"
+        P[S3 Sync] --> Q[DigitalOcean Spaces]
+        Q --> R[OpenSearch RAG]
+    end
+    
+    subgraph "Bot Integration"
+        S[Discord Bot] --> T[User Isolation]
+        U[Twitch Bot] --> T
+        T --> V[PGP Verification]
+    end
+    
+    A --> G
+    A --> K
+    A --> P
+    A --> S
+    A --> U
+    
+    style A fill:#e1f5fe
+    style K fill:#fff3e0
+    style P fill:#f3e5f5
+    style S fill:#e8f5e8
+    style U fill:#e8f5e8
+```
 
 ### Project Structure
 ```
