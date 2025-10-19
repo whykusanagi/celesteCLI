@@ -1,0 +1,47 @@
+# CelesteCLI .gitignore
+
+# Sensitive configuration files
+AGENT_CONFIGURATION.md
+*.cfg
+*.config
+
+# API keys and secrets
+.env
+.env.local
+.env.*.local
+
+# CelesteAI configuration files
+.celesteAI
+.celeste.cfg
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+celestecli
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test files
+*_test.go
+test_*.go
+*_test.json
+
+# Documentation with sensitive info
+*_CONFIGURATION.md
+*_SECRETS.md
+*_KEYS.md
