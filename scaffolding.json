@@ -1,89 +1,48 @@
 {
-  "content_types": {
-    "tweet": {
-      "description": "Write a post for X/Twitter",
-      "scaffold": "🐦 Write a Twitter post in CelesteAI's voice. She's teasing, smug, and irresistible. Use 1–2 emojis per sentence. End with a strong hook or CTA. Hashtags: #CelesteAI #KusanagiAbyss #VTuberEN.",
+  "formats": {
+    "short": {
       "max_length": 280,
-      "platform": "twitter"
+      "scaffold": "Write a short post in CelesteAI's voice. She's teasing, smug, and irresistible. {platform_instructions} {topic_instruction} {request_instruction} {tone_instruction}",
+      "platforms": ["twitter", "tiktok"]
     },
-    "tweet_image": {
-      "description": "Twitter post with image/art credit",
-      "scaffold": "🐦 Write a Twitter post with image/art credit in CelesteAI's voice. Include \"Illust: @artist\" format. She's teasing, smug, and irresistible. Use 1–2 emojis per sentence. End with a strong hook or CTA. Hashtags: #CelesteAI #KusanagiAbyss #VTuberEN.",
-      "max_length": 280,
-      "platform": "twitter"
-    },
-    "tweet_thread": {
-      "description": "Multi-part Twitter thread",
-      "scaffold": "🐦 Write a multi-part Twitter thread in CelesteAI's voice. She's teasing, smug, and irresistible. Each part should be under 280 characters. Use 1–2 emojis per sentence. End with a strong hook or CTA. Hashtags: #CelesteAI #KusanagiAbyss #VTuberEN.",
-      "max_length": 280,
-      "platform": "twitter"
-    },
-    "title": {
-      "description": "YouTube or Twitch stream title",
-      "scaffold": "📺 Write a punchy, chaotic stream title in CelesteAI's voice. She's teasing, smug, and irresistible. Keep it under 140 characters. Use 1–2 emojis. Make it hype and engaging.",
-      "max_length": 140,
-      "platform": "streaming"
-    },
-    "ytdesc": {
-      "description": "YouTube video description (markdown formatted)",
-      "scaffold": "📺 Write a YouTube video description in CelesteAI's voice. She's teasing, smug, and irresistible. Use markdown formatting. Include timestamps, links, and engaging content. End with a call to action. Use 1–2 emojis per paragraph.",
+    "long": {
       "max_length": 5000,
-      "platform": "youtube"
+      "scaffold": "Write a detailed description in CelesteAI's voice. She's teasing, smug, and irresistible. {platform_instructions} {topic_instruction} {request_instruction} {tone_instruction}",
+      "platforms": ["youtube"]
+    },
+    "general": {
+      "max_length": 2000,
+      "scaffold": "Write content in CelesteAI's voice. She's teasing, smug, and irresistible. {topic_instruction} {request_instruction} {tone_instruction}",
+      "platforms": ["general"]
+    }
+  },
+  "platforms": {
+    "twitter": {
+      "hashtags": ["#CelesteAI", "#KusanagiAbyss", "#VTuberEN"],
+      "emoji_usage": "1-2 per sentence",
+      "instructions": "Use 1-2 emojis per sentence. End with hashtags: #CelesteAI #KusanagiAbyss #VTuberEN."
     },
     "tiktok": {
-      "description": "TikTok caption",
-      "scaffold": "📱 Write a TikTok caption in CelesteAI's voice. She's teasing, smug, and irresistible. Use compact line breaks, include 1–2 emojis, and end with relevant hashtags. Keep it platform-safe but playful.",
-      "max_length": 2200,
-      "platform": "tiktok"
+      "hashtags": ["#CelesteAI", "#VTuber", "#Anime"],
+      "emoji_usage": "1-2 per sentence",
+      "instructions": "Use compact line breaks, include 1-2 emojis per sentence, and end with relevant hashtags."
+    },
+    "youtube": {
+      "formatting": "markdown",
+      "emoji_usage": "1-2 per paragraph",
+      "instructions": "Use markdown formatting. Include timestamps, links to website/socials/products. Use 1-2 emojis per paragraph."
     },
     "discord": {
-      "description": "Discord stream announcement",
-      "scaffold": "💬 Write a Discord stream announcement in CelesteAI's voice. She's teasing, smug, and irresistible. Use 1–2 emojis per sentence. Make it hype and engaging. Include stream details and call to action.",
-      "max_length": 2000,
-      "platform": "discord"
-    },
-    "goodnight": {
-      "description": "Flirty or cozy goodnight tweet",
-      "scaffold": "🌙 Write a flirty or cozy goodnight tweet in CelesteAI's voice. She's teasing, smug, and irresistible. Use 1–2 emojis per sentence. Keep it under 280 characters. Make it sweet but playful.",
-      "max_length": 280,
-      "platform": "twitter"
-    },
-    "pixivpost": {
-      "description": "Pixiv post caption or summary",
-      "scaffold": "🎨 Write a Pixiv post caption in CelesteAI's voice. She's teasing, smug, and irresistible. Use 1–2 emojis per sentence. Be artistic and descriptive. Include relevant tags and artist credit.",
-      "max_length": 1000,
-      "platform": "pixiv"
-    },
-    "skebreq": {
-      "description": "Draft for a Skeb commission request",
-      "scaffold": "🖋️ Write a professional Skeb commission request in English. Be polite, concise, and descriptive (under 900 characters). Mention pose, outfit, expression, and concept. If references exist, list them. Do not refer to Kusanagi or yourself. Assume the artist is Japanese with limited English and write accordingly—clear, simple, respectful.",
-      "max_length": 900,
-      "platform": "skeb"
-    },
-    "quote_tweet": {
-      "description": "Quote tweet response",
-      "scaffold": "🐦 Write a quote tweet response in CelesteAI's voice. She's teasing, smug, and irresistible. Keep it under 280 characters. Use 1–2 emojis. Be witty and engaging.",
-      "max_length": 280,
-      "platform": "twitter"
-    },
-    "reply_snark": {
-      "description": "Snarky reply to tweet",
-      "scaffold": "🐦 Write a snarky reply to a tweet in CelesteAI's voice. She's teasing, smug, and irresistible. Keep it under 280 characters. Use 1–2 emojis. Be witty and engaging.",
-      "max_length": 280,
-      "platform": "twitter"
-    },
-    "birthday": {
-      "description": "Birthday message",
-      "scaffold": "🎂 Write a birthday message in CelesteAI's voice. She's teasing, smug, and irresistible. Keep it under 280 characters. Use 1–2 emojis. Be celebratory but playful.",
-      "max_length": 280,
-      "platform": "twitter"
-    },
-    "alt_text": {
-      "description": "Image alt text",
-      "scaffold": "🖼️ Write image alt text in CelesteAI's voice. She's teasing, smug, and irresistible. Keep it descriptive but playful. One sentence max.",
-      "max_length": 125,
-      "platform": "accessibility"
+      "formatting": "markdown",
+      "emoji_usage": "1-2 per sentence",
+      "instructions": "Use markdown formatting. Use 1-2 emojis per sentence. Make it hype and engaging."
     }
+  },
+  "scaffold_templates": {
+    "topic_instruction": "Topic: {topic}",
+    "request_instruction": "Specific instructions: {request}",
+    "tone_instruction": "Tone: {tone}",
+    "context_instruction": "Additional context: {context}"
   },
   "tone_examples": {
     "lewd": "suggestive and teasing",
@@ -101,32 +60,6 @@
     "snarky": "sarcastic and witty",
     "playful": "fun and lighthearted",
     "hype": "energetic and exciting"
-  },
-  "platforms": {
-    "twitter": {
-      "max_length": 280,
-      "hashtags": ["#CelesteAI", "#KusanagiAbyss", "#VTuberEN"],
-      "emoji_usage": "1-2 per sentence"
-    },
-    "tiktok": {
-      "max_length": 2200,
-      "hashtags": ["#CelesteAI", "#VTuber", "#Anime"],
-      "emoji_usage": "1-2 per sentence"
-    },
-    "youtube": {
-      "max_length": 5000,
-      "formatting": "markdown",
-      "emoji_usage": "1-2 per paragraph"
-    },
-    "discord": {
-      "max_length": 2000,
-      "formatting": "markdown",
-      "emoji_usage": "1-2 per sentence"
-    },
-    "streaming": {
-      "max_length": 140,
-      "emoji_usage": "1-2 total"
-    }
   },
   "personas": {
     "celeste_stream": {

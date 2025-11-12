@@ -14,6 +14,19 @@ if [ ! -f "./celestecli" ]; then
     exit 1
 fi
 
+# Check if personality.yml exists
+if [ ! -f "./personality.yml" ]; then
+    echo "⚠️  Warning: personality.yml not found in current directory"
+    echo "The CLI will work but personality features may be limited"
+else
+    # Create ~/.celeste config directory if it doesn't exist
+    mkdir -p ~/.celeste
+    
+    # Copy personality.yml to config directory
+    cp personality.yml ~/.celeste/
+    echo "✅ Copied personality.yml to ~/.celeste/"
+fi
+
 # Create ~/.local/bin if it doesn't exist
 mkdir -p ~/.local/bin
 

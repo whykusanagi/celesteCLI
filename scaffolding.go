@@ -4,30 +4,31 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 )
 
 // ScaffoldingConfig holds the scaffolding configuration
 type ScaffoldingConfig struct {
-	ContentTypes map[string]ContentType `json:"content_types"`
-	ToneExamples map[string]string      `json:"tone_examples"`
-	Platforms    map[string]Platform    `json:"platforms"`
-	Personas     map[string]Persona     `json:"personas"`
+	Formats          map[string]Format          `json:"formats"`
+	ToneExamples     map[string]string          `json:"tone_examples"`
+	Platforms        map[string]Platform         `json:"platforms"`
+	Personas         map[string]Persona          `json:"personas"`
+	ScaffoldTemplates map[string]string         `json:"scaffold_templates"`
 }
 
-// ContentType defines a content type configuration
-type ContentType struct {
-	Description string `json:"description"`
-	Scaffold    string `json:"scaffold"`
-	MaxLength   int    `json:"max_length"`
-	Platform    string `json:"platform"`
+// Format defines a format configuration
+type Format struct {
+	MaxLength int      `json:"max_length"`
+	Scaffold  string   `json:"scaffold"`
+	Platforms []string `json:"platforms"`
 }
 
 // Platform defines platform-specific settings
 type Platform struct {
-	MaxLength  int      `json:"max_length"`
-	Hashtags   []string `json:"hashtags,omitempty"`
-	Formatting string   `json:"formatting,omitempty"`
-	EmojiUsage string   `json:"emoji_usage"`
+	Hashtags     []string `json:"hashtags,omitempty"`
+	Formatting   string   `json:"formatting,omitempty"`
+	EmojiUsage   string   `json:"emoji_usage"`
+	Instructions string   `json:"instructions"`
 }
 
 // Persona defines persona configuration
@@ -61,18 +62,21 @@ func loadScaffoldingConfig() (*ScaffoldingConfig, error) {
 // getDefaultScaffoldingConfig returns default scaffolding configuration
 func getDefaultScaffoldingConfig() *ScaffoldingConfig {
 	return &ScaffoldingConfig{
-		ContentTypes: map[string]ContentType{
-			"tweet": {
-				Description: "Write a post for X/Twitter",
-				Scaffold:    "🐦 Write a Twitter post in CelesteAI's voice. She's teasing, smug, and irresistible. Use 1–2 emojis per sentence. End with a strong hook or CTA. Hashtags: #CelesteAI #KusanagiAbyss #VTuberEN.",
-				MaxLength:   280,
-				Platform:    "twitter",
+		Formats: map[string]Format{
+			"short": {
+				MaxLength: 280,
+				Scaffold:  "Write a short post in CelesteAI's voice. She's teasing, smug, and irresistible. {platform_instructions} {topic_instruction} {request_instruction} {tone_instruction}",
+				Platforms: []string{"twitter", "tiktok"},
 			},
-			"title": {
-				Description: "YouTube or Twitch stream title",
-				Scaffold:    "📺 Write a punchy, chaotic stream title in CelesteAI's voice. She's teasing, smug, and irresistible. Keep it under 140 characters. Use 1–2 emojis. Make it hype and engaging.",
-				MaxLength:   140,
-				Platform:    "streaming",
+			"long": {
+				MaxLength: 5000,
+				Scaffold:  "Write a detailed description in CelesteAI's voice. She's teasing, smug, and irresistible. {platform_instructions} {topic_instruction} {request_instruction} {tone_instruction}",
+				Platforms: []string{"youtube"},
+			},
+			"general": {
+				MaxLength: 2000,
+				Scaffold:  "Write content in CelesteAI's voice. She's teasing, smug, and irresistible. {topic_instruction} {request_instruction} {tone_instruction}",
+				Platforms: []string{"general"},
 			},
 		},
 		ToneExamples: map[string]string{
@@ -94,29 +98,31 @@ func getDefaultScaffoldingConfig() *ScaffoldingConfig {
 		},
 		Platforms: map[string]Platform{
 			"twitter": {
-				MaxLength:  280,
-				Hashtags:   []string{"#CelesteAI", "#KusanagiAbyss", "#VTuberEN"},
-				EmojiUsage: "1-2 per sentence",
+				Hashtags:     []string{"#CelesteAI", "#KusanagiAbyss", "#VTuberEN"},
+				EmojiUsage:   "1-2 per sentence",
+				Instructions: "Use 1-2 emojis per sentence. End with hashtags: #CelesteAI #KusanagiAbyss #VTuberEN.",
 			},
 			"tiktok": {
-				MaxLength:  2200,
-				Hashtags:   []string{"#CelesteAI", "#VTuber", "#Anime"},
-				EmojiUsage: "1-2 per sentence",
+				Hashtags:     []string{"#CelesteAI", "#VTuber", "#Anime"},
+				EmojiUsage:   "1-2 per sentence",
+				Instructions: "Use compact line breaks, include 1-2 emojis per sentence, and end with relevant hashtags.",
 			},
 			"youtube": {
-				MaxLength:  5000,
-				Formatting: "markdown",
-				EmojiUsage: "1-2 per paragraph",
+				Formatting:   "markdown",
+				EmojiUsage:   "1-2 per paragraph",
+				Instructions: "Use markdown formatting. Include timestamps, links to website/socials/products. Use 1-2 emojis per paragraph.",
 			},
 			"discord": {
-				MaxLength:  2000,
-				Formatting: "markdown",
-				EmojiUsage: "1-2 per sentence",
+				Formatting:   "markdown",
+				EmojiUsage:   "1-2 per sentence",
+				Instructions: "Use markdown formatting. Use 1-2 emojis per sentence. Make it hype and engaging.",
 			},
-			"streaming": {
-				MaxLength:  140,
-				EmojiUsage: "1-2 total",
-			},
+		},
+		ScaffoldTemplates: map[string]string{
+			"topic_instruction":   "Topic: {topic}",
+			"request_instruction": "Specific instructions: {request}",
+			"tone_instruction":    "Tone: {tone}",
+			"context_instruction": "Additional context: {context}",
 		},
 		Personas: map[string]Persona{
 			"celeste_stream": {
@@ -135,23 +141,80 @@ func getDefaultScaffoldingConfig() *ScaffoldingConfig {
 	}
 }
 
-// getScaffoldPrompt generates a scaffold prompt based on content type and configuration
-func getScaffoldPrompt(contentType, game, tone string, config *ScaffoldingConfig) string {
-	contentTypeConfig, exists := config.ContentTypes[contentType]
+// getScaffoldPrompt generates a scaffold prompt based on format, platform, topic, request, tone, and context
+func getScaffoldPrompt(format, platform, topic, request, tone, context string, config *ScaffoldingConfig) string {
+	// Get format config (default to "short" if not found)
+	formatConfig, exists := config.Formats[format]
 	if !exists {
-		// Fallback to default tweet scaffold
-		contentTypeConfig = config.ContentTypes["tweet"]
+		formatConfig = config.Formats["short"]
 	}
 
-	scaffold := contentTypeConfig.Scaffold
+	scaffold := formatConfig.Scaffold
 
-	if game != "" {
-		scaffold += fmt.Sprintf("\nGame: %s.", game)
+	// Get platform instructions
+	platformInstructions := ""
+	if platform != "" {
+		if platformConfig, ok := config.Platforms[platform]; ok {
+			platformInstructions = platformConfig.Instructions
+		}
 	}
 
+	// Build topic instruction
+	topicInstruction := ""
+	if topic != "" {
+		topicTemplate := config.ScaffoldTemplates["topic_instruction"]
+		if topicTemplate == "" {
+			topicTemplate = "Topic: {topic}"
+		}
+		topicInstruction = strings.ReplaceAll(topicTemplate, "{topic}", topic)
+	}
+
+	// Build request instruction
+	requestInstruction := ""
+	if request != "" {
+		requestTemplate := config.ScaffoldTemplates["request_instruction"]
+		if requestTemplate == "" {
+			requestTemplate = "Specific instructions: {request}"
+		}
+		requestInstruction = strings.ReplaceAll(requestTemplate, "{request}", request)
+	}
+
+	// Build tone instruction
+	toneInstruction := ""
 	if tone != "" {
-		scaffold += fmt.Sprintf(" Tone: %s.", tone)
+		toneTemplate := config.ScaffoldTemplates["tone_instruction"]
+		if toneTemplate == "" {
+			toneTemplate = "Tone: {tone}"
+		}
+		toneDesc := config.ToneExamples[tone]
+		if toneDesc != "" {
+			toneInstruction = strings.ReplaceAll(toneTemplate, "{tone}", toneDesc)
+		} else {
+			toneInstruction = strings.ReplaceAll(toneTemplate, "{tone}", tone)
+		}
 	}
+
+	// Build context instruction
+	contextInstruction := ""
+	if context != "" {
+		contextTemplate := config.ScaffoldTemplates["context_instruction"]
+		if contextTemplate == "" {
+			contextTemplate = "Additional context: {context}"
+		}
+		contextInstruction = strings.ReplaceAll(contextTemplate, "{context}", context)
+	}
+
+	// Replace template variables
+	scaffold = strings.ReplaceAll(scaffold, "{platform_instructions}", platformInstructions)
+	scaffold = strings.ReplaceAll(scaffold, "{topic_instruction}", topicInstruction)
+	scaffold = strings.ReplaceAll(scaffold, "{request_instruction}", requestInstruction)
+	scaffold = strings.ReplaceAll(scaffold, "{tone_instruction}", toneInstruction)
+	scaffold = strings.ReplaceAll(scaffold, "{context_instruction}", contextInstruction)
+
+	// Clean up extra whitespace (multiple spaces, empty lines)
+	scaffold = strings.TrimSpace(scaffold)
+	scaffold = strings.ReplaceAll(scaffold, "  ", " ")
+	scaffold = strings.ReplaceAll(scaffold, "\n\n\n", "\n\n")
 
 	return scaffold
 }

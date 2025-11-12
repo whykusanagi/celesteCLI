@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/base64"
@@ -135,9 +136,29 @@ type PersonalityConfig struct {
 
 // loadPersonalityConfig loads and parses the personality.yml file.
 func loadPersonalityConfig() (*PersonalityConfig, error) {
-	data, err := os.ReadFile("personality.yml")
+	// First try to load from config directory (~/.celeste/personality.yml)
+	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return nil, fmt.Errorf("failed to read personality.yml: %v", err)
+		// Fallback to current directory if home directory can't be determined
+		data, err := os.ReadFile("personality.yml")
+		if err != nil {
+			return nil, fmt.Errorf("failed to read personality.yml: %v", err)
+		}
+		var config PersonalityConfig
+		if err := yaml.Unmarshal(data, &config); err != nil {
+			return nil, fmt.Errorf("failed to parse personality.yml: %v", err)
+		}
+		return &config, nil
+	}
+
+	configPath := filepath.Join(homeDir, ".celeste", "personality.yml")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		// Fallback to current directory for backward compatibility
+		data, err = os.ReadFile("personality.yml")
+		if err != nil {
+			return nil, fmt.Errorf("failed to read personality.yml from ~/.celeste/personality.yml or current directory: %v", err)
+		}
 	}
 
 	var config PersonalityConfig
@@ -261,6 +282,10 @@ func readCelesteConfig() map[string]string {
 	config := make(map[string]string)
 	lines := bytes.Split(data, []byte("\n"))
 	for _, line := range lines {
+		// Skip comments
+		if bytes.HasPrefix(bytes.TrimSpace(line), []byte("#")) {
+			continue
+		}
 		parts := bytes.SplitN(line, []byte("="), 2)
 		if len(parts) != 2 {
 			continue
@@ -270,6 +295,649 @@ func readCelesteConfig() map[string]string {
 		config[key] = val
 	}
 	return config
+}
+
+// TarotConfig holds tarot function configuration
+type TarotConfig struct {
+	FunctionURL string
+	AuthToken   string
+}
+
+// loadTarotConfig loads tarot configuration from ~/.celesteAI file
+func loadTarotConfig() (*TarotConfig, error) {
+	config := &TarotConfig{
+		FunctionURL: "https://faas-nyc1-2ef2e6cc.doserverless.co/api/v1/namespaces/fn-30b193db-d334-4dab-b5cd-ab49067f88cc/actions/tarot/logic?blocking=true&result=true",
+		AuthToken:   "",
+	}
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get home directory: %v", err)
+	}
+
+	celesteConfigPath := filepath.Join(homeDir, ".celesteAI")
+	if _, err := os.Stat(celesteConfigPath); err == nil {
+		data, err := os.ReadFile(celesteConfigPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read ~/.celesteAI: %v", err)
+		}
+
+		lines := bytes.Split(data, []byte("\n"))
+		for _, line := range lines {
+			// Skip comments
+			if bytes.HasPrefix(bytes.TrimSpace(line), []byte("#")) {
+				continue
+			}
+			parts := bytes.SplitN(line, []byte("="), 2)
+			if len(parts) != 2 {
+				continue
+			}
+			key := string(bytes.TrimSpace(parts[0]))
+			val := string(bytes.TrimSpace(parts[1]))
+
+			switch key {
+			case "tarot_function_url":
+				config.FunctionURL = val
+			case "tarot_auth_token":
+				config.AuthToken = val
+			}
+		}
+	}
+
+	// Check environment variables as fallback
+	if config.FunctionURL == "" {
+		config.FunctionURL = os.Getenv("TAROT_FUNCTION_URL")
+	}
+	if config.AuthToken == "" {
+		config.AuthToken = os.Getenv("TAROT_AUTH_TOKEN")
+	}
+
+	if config.AuthToken == "" {
+		return nil, fmt.Errorf("missing tarot auth token. Set TAROT_AUTH_TOKEN environment variable or tarot_auth_token in ~/.celesteAI")
+	}
+
+	return config, nil
+}
+
+// makeTarotRequest makes a request to the tarot function
+func makeTarotRequest(config *TarotConfig, spreadType string) (map[string]interface{}, error) {
+	// Build request body with spread type
+	requestBody := map[string]interface{}{
+		"spread_type": spreadType,
+	}
+	reqBodyBytes, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode request: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", config.FunctionURL, bytes.NewBuffer(reqBodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %v", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", config.AuthToken)
+
+	// Use a shorter timeout - the function should respond quickly
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		// Check if it's a timeout error
+		if urlErr, ok := err.(interface{ Timeout() bool }); ok && urlErr.Timeout() {
+			return nil, fmt.Errorf("request timed out after 10 seconds. The tarot function may be slow or unavailable")
+		}
+		return nil, fmt.Errorf("failed to make request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Read the response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %v", err)
+	}
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("tarot request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var tarotData map[string]interface{}
+	if err := json.Unmarshal(body, &tarotData); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %v (body: %s)", err, string(body))
+	}
+
+	return tarotData, nil
+}
+
+// TarotCardMetadata holds metadata for a tarot card
+type TarotCardMetadata struct {
+	Name     string `json:"name"`
+	Upright  string `json:"upright"`
+	Reversed string `json:"reversed"`
+	Suit     string `json:"suit,omitempty"`
+	Number   string `json:"number,omitempty"`
+	Element  string `json:"element,omitempty"`
+	Planet   string `json:"planet,omitempty"`
+	Zodiac   string `json:"zodiac,omitempty"`
+	Symbol   string `json:"symbol,omitempty"`
+	Color    string `json:"color,omitempty"`
+}
+
+// fetchTarotCardMetadata fetches tarot card metadata from S3
+func fetchTarotCardMetadata() (map[string]TarotCardMetadata, error) {
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+
+	resp, err := client.Get("https://s3.whykusanagi.xyz/tarot_cards.json")
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("failed to fetch tarot metadata: status %d", resp.StatusCode)
+	}
+
+	var deck []TarotCardMetadata
+	if err := json.NewDecoder(resp.Body).Decode(&deck); err != nil {
+		return nil, err
+	}
+
+	metadata := make(map[string]TarotCardMetadata)
+	for _, card := range deck {
+		metadata[card.Name] = card
+	}
+
+	return metadata, nil
+}
+
+// getCardDecoration returns decorative elements for a card based on its metadata
+func getCardDecoration(cardName string, orientation string, metadata map[string]TarotCardMetadata) (string, string) {
+	card, exists := metadata[cardName]
+	if !exists {
+		// Default decorations
+		if orientation == "reversed" {
+			return "↻", "⚠"
+		}
+		return "✦", "▲"
+	}
+
+	// Orientation indicator
+	orientIcon := "▲"
+	if orientation == "reversed" {
+		orientIcon = "↻"
+	}
+
+	// Card-specific symbol or default
+	symbol := "✦"
+	if card.Symbol != "" {
+		symbol = card.Symbol
+	} else if card.Suit != "" {
+		// Use suit-based symbols
+		switch strings.ToLower(card.Suit) {
+		case "wands", "wand":
+			symbol = "🔥"
+		case "cups", "cup":
+			symbol = "💧"
+		case "swords", "sword":
+			symbol = "⚔"
+		case "pentacles", "pentacle", "coins", "coin":
+			symbol = "💰"
+		case "major arcana", "major":
+			symbol = "⭐"
+		}
+	}
+
+	return symbol, orientIcon
+}
+
+// formatTarotReading formats and displays tarot cards in a visual layout
+func formatTarotReading(tarotData map[string]interface{}) {
+	spreadName, _ := tarotData["spread_name"].(string)
+	spreadType, _ := tarotData["spread_type"].(string)
+	cards, ok := tarotData["cards"].([]interface{})
+	if !ok {
+		// Fallback to JSON if structure is unexpected
+		jsonData, _ := json.MarshalIndent(tarotData, "", "  ")
+		fmt.Println(string(jsonData))
+		return
+	}
+
+	// Fetch card metadata for decorations
+	cardMetadata, err := fetchTarotCardMetadata()
+	if err != nil {
+		// Continue without metadata if fetch fails
+		cardMetadata = make(map[string]TarotCardMetadata)
+	}
+
+	// Mystical header
+	fmt.Println()
+	fmt.Println("╔═══════════════════════════════════════════════════════════════╗")
+	fmt.Printf("║  🔮 %-60s ║\n", spreadName)
+	fmt.Println("╚═══════════════════════════════════════════════════════════════╝")
+	fmt.Println()
+
+	if spreadType == "celtic" || len(cards) == 10 {
+		displayCelticCross(cards, cardMetadata)
+	} else {
+		displayThreeCard(cards, cardMetadata)
+	}
+}
+
+// displayThreeCard displays a 3-card spread horizontally with elegant styling
+func displayThreeCard(cards []interface{}, metadata map[string]TarotCardMetadata) {
+	if len(cards) != 3 {
+		// Fallback
+		displayCardList(cards, metadata)
+		return
+	}
+
+	positions := make([]string, 3)
+	names := make([]string, 3)
+	meanings := make([]string, 3)
+	orientations := make([]string, 3)
+	symbols := make([]string, 3)
+	orientIcons := make([]string, 3)
+	positionLabels := []string{"◄ PAST", "● PRESENT", "► FUTURE"}
+
+	for i, card := range cards {
+		cardMap, ok := card.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		// Extract position without number
+		posStr := fmt.Sprintf("%v", cardMap["position"])
+		posParts := strings.SplitN(posStr, ". ", 2)
+		if len(posParts) > 1 {
+			positions[i] = posParts[1]
+		} else {
+			positions[i] = posStr
+		}
+		names[i] = fmt.Sprintf("%v", cardMap["card_name"])
+		meanings[i] = fmt.Sprintf("%v", cardMap["card_meaning"])
+
+		// Get orientation
+		orientation := "upright"
+		if orient, ok := cardMap["orientation"].(string); ok {
+			orientation = orient
+		}
+		orientations[i] = orientation
+
+		// Get decorations
+		symbols[i], orientIcons[i] = getCardDecoration(names[i], orientation, metadata)
+	}
+
+	// Card dimensions
+	cardWidth := 38
+	cardPadding := 2
+
+	// Build each card's content
+	allCards := make([][]string, 3)
+	for i := 0; i < 3; i++ {
+		var cardLines []string
+
+		// Top border with decorative corners
+		cardLines = append(cardLines, "┌"+strings.Repeat("─", cardWidth)+"┐")
+
+		// Position label - centered and bold
+		posLabel := positionLabels[i]
+		posPadding := (cardWidth - len(posLabel)) / 2
+		cardLines = append(cardLines, fmt.Sprintf("│%s%s%s│",
+			strings.Repeat(" ", posPadding), posLabel, strings.Repeat(" ", cardWidth-posPadding-len(posLabel))))
+
+		// Divider
+		cardLines = append(cardLines, "├"+strings.Repeat("─", cardWidth)+"┤")
+
+		// Card name - centered with symbol
+		name := names[i]
+		if len(name) > cardWidth-10 {
+			name = truncate(name, cardWidth-10)
+		}
+		nameDisplay := fmt.Sprintf("%s %s %s", symbols[i], name, orientIcons[i])
+		namePadding := (cardWidth - len(nameDisplay)) / 2
+		if namePadding < 0 {
+			namePadding = 0
+		}
+		cardLines = append(cardLines, fmt.Sprintf("│%s%s%s│",
+			strings.Repeat(" ", namePadding), nameDisplay, strings.Repeat(" ", cardWidth-namePadding-len(nameDisplay))))
+
+		// Orientation badge
+		orientText := "▲ UPRIGHT"
+		if orientations[i] == "reversed" {
+			orientText = "↻ REVERSED"
+		}
+		orientPadding := (cardWidth - len(orientText)) / 2
+		cardLines = append(cardLines, fmt.Sprintf("│%s%s%s│",
+			strings.Repeat(" ", orientPadding), orientText, strings.Repeat(" ", cardWidth-orientPadding-len(orientText))))
+
+		// Divider
+		cardLines = append(cardLines, "├"+strings.Repeat("─", cardWidth)+"┤")
+
+		// Meaning - wrapped and justified
+		meaning := meanings[i]
+		words := strings.Fields(meaning)
+		currentLine := ""
+		for _, word := range words {
+			testLine := currentLine
+			if testLine != "" {
+				testLine += " "
+			}
+			testLine += word
+			if len(testLine) <= cardWidth-cardPadding*2 {
+				currentLine = testLine
+			} else {
+				if currentLine != "" {
+					// Center the line
+					linePadding := (cardWidth - len(currentLine)) / 2
+					cardLines = append(cardLines, fmt.Sprintf("│%s%s%s│",
+						strings.Repeat(" ", linePadding), currentLine, strings.Repeat(" ", cardWidth-linePadding-len(currentLine))))
+				}
+				currentLine = word
+			}
+		}
+		if currentLine != "" {
+			linePadding := (cardWidth - len(currentLine)) / 2
+			cardLines = append(cardLines, fmt.Sprintf("│%s%s%s│",
+				strings.Repeat(" ", linePadding), currentLine, strings.Repeat(" ", cardWidth-linePadding-len(currentLine))))
+		}
+
+		// Bottom border
+		cardLines = append(cardLines, "└"+strings.Repeat("─", cardWidth)+"┘")
+
+		allCards[i] = cardLines
+	}
+
+	// Find max height
+	maxHeight := 0
+	for i := 0; i < 3; i++ {
+		if len(allCards[i]) > maxHeight {
+			maxHeight = len(allCards[i])
+		}
+	}
+
+	// Print cards side by side with spacing
+	spacing := "   "
+	fmt.Println()
+	for row := 0; row < maxHeight; row++ {
+		for i := 0; i < 3; i++ {
+			if row < len(allCards[i]) {
+				fmt.Print(allCards[i][row])
+			} else {
+				// Fill empty rows
+				fmt.Print("│" + strings.Repeat(" ", cardWidth) + "│")
+			}
+			if i < 2 {
+				fmt.Print(spacing)
+			}
+		}
+		fmt.Println()
+	}
+	fmt.Println()
+}
+
+// displayCelticCross displays a Celtic Cross spread with creative visual layout
+func displayCelticCross(cards []interface{}, metadata map[string]TarotCardMetadata) {
+	if len(cards) != 10 {
+		// Fallback
+		displayCardList(cards, metadata)
+		return
+	}
+
+	// Extract card data
+	cardData := make([]struct {
+		position    string
+		name        string
+		meaning     string
+		orientation string
+		symbol      string
+		orientIcon  string
+	}, 10)
+
+	for i, card := range cards {
+		cardMap, ok := card.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		// Extract position without number
+		posStr := fmt.Sprintf("%v", cardMap["position"])
+		posParts := strings.SplitN(posStr, ". ", 2)
+		if len(posParts) > 1 {
+			cardData[i].position = posParts[1]
+		} else {
+			cardData[i].position = posStr
+		}
+		cardData[i].name = fmt.Sprintf("%v", cardMap["card_name"])
+		cardData[i].meaning = fmt.Sprintf("%v", cardMap["card_meaning"])
+
+		// Get orientation
+		orientation := "upright"
+		if orient, ok := cardMap["orientation"].(string); ok {
+			orientation = orient
+		}
+		cardData[i].orientation = orientation
+
+		// Get decorations
+		cardData[i].symbol, cardData[i].orientIcon = getCardDecoration(cardData[i].name, orientation, metadata)
+	}
+
+	// Visual Celtic Cross layout diagram - compact overview
+	fmt.Println()
+	fmt.Println("                    ┌─────────────────────────┐")
+	fmt.Printf("                    │ %s %-19s %s │\n", cardData[0].symbol, truncate(cardData[0].name, 17), cardData[0].orientIcon)
+	fmt.Println("                    │ 1. Present Situation    │")
+	fmt.Println("                    └─────────────────────────┘")
+	fmt.Println("                    ┌─────────────────────────┐")
+	fmt.Printf("                    │ %s %-19s %s │\n", cardData[1].symbol, truncate(cardData[1].name, 17), cardData[1].orientIcon)
+	fmt.Println("                    │ 2. Challenge/Crossing   │")
+	fmt.Println("                    └─────────────────────────┘")
+	fmt.Println("  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐")
+	fmt.Printf("  │ %s %-7s %s │  │ %s %-7s %s │  │ %s %-7s %s │  │ %s %-7s %s │\n",
+		cardData[2].symbol, truncate(cardData[2].name, 5), cardData[2].orientIcon,
+		cardData[3].symbol, truncate(cardData[3].name, 5), cardData[3].orientIcon,
+		cardData[4].symbol, truncate(cardData[4].name, 5), cardData[4].orientIcon,
+		cardData[5].symbol, truncate(cardData[5].name, 5), cardData[5].orientIcon)
+	fmt.Println("  │ 3. Past     │  │ 4. Past     │  │ 5. Future   │  │ 6. Future   │")
+	fmt.Println("  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘")
+	fmt.Println("                    ┌─────────────────────────┐")
+	fmt.Printf("                    │ %s %-19s %s │\n", cardData[6].symbol, truncate(cardData[6].name, 17), cardData[6].orientIcon)
+	fmt.Println("                    │ 7. Your Approach        │")
+	fmt.Println("                    └─────────────────────────┘")
+	fmt.Println("  ┌─────────────┐                    ┌─────────────┐")
+	fmt.Printf("  │ %s %-7s %s │                    │ %s %-7s %s │\n",
+		cardData[7].symbol, truncate(cardData[7].name, 5), cardData[7].orientIcon,
+		cardData[8].symbol, truncate(cardData[8].name, 5), cardData[8].orientIcon)
+	fmt.Println("  │ 8. External │                    │ 9. Hopes/   │")
+	fmt.Println("  │             │                    │    Fears    │")
+	fmt.Println("  └─────────────┘                    └─────────────┘")
+	fmt.Println("                    ┌─────────────────────────┐")
+	fmt.Printf("                    │ %s %-19s %s │\n", cardData[9].symbol, truncate(cardData[9].name, 17), cardData[9].orientIcon)
+	fmt.Println("                    │ 10. Final Outcome       │")
+	fmt.Println("                    └─────────────────────────┘")
+	fmt.Println()
+	fmt.Println("┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓")
+	fmt.Println("┃                    ✦ Detailed Card Meanings ✦              ┃")
+	fmt.Println("┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛")
+	fmt.Println()
+
+	// Display detailed card information with elegant formatting
+	contentWidth := 63 // Width of content inside the box (excluding borders)
+	for i, card := range cardData {
+		// Top border
+		fmt.Println("┌" + strings.Repeat("─", contentWidth) + "┐")
+
+		// Position header
+		posText := fmt.Sprintf("%d. %s", i+1, card.position)
+		fmt.Printf("│ %-61s │\n", posText)
+
+		// Divider
+		fmt.Println("├" + strings.Repeat("─", contentWidth) + "┤")
+
+		// Card name with symbol - centered
+		nameDisplay := fmt.Sprintf("%s %s %s", card.symbol, card.name, card.orientIcon)
+		namePadding := (contentWidth - len(nameDisplay)) / 2
+		if namePadding < 0 {
+			namePadding = 0
+		}
+		leftPad := namePadding
+		rightPad := contentWidth - len(nameDisplay) - leftPad
+		fmt.Printf("│%s%s%s│\n",
+			strings.Repeat(" ", leftPad), nameDisplay, strings.Repeat(" ", rightPad))
+
+		// Orientation badge - centered
+		orientText := "▲ UPRIGHT"
+		if card.orientation == "reversed" {
+			orientText = "↻ REVERSED"
+		}
+		orientPadding := (contentWidth - len(orientText)) / 2
+		leftPad = orientPadding
+		rightPad = contentWidth - len(orientText) - leftPad
+		fmt.Printf("│%s%s%s│\n",
+			strings.Repeat(" ", leftPad), orientText, strings.Repeat(" ", rightPad))
+
+		// Divider
+		fmt.Println("├" + strings.Repeat("─", contentWidth) + "┤")
+
+		// Wrap meaning with proper justification
+		words := strings.Fields(card.meaning)
+		currentLine := ""
+		for _, word := range words {
+			testLine := currentLine
+			if testLine != "" {
+				testLine += " "
+			}
+			testLine += word
+			if len(testLine) <= contentWidth {
+				currentLine = testLine
+			} else {
+				if currentLine != "" {
+					// Center justify the meaning text
+					linePadding := (contentWidth - len(currentLine)) / 2
+					leftPad = linePadding
+					rightPad = contentWidth - len(currentLine) - leftPad
+					fmt.Printf("│%s%s%s│\n",
+						strings.Repeat(" ", leftPad), currentLine, strings.Repeat(" ", rightPad))
+				}
+				currentLine = word
+			}
+		}
+		if currentLine != "" {
+			linePadding := (contentWidth - len(currentLine)) / 2
+			leftPad = linePadding
+			rightPad = contentWidth - len(currentLine) - leftPad
+			fmt.Printf("│%s%s%s│\n",
+				strings.Repeat(" ", leftPad), currentLine, strings.Repeat(" ", rightPad))
+		}
+
+		// Bottom border
+		fmt.Println("└" + strings.Repeat("─", contentWidth) + "┘")
+		if i < len(cardData)-1 {
+			fmt.Println()
+		}
+	}
+}
+
+// truncate truncates a string to max length
+func truncate(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen-3] + "..."
+}
+
+// formatTarotReadingAsString formats tarot reading as a string for AI prompts
+func formatTarotReadingAsString(tarotData map[string]interface{}) string {
+	var output strings.Builder
+	spreadName, _ := tarotData["spread_name"].(string)
+	spreadType, _ := tarotData["spread_type"].(string)
+	cards, ok := tarotData["cards"].([]interface{})
+	if !ok {
+		// Fallback to JSON if structure is unexpected
+		jsonData, _ := json.MarshalIndent(tarotData, "", "  ")
+		return string(jsonData)
+	}
+
+	// Output clean, structured format optimized for AI parsing
+	output.WriteString("TAROT READING\n")
+	output.WriteString(fmt.Sprintf("Spread: %s (%s)\n", spreadName, spreadType))
+	output.WriteString(fmt.Sprintf("Cards Drawn: %d\n\n", len(cards)))
+
+	for i, card := range cards {
+		cardMap, ok := card.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		position := fmt.Sprintf("%v", cardMap["position"])
+		// Remove leading number if present
+		posParts := strings.SplitN(position, ". ", 2)
+		if len(posParts) > 1 {
+			position = posParts[1]
+		}
+
+		cardName := fmt.Sprintf("%v", cardMap["card_name"])
+		meaning := fmt.Sprintf("%v", cardMap["card_meaning"])
+		orientation := "upright"
+		if orient, ok := cardMap["orientation"].(string); ok {
+			orientation = orient
+		}
+
+		// Title case orientation
+		orientationTitle := orientation
+		if len(orientation) > 0 {
+			orientationTitle = strings.ToUpper(orientation[:1]) + strings.ToLower(orientation[1:])
+		}
+
+		// Clean, structured output format
+		output.WriteString(fmt.Sprintf("CARD %d\n", i+1))
+		output.WriteString(fmt.Sprintf("Position: %s\n", position))
+		output.WriteString(fmt.Sprintf("Card: %s\n", cardName))
+		output.WriteString(fmt.Sprintf("Orientation: %s\n", orientationTitle))
+		output.WriteString(fmt.Sprintf("Meaning: %s\n", meaning))
+		output.WriteString("\n")
+	}
+
+	return output.String()
+}
+
+// outputParsedTarotReading outputs tarot reading in clean, structured format for AI interpretation
+func outputParsedTarotReading(tarotData map[string]interface{}) {
+	fmt.Print(formatTarotReadingAsString(tarotData))
+}
+
+// displayCardList is a fallback simple list display
+func displayCardList(cards []interface{}, metadata map[string]TarotCardMetadata) {
+	for i, card := range cards {
+		cardMap, ok := card.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		posStr := fmt.Sprintf("%v", cardMap["position"])
+		posParts := strings.SplitN(posStr, ". ", 2)
+		position := posStr
+		if len(posParts) > 1 {
+			position = posParts[1]
+		}
+		name := fmt.Sprintf("%v", cardMap["card_name"])
+		meaning := fmt.Sprintf("%v", cardMap["card_meaning"])
+		orientation := "upright"
+		if orient, ok := cardMap["orientation"].(string); ok {
+			orientation = orient
+		}
+
+		symbol, orientIcon := getCardDecoration(name, orientation, metadata)
+
+		fmt.Printf("\n%d. %s\n", i+1, position)
+		fmt.Printf("   %s %s %s\n", symbol, name, orientIcon)
+		if orientation == "reversed" {
+			fmt.Printf("   ↻ Reversed\n")
+		} else {
+			fmt.Printf("   ▲ Upright\n")
+		}
+		fmt.Printf("   Meaning: %s\n", meaning)
+	}
 }
 
 // loadS3Config loads S3 configuration from ~/.celeste.cfg file
@@ -382,7 +1050,7 @@ func uploadConversationToS3(entry *ConversationEntry) error {
 }
 
 // createConversationEntry creates a conversation entry from the current request
-func createConversationEntry(promptType, game, tone, persona, prompt, response string, result map[string]interface{}) *ConversationEntry {
+func createConversationEntry(format, platform, topic, tone, persona, prompt, response string, result map[string]interface{}) *ConversationEntry {
 	// Get user ID from environment or default to kusanagi
 	userID := os.Getenv("CELESTE_USER_ID")
 	if userID == "" {
@@ -393,9 +1061,9 @@ func createConversationEntry(promptType, game, tone, persona, prompt, response s
 		ID:          fmt.Sprintf("%d", time.Now().UnixNano()),
 		Timestamp:   time.Now(),
 		UserID:      userID,
-		ContentType: promptType,
+		ContentType: format,
 		Tone:        tone,
-		Game:        game,
+		Game:        topic, // Keep Game field for backward compatibility, but use topic
 		Persona:     persona,
 		Prompt:      prompt,
 		Response:    response,
@@ -420,43 +1088,53 @@ func createConversationEntry(promptType, game, tone, persona, prompt, response s
 	entry.Metadata["override_enabled"] = os.Getenv("CELESTE_OVERRIDE_ENABLED") == "true"
 
 	// Enhanced fields for OpenSearch RAG
-	entry.Intent = determineIntent(promptType)
-	entry.Purpose = promptType
-	entry.Platform = determinePlatform(promptType)
+	entry.Intent = determineIntent(format, platform)
+	entry.Purpose = format
+	entry.Platform = determinePlatformFromFlags(platform, format)
 	entry.Sentiment = determineSentiment(tone)
-	entry.Topics = extractTopics(game, prompt, response)
-	entry.Tags = generateTags(promptType, game, tone, persona)
-	entry.Context = fmt.Sprintf("Game: %s, Tone: %s, Persona: %s", game, tone, persona)
+	entry.Topics = extractTopics(topic, prompt, response)
+	entry.Tags = generateTags(format, topic, tone, persona)
+	entry.Context = fmt.Sprintf("Format: %s, Platform: %s, Topic: %s, Tone: %s, Persona: %s", format, platform, topic, tone, persona)
 
 	return entry
 }
 
 // Helper functions for RAG
-func determineIntent(contentType string) string {
-	switch contentType {
-	case "tweet", "tweet_image", "tweet_thread", "quote_tweet", "reply_snark", "birthday":
+func determineIntent(format, platform string) string {
+	// Use platform if available, otherwise infer from format
+	if platform != "" {
+		switch platform {
+		case "twitter", "tiktok":
+			return "social_media"
+		case "youtube":
+			return "content_creation"
+		case "discord":
+			return "community_management"
+		}
+	}
+
+	// Fallback to format-based intent
+	switch format {
+	case "short":
 		return "social_media"
-	case "ytdesc", "title":
+	case "long":
 		return "content_creation"
-	case "discord":
-		return "community_management"
-	case "tiktok":
-		return "short_form_content"
 	default:
 		return "general"
 	}
 }
 
-func determinePlatform(contentType string) string {
-	switch contentType {
-	case "tweet", "tweet_image", "tweet_thread", "quote_tweet", "reply_snark", "birthday":
-		return "twitter"
-	case "ytdesc", "title":
-		return "youtube"
-	case "tiktok":
-		return "tiktok"
-	case "discord":
-		return "discord"
+func determinePlatformFromFlags(platform, format string) string {
+	if platform != "" {
+		return platform
+	}
+
+	// Infer from format if platform not specified
+	switch format {
+	case "short":
+		return "twitter" // Default for short format
+	case "long":
+		return "youtube" // Default for long format
 	default:
 		return "general"
 	}
@@ -479,10 +1157,10 @@ func determineSentiment(tone string) string {
 	}
 }
 
-func extractTopics(game, prompt, response string) []string {
+func extractTopics(topic, prompt, response string) []string {
 	topics := []string{}
-	if game != "" {
-		topics = append(topics, strings.ToLower(game))
+	if topic != "" {
+		topics = append(topics, strings.ToLower(topic))
 	}
 	// Simple keyword extraction - could be enhanced
 	keywords := []string{"celeste", "kusanagi", "vtuber", "stream", "game", "anime"}
@@ -494,10 +1172,10 @@ func extractTopics(game, prompt, response string) []string {
 	return topics
 }
 
-func generateTags(promptType, game, tone, persona string) []string {
-	tags := []string{"celeste", "ai", "content"}
-	if game != "" {
-		tags = append(tags, "game:"+strings.ToLower(game))
+func generateTags(format, topic, tone, persona string) []string {
+	tags := []string{"celeste", "ai", "content", "format:" + strings.ToLower(format)}
+	if topic != "" {
+		tags = append(tags, "topic:"+strings.ToLower(topic))
 	}
 	if tone != "" {
 		tags = append(tags, "tone:"+strings.ToLower(tone))
@@ -656,14 +1334,98 @@ func makeVeniceEditRequest(imagePath, prompt string, config *VeniceConfig) ([]by
 	return body, nil
 }
 
-// makeVeniceRequest makes a request to Venice.ai API
-func makeVeniceRequest(prompt string, config *VeniceConfig) (string, error) {
+// makeVeniceRequest makes a request to Venice.ai API with optional streaming
+func makeVeniceRequest(prompt string, config *VeniceConfig, enableStream bool, noAnimation bool) (string, error) {
 	clientConfig := openai.DefaultConfig(config.APIKey)
 	clientConfig.BaseURL = config.BaseURL
 	client := openai.NewClientWithConfig(clientConfig)
 
+	ctx := context.Background()
+
+	// Start corruption animation by default (during wait period)
+	var animationDone chan bool
+	var animationCtx context.Context
+	var cancelAnimation context.CancelFunc
+	if !noAnimation && shouldShowAnimation() {
+		animationCtx, cancelAnimation = context.WithCancel(context.Background())
+		animationDone = make(chan bool)
+		startCorruptionAnimation(animationCtx, animationDone, os.Stderr)
+		defer cancelAnimation()
+	}
+
+	// Use streaming if enabled
+	if enableStream {
+		stream, err := client.CreateChatCompletionStream(
+			ctx,
+			openai.ChatCompletionRequest{
+				Model: config.Model,
+				Messages: []openai.ChatCompletionMessage{
+					{
+						Role:    openai.ChatMessageRoleUser,
+						Content: prompt,
+					},
+				},
+				Stream: true,
+			},
+		)
+		if err != nil {
+			// Stop animation on error
+			if animationDone != nil {
+				cancelAnimation()
+				<-animationDone
+				fmt.Fprintf(os.Stderr, "\r\033[K")
+			}
+			return "", fmt.Errorf("Venice.ai API error: %v", err)
+		}
+		defer stream.Close()
+
+		var fullResponse strings.Builder
+		firstToken := true
+		for {
+			response, err := stream.Recv()
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				// Stop animation on error
+				if animationDone != nil {
+					cancelAnimation()
+					<-animationDone
+					fmt.Fprintf(os.Stderr, "\r\033[K")
+				}
+				return "", fmt.Errorf("Venice.ai streaming error: %v", err)
+			}
+
+			if len(response.Choices) > 0 {
+				delta := response.Choices[0].Delta.Content
+				if delta != "" {
+					// Stop animation when first token arrives
+					if firstToken && animationDone != nil {
+						cancelAnimation()
+						<-animationDone
+						fmt.Fprintf(os.Stderr, "\r\033[K")
+						firstToken = false
+					}
+					// Print token normally without corruption
+					fmt.Print(delta)
+					fullResponse.WriteString(delta)
+				}
+			}
+		}
+		fmt.Println() // New line after streaming
+		return fullResponse.String(), nil
+	}
+
+	// Stop animation before non-streaming request
+	if animationDone != nil {
+		cancelAnimation()
+		<-animationDone
+		fmt.Fprintf(os.Stderr, "\r\033[K")
+	}
+
+	// Non-streaming fallback
 	resp, err := client.CreateChatCompletion(
-		context.Background(),
+		ctx,
 		openai.ChatCompletionRequest{
 			Model: config.Model,
 			Messages: []openai.ChatCompletionMessage{
@@ -1058,19 +1820,33 @@ func runCommand(command string) (string, error) {
 
 func main() {
 	// Command-line flags
-	var promptType, game, tone, media string
+	var format, platform, topic, tone, media, request string
 	var debug, sync, nsfw bool
 	var contextExtra string
-	var spreadType string
 	var persona string
+	var tarotMode bool
+	var spreadType string
 
-	flag.StringVar(&promptType, "type", "tweet", "Type of content (tweet, title, ytdesc, etc.)")
-	flag.StringVar(&game, "game", "", "Game or stream context")
-	flag.StringVar(&tone, "tone", "", "Tone or style for Celeste to use")
+	flag.StringVar(&format, "format", "short", "Content format: short (280 chars), long (5000 chars), or general (flexible)")
+	flag.StringVar(&platform, "platform", "", "Platform: twitter, tiktok, youtube, or discord (optional)")
+	flag.StringVar(&topic, "topic", "", "Topic or subject (game name, event, etc.)")
+	flag.StringVar(&tone, "tone", "", "Tone or style for Celeste to use (lewd, teasing, etc.)")
 	flag.StringVar(&media, "media", "", "Optional media reference (image/GIF URL)")
 	flag.StringVar(&contextExtra, "context", "", "Additional background context for Celeste to include")
-	flag.StringVar(&spreadType, "spread", "celtic", "Type of tarot spread: 'celtic' or 'three'")
+	flag.StringVar(&request, "request", "", "Direct instructions or specific requirements for the content")
 	flag.StringVar(&persona, "persona", "celeste_stream", "Persona to use (celeste_stream, celeste_ad_read, celeste_moderation_warning)")
+	flag.BoolVar(&tarotMode, "tarot", false, "Get a tarot reading from the DigitalOcean function")
+	flag.StringVar(&spreadType, "spread", "three", "Type of tarot spread: 'celtic' or 'three' (default: three)")
+	var parsedOutput bool
+	flag.BoolVar(&parsedOutput, "parsed", false, "Output tarot reading in clean parsed format for AI interpretation")
+	var divineMode bool
+	flag.BoolVar(&divineMode, "divine", false, "Get tarot reading and automatically interpret with AI (Digital Ocean)")
+	var divineNSFW bool
+	flag.BoolVar(&divineNSFW, "divine-nsfw", false, "Get tarot reading and automatically interpret with AI (Venice.ai NSFW)")
+	var noScaffold bool
+	flag.BoolVar(&noScaffold, "no-scaffold", false, "Disable default scaffolding prompt additions")
+	var scaffoldOverride string
+	flag.StringVar(&scaffoldOverride, "scaffold", "", "Explicit scaffold override text")
 	flag.BoolVar(&debug, "debug", false, "Enable debug output (shows full JSON response)")
 	flag.BoolVar(&sync, "sync", false, "Upload conversation to DigitalOcean Spaces after completion")
 	flag.BoolVar(&nsfw, "nsfw", false, "Enable NSFW mode using Venice.ai (uncensored content generation)")
@@ -1100,51 +1876,63 @@ func main() {
 	flag.BoolVar(&preserveSize, "preserve-size", false, "Automatically upscale edited image back to original dimensions (requires --edit)")
 	var upscaleFirst bool
 	flag.BoolVar(&upscaleFirst, "upscale-first", false, "Upscale to 1024x1024 first, then inpaint (prevents distortion, 2 API calls)")
+	var noAnimation bool
+	flag.BoolVar(&noAnimation, "no-animation", false, "Disable corruption animation and visual feedback")
+	var enableStream bool
+	flag.BoolVar(&enableStream, "stream", true, "Enable streaming responses (default: true)")
 
 	flag.Usage = func() {
 		fmt.Println("Usage of CelesteCLI:")
-		fmt.Println("  --type       Type of output to generate:")
-		fmt.Println("               tweet         - Write a post for X/Twitter")
-		fmt.Println("               tweet_image   - Twitter post with image/art credit")
-		fmt.Println("               tweet_thread  - Multi-part Twitter thread")
-		fmt.Println("               title         - YouTube or Twitch stream title")
-		fmt.Println("               ytdesc        - YouTube video description (markdown formatted)")
-		fmt.Println("               tiktok        - TikTok caption")
-		fmt.Println("               discord       - Discord stream announcement")
-		fmt.Println("               goodnight     - Flirty or cozy goodnight tweet")
-		fmt.Println("               pixivpost     - Pixiv post caption or summary")
-		fmt.Println("               skebreq       - Draft for a Skeb commission request")
-		fmt.Println("               quote_tweet   - Quote tweet response")
-		fmt.Println("               reply_snark   - Snarky reply to tweet")
-		fmt.Println("               birthday        - Birthday message")
-		fmt.Println("               alt_text      - Image alt text")
-		fmt.Println()
-		fmt.Println("  --game       Game or stream context (e.g., 'Schedule I', 'NIKKE')")
-		fmt.Println("  --tone       Style or tone for Celeste's response:")
-		fmt.Println("               Examples: lewd, teasing, chaotic, cute, official, dramatic, parody, funny, teasing sweet")
-		fmt.Println("  --persona    Persona to use (celeste_stream, celeste_ad_read, celeste_moderation_warning)")
-		fmt.Println("  --media      Optional image/GIF URL for Celeste to react to or include in context")
-		fmt.Println("  --context    Additional background context for Celeste to include")
-		fmt.Println("  --sync       Upload conversation to DigitalOcean Spaces after completion")
-		fmt.Println("  --nsfw       Enable NSFW mode using Venice.ai (uncensored content generation)")
-		fmt.Println("  --image      Generate image using lustify-sdxl model (requires --nsfw)")
-		fmt.Println("  --upscale    Upscale an existing image (requires --nsfw)")
-		fmt.Println("  --edit       Edit/inpaint an existing image (requires --nsfw)")
+		fmt.Println("  --format     Content format: short (280 chars), long (5000 chars), or general (flexible)")
+		fmt.Println("               Default: short")
+		fmt.Println("  --platform  Platform: twitter, tiktok, youtube, or discord (optional)")
+		fmt.Println("  --topic     Topic or subject (game name, event, etc.)")
+		fmt.Println("  --request   Direct instructions or specific requirements for the content")
+		fmt.Println("  --tone      Style or tone for Celeste's response:")
+		fmt.Println("               Examples: lewd, teasing, chaotic, cute, official, dramatic, parody, funny, sweet")
+		fmt.Println("  --persona   Persona to use (celeste_stream, celeste_ad_read, celeste_moderation_warning)")
+		fmt.Println("  --media     Optional image/GIF URL for Celeste to react to or include in context")
+		fmt.Println("  --context   Additional background context for Celeste to include")
+		fmt.Println("  --no-scaffold Disable default scaffolding prompt additions")
+		fmt.Println("  --scaffold  Explicit scaffold override text")
+		fmt.Println("  --tarot     Get a tarot reading from the DigitalOcean function")
+		fmt.Println("  --spread    Type of tarot spread: 'celtic' or 'three' (default: three)")
+		fmt.Println("  --parsed    Output tarot reading in clean parsed format for AI interpretation")
+		fmt.Println("  --divine    Get tarot reading and automatically interpret with AI (Digital Ocean)")
+		fmt.Println("  --divine-nsfw Get tarot reading and automatically interpret with AI (Venice.ai NSFW)")
+		fmt.Println("  --sync      Upload conversation to DigitalOcean Spaces after completion")
+		fmt.Println("  --nsfw      Enable NSFW mode using Venice.ai (uncensored content generation)")
+		fmt.Println("               Works with new format system: --nsfw --format short --platform twitter --topic \"NIKKE\" --tone \"explicit\"")
+		fmt.Println("  --image     Generate image using lustify-sdxl model (requires --nsfw)")
+		fmt.Println("  --upscale   Upscale an existing image (requires --nsfw)")
+		fmt.Println("  --edit      Edit/inpaint an existing image (requires --nsfw)")
 		fmt.Println("  --image-path Path to image file for upscaling/editing (requires --upscale or --edit)")
 		fmt.Println("  --edit-prompt Prompt for image editing (e.g., 'remove the signature', 'change the background')")
 		fmt.Println("  --preserve-size Automatically upscale edited image back to original dimensions (requires --edit)")
 		fmt.Println("  --upscale-first Upscale to 1024x1024 first, then inpaint (prevents distortion, 2 API calls)")
-		fmt.Println("  --output     Output filename for generated/upscaled/edited images (optional)")
+		fmt.Println("  --output    Output filename for generated/upscaled/edited images (optional)")
 		fmt.Println("  --list-models List available Venice.ai models")
-		fmt.Println("  --model      Override Venice.ai model (e.g., lustify-sdxl, wai-Illustrious)")
+		fmt.Println("  --model     Override Venice.ai model (e.g., lustify-sdxl, wai-Illustrious)")
 		fmt.Println("  --enhance-creativity Enhancement creativity level (0.0-1.0, lower = more faithful)")
 		fmt.Println("  --replication Replication level to preserve original details (0.0-1.0, higher = more faithful)")
 		fmt.Println("  --enhance-prompt Enhancement prompt for upscaling")
-		fmt.Println("  --debug      Show raw JSON output from API")
+		fmt.Println("  --no-animation Disable corruption animation and visual feedback")
+		fmt.Println("  --stream    Enable streaming responses (default: true)")
+		fmt.Println("  --debug     Show raw JSON output from API")
 		fmt.Println()
 		fmt.Println("Configuration:")
-		fmt.Println("  ~/.celeste.cfg              - Celeste configuration file (preferred)")
-		fmt.Println("  Environment Variables       - Fallback if ~/.celeste.cfg not found")
+		fmt.Println("  ~/.celesteAI                - Celeste configuration file")
+		fmt.Println("    endpoint                    - CelesteAI API endpoint")
+		fmt.Println("    api_key                     - CelesteAI API key")
+		fmt.Println("    tarot_function_url          - Tarot function URL (optional)")
+		fmt.Println("    tarot_auth_token            - Tarot Basic Auth token")
+		fmt.Println("    venice_api_key              - Venice.ai API key (for NSFW mode)")
+		fmt.Println("  ~/.celeste.cfg              - DigitalOcean Spaces configuration")
+		fmt.Println("  Environment Variables       - Fallback if config files not found")
+		fmt.Println("    CELESTE_API_ENDPOINT        - CelesteAI API endpoint")
+		fmt.Println("    CELESTE_API_KEY             - CelesteAI API key")
+		fmt.Println("    TAROT_FUNCTION_URL          - Tarot function URL")
+		fmt.Println("    TAROT_AUTH_TOKEN            - Tarot Basic Auth token")
 		fmt.Println("    DO_SPACES_ACCESS_KEY_ID     - DigitalOcean Spaces access key")
 		fmt.Println("    DO_SPACES_SECRET_ACCESS_KEY - DigitalOcean Spaces secret key")
 		fmt.Println("    CELESTE_USER_ID             - User ID for conversation tracking")
@@ -1153,25 +1941,429 @@ func main() {
 		fmt.Println("    CELESTE_PGP_SIGNATURE       - PGP signature for override commands")
 		fmt.Println()
 		fmt.Println("Examples:")
-		fmt.Println("  ./celestecli --type tweet --game \"Schedule I\" --tone \"chaotic funny\"")
-		fmt.Println("  ./celestecli --type tweet_image --game \"NIKKE\" --tone \"lewd\" --sync")
-		fmt.Println("  ./celestecli --type tiktok --game \"NIKKE\" --tone \"teasing\"")
-		fmt.Println("  ./celestecli --type quote_tweet --tone \"snarky\"")
-		fmt.Println("  ./celestecli --type birthday --tone \"playful\"")
-		fmt.Println("  ./celestecli --nsfw --image --tone \"explicit\" --context \"Generate NSFW image of Celeste\"")
-		fmt.Println("  ./celestecli --nsfw --upscale --image-path \"/path/to/image.jpg\"")
+		fmt.Println("  # Normal mode (Digital Ocean)")
+		fmt.Println("  ./celestecli --format short --platform twitter --topic \"NIKKE\" --tone \"lewd\"")
+		fmt.Println("  ./celestecli --format short --platform twitter --topic \"NIKKE\" --tone \"lewd\" --request \"write about Viper character\"")
+		fmt.Println("  ./celestecli --format long --platform youtube --topic \"Streaming\" --request \"include links to website, socials, products\"")
+		fmt.Println()
+		fmt.Println("  # Tarot reading")
+		fmt.Println("  ./celestecli --tarot")
+		fmt.Println("  ./celestecli --tarot --spread celtic")
+		fmt.Println("  ./celestecli --tarot --parsed  # Clean output for AI interpretation")
+		fmt.Println("  ./celestecli --divine  # Get reading and interpret with AI")
+		fmt.Println("  ./celestecli --divine-nsfw  # Get reading and interpret with NSFW AI")
+		fmt.Println()
+		fmt.Println("  # NSFW mode (Venice.ai) - text generation")
+		fmt.Println("  ./celestecli --nsfw --format short --platform twitter --topic \"NIKKE\" --tone \"explicit\" --request \"write about character interactions\"")
+		fmt.Println()
+		fmt.Println("  # NSFW mode (Venice.ai) - media (unchanged)")
+		fmt.Println("  ./celestecli --nsfw --image --request \"generate NSFW image of Celeste\"")
+		fmt.Println("  ./celestecli --nsfw --upscale --image-path \"image.png\"")
+		fmt.Println("  ./celestecli --nsfw --edit --image-path \"image.png\" --edit-prompt \"remove signature\"")
 		fmt.Println("  ./celestecli --nsfw --list-models")
-		fmt.Println("  ./celestecli --nsfw --model \"wai-Illustrious\" --context \"Generate anime-style image\"")
-		fmt.Println("  ./celestecli --nsfw --image --output \"my_image.png\" --context \"Custom filename\"")
+		fmt.Println("  ./celestecli --nsfw --model \"wai-Illustrious\" --image --request \"Generate anime-style image\"")
 		fmt.Println("  ./celestecli --nsfw --upscale --image-path \"input.png\" --enhance-creativity 0.05 --replication 0.9")
-		fmt.Println("  ./celestecli --nsfw --upscale --image-path \"input.png\" --enhance-prompt \"preserve all original details exactly\"")
-		fmt.Println("  ./celestecli --nsfw --edit --image-path \"image.png\" --edit-prompt \"remove the signature\"")
-		fmt.Println("  ./celestecli --nsfw --edit --image-path \"image.png\" --edit-prompt \"change the background to a sunset\"")
 		fmt.Println("  ./celestecli --nsfw --edit --image-path \"image.png\" --edit-prompt \"remove watermark\" --preserve-size")
 		fmt.Println("  ./celestecli --nsfw --edit --image-path \"small_image.png\" --edit-prompt \"remove signature\" --upscale-first")
 	}
 
 	flag.Parse()
+
+	// Handle divine modes (tarot + AI interpretation)
+	if divineMode || divineNSFW {
+		// Get tarot reading first
+		tarotConfig, err := loadTarotConfig()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading tarot configuration: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Fprintf(os.Stderr, "🔮 Fetching tarot reading...\n")
+
+		// Start corruption animation if enabled
+		var animationDone chan bool
+		var cancelAnimation context.CancelFunc
+		if !noAnimation && shouldShowAnimation() {
+			animationCtx, cancel := context.WithCancel(context.Background())
+			cancelAnimation = cancel
+			animationDone = make(chan bool)
+			startCorruptionAnimation(animationCtx, animationDone, os.Stderr)
+		}
+
+		// Make request in a goroutine so we can cancel animation on timeout
+		var tarotData map[string]interface{}
+		var requestErr error
+		done := make(chan bool)
+
+		go func() {
+			tarotData, requestErr = makeTarotRequest(tarotConfig, spreadType)
+			done <- true
+		}()
+
+		// Wait for request with timeout
+		select {
+		case <-done:
+			// Request completed
+		case <-time.After(11 * time.Second):
+			// Timeout - cancel animation and return error
+			if cancelAnimation != nil {
+				cancelAnimation()
+				<-animationDone
+				fmt.Fprintf(os.Stderr, "\r\033[K") // Clear animation line
+			}
+			fmt.Fprintf(os.Stderr, "\n❌ Request timed out after 10 seconds\n")
+			os.Exit(1)
+		}
+
+		// Stop animation
+		if cancelAnimation != nil {
+			cancelAnimation()
+			<-animationDone
+			fmt.Fprintf(os.Stderr, "\r\033[K") // Clear animation line
+		}
+
+		if requestErr != nil {
+			fmt.Fprintf(os.Stderr, "Tarot request failed: %v\n", requestErr)
+			os.Exit(1)
+		}
+
+		// Format tarot reading as string for AI prompt
+		tarotReadingText := formatTarotReadingAsString(tarotData)
+
+		// Build prompt for AI interpretation
+		interpretationPrompt := fmt.Sprintf("Interpret this tarot reading for me:\n\n%s\n\nProvide a detailed interpretation of this reading, explaining what the cards reveal about the situation, their positions, and their meanings in context.", tarotReadingText)
+
+		// Add NSFW instruction if using divine-nsfw
+		if divineNSFW {
+			interpretationPrompt += "\n\nProvide an explicit, uncensored, and detailed interpretation. Be direct and unfiltered in your analysis."
+		}
+
+		// Route to appropriate AI endpoint
+		if divineNSFW {
+			// Use Venice.ai for NSFW interpretation
+			veniceConfig, err := loadVeniceConfig()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Venice.ai configuration error: %v\n", err)
+				os.Exit(1)
+			}
+
+			fmt.Fprintf(os.Stderr, "✨ Interpreting tarot reading with NSFW AI...\n")
+			_, err = makeVeniceRequest(interpretationPrompt, veniceConfig, enableStream, noAnimation)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Venice.ai interpretation failed: %v\n", err)
+				os.Exit(1)
+			}
+			// Response is already printed by makeVeniceRequest
+		} else {
+			// Use Digital Ocean for standard interpretation
+			config := readCelesteConfig()
+			endpoint := os.Getenv("CELESTE_API_ENDPOINT")
+			apiKey := os.Getenv("CELESTE_API_KEY")
+
+			if endpoint == "" {
+				endpoint = config["endpoint"]
+			}
+			if apiKey == "" {
+				apiKey = config["api_key"]
+			}
+
+			if endpoint == "" || apiKey == "" {
+				fmt.Println("Missing CELESTE_API_ENDPOINT or CELESTE_API_KEY (env or ~/.celesteAI config file).")
+				os.Exit(1)
+			}
+
+			fmt.Fprintf(os.Stderr, "✨ Interpreting tarot reading with AI...\n")
+
+			// Build the request payload
+			extraBody := make(map[string]interface{})
+			messages := []Message{{Role: "user", Content: interpretationPrompt}}
+			chatReq := ChatRequest{
+				Model:     "celeste-ai",
+				Messages:  messages,
+				ExtraBody: extraBody,
+			}
+
+			body, err := json.Marshal(chatReq)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to encode request: %v\n", err)
+				os.Exit(1)
+			}
+
+			// Declare variables for response handling
+			var responseBody []byte
+			var start time.Time
+			var wasStreamed bool
+
+			// Start corruption animation by default (during wait period)
+			var aiAnimationDone chan bool
+			var aiAnimationCtx context.Context
+			var aiCancelAnimation context.CancelFunc
+			if !noAnimation && shouldShowAnimation() {
+				aiAnimationCtx, aiCancelAnimation = context.WithCancel(context.Background())
+				aiAnimationDone = make(chan bool)
+				startCorruptionAnimation(aiAnimationCtx, aiAnimationDone, os.Stderr)
+				defer aiCancelAnimation()
+			}
+
+			// Try streaming if enabled
+			if enableStream {
+				// Add stream parameter to request
+				var streamReq map[string]interface{}
+				if err := json.Unmarshal(body, &streamReq); err == nil {
+					streamReq["stream"] = true
+					body, _ = json.Marshal(streamReq)
+				}
+
+				req, err := http.NewRequest("POST", endpoint+"chat/completions", bytes.NewBuffer(body))
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Failed to create request: %v\n", err)
+					os.Exit(1)
+				}
+				req.Header.Set("Authorization", "Bearer "+apiKey)
+				req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("Accept", "text/event-stream")
+
+				start = time.Now()
+				client := &http.Client{}
+				resp, err := client.Do(req)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Request failed: %v\n", err)
+					os.Exit(1)
+				}
+				defer resp.Body.Close()
+
+				// Check if streaming is supported
+				if resp.Header.Get("Content-Type") == "text/event-stream" || strings.Contains(resp.Header.Get("Content-Type"), "event-stream") {
+					// Handle SSE streaming
+					scanner := bufio.NewScanner(resp.Body)
+					var fullResponse strings.Builder
+					firstToken := true
+
+					for scanner.Scan() {
+						line := scanner.Text()
+						if strings.HasPrefix(line, "data: ") {
+							data := strings.TrimPrefix(line, "data: ")
+							if data == "[DONE]" {
+								break
+							}
+
+							var chunk map[string]interface{}
+							if err := json.Unmarshal([]byte(data), &chunk); err == nil {
+								if choices, ok := chunk["choices"].([]interface{}); ok && len(choices) > 0 {
+									if choice, ok := choices[0].(map[string]interface{}); ok {
+										if delta, ok := choice["delta"].(map[string]interface{}); ok {
+											if content, ok := delta["content"].(string); ok && content != "" {
+												// Stop animation when first token arrives
+												if firstToken && aiAnimationDone != nil {
+													aiCancelAnimation()
+													<-aiAnimationDone
+													fmt.Fprintf(os.Stderr, "\r\033[K")
+													firstToken = false
+												}
+												// Print token normally without corruption
+												fmt.Print(content)
+												fullResponse.WriteString(content)
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+
+					if err := scanner.Err(); err != nil {
+						// Stop animation on error
+						if aiAnimationDone != nil {
+							aiCancelAnimation()
+							<-aiAnimationDone
+							fmt.Fprintf(os.Stderr, "\r\033[K")
+						}
+						fmt.Fprintf(os.Stderr, "\nStreaming error: %v\n", err)
+						os.Exit(1)
+					}
+
+					fmt.Println() // New line after streaming
+					elapsed := time.Since(start)
+					fmt.Fprintf(os.Stderr, "✅ Interpretation completed in %s\n", elapsed)
+
+					// Parse the full response for conversation entry
+					result := map[string]interface{}{
+						"choices": []interface{}{
+							map[string]interface{}{
+								"message": map[string]interface{}{
+									"content": fullResponse.String(),
+								},
+							},
+						},
+					}
+					responseBody, _ = json.Marshal(result)
+					wasStreamed = true
+				} else {
+					// Streaming not supported, fall back to regular request
+					if aiAnimationDone != nil {
+						aiCancelAnimation()
+						<-aiAnimationDone
+						fmt.Fprintf(os.Stderr, "\r\033[K")
+					}
+					responseBody, err = io.ReadAll(resp.Body)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "Failed to read response: %v\n", err)
+						os.Exit(1)
+					}
+					elapsed := time.Since(start)
+					fmt.Fprintf(os.Stderr, "✅ Response received in %s\n", elapsed)
+				}
+			} else {
+				// Non-streaming request
+				fmt.Fprintln(os.Stderr, "⏳ Sending request to CelesteAI...")
+				start = time.Now()
+				req, err := http.NewRequest("POST", endpoint+"chat/completions", bytes.NewBuffer(body))
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Failed to create request: %v\n", err)
+					os.Exit(1)
+				}
+				req.Header.Set("Authorization", "Bearer "+apiKey)
+				req.Header.Set("Content-Type", "application/json")
+
+				client := &http.Client{}
+				resp, err := client.Do(req)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Request failed: %v\n", err)
+					os.Exit(1)
+				}
+				defer resp.Body.Close()
+
+				responseBody, err = io.ReadAll(resp.Body)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Failed to read response: %v\n", err)
+					os.Exit(1)
+				}
+
+				elapsed := time.Since(start)
+				fmt.Fprintf(os.Stderr, "✅ Response received in %s\n", elapsed)
+			}
+
+			// Stop animation if it was running
+			if aiAnimationDone != nil {
+				<-aiAnimationDone
+				fmt.Fprintf(os.Stderr, "\r\033[K") // Clear animation line
+			}
+
+			if debug {
+				fmt.Println(string(responseBody))
+			} else {
+				var result map[string]interface{}
+				if err := json.Unmarshal(responseBody, &result); err != nil {
+					fmt.Fprintf(os.Stderr, "Failed to parse response: %v\n", err)
+					os.Exit(1)
+				}
+
+				if choices, ok := result["choices"].([]interface{}); ok && len(choices) > 0 {
+					if choice, ok := choices[0].(map[string]interface{}); ok {
+						if message, ok := choice["message"].(map[string]interface{}); ok {
+							if content, ok := message["content"].(string); ok {
+								// Only print if we didn't already stream it
+								if !wasStreamed {
+									fmt.Println(content)
+								}
+							} else {
+								fmt.Fprintf(os.Stderr, "No content in response\n")
+								os.Exit(1)
+							}
+						} else {
+							fmt.Fprintf(os.Stderr, "No message in response\n")
+							os.Exit(1)
+						}
+					} else {
+						fmt.Fprintf(os.Stderr, "No choice in response\n")
+						os.Exit(1)
+					}
+				} else {
+					fmt.Fprintf(os.Stderr, "No choices in response\n")
+					os.Exit(1)
+				}
+			}
+		}
+		return
+	}
+
+	// Handle tarot mode (separate from AI)
+	if tarotMode {
+		tarotConfig, err := loadTarotConfig()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading tarot configuration: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Fprintf(os.Stderr, "🔮 Fetching tarot reading...\n")
+		startTime := time.Now()
+
+		// Start corruption animation if enabled
+		var animationDone chan bool
+		var cancelAnimation context.CancelFunc
+		if !noAnimation && shouldShowAnimation() {
+			animationCtx, cancel := context.WithCancel(context.Background())
+			cancelAnimation = cancel
+			animationDone = make(chan bool)
+			startCorruptionAnimation(animationCtx, animationDone, os.Stderr)
+		}
+
+		// Make request in a goroutine so we can cancel animation on timeout
+		var tarotData map[string]interface{}
+		var requestErr error
+		done := make(chan bool)
+
+		go func() {
+			tarotData, requestErr = makeTarotRequest(tarotConfig, spreadType)
+			done <- true
+		}()
+
+		// Wait for request with timeout
+		select {
+		case <-done:
+			// Request completed
+		case <-time.After(11 * time.Second):
+			// Timeout - cancel animation and return error
+			if cancelAnimation != nil {
+				cancelAnimation()
+				<-animationDone
+				fmt.Fprintf(os.Stderr, "\r\033[K") // Clear animation line
+			}
+			fmt.Fprintf(os.Stderr, "\n❌ Request timed out after 10 seconds\n")
+			os.Exit(1)
+		}
+
+		// Stop animation
+		if cancelAnimation != nil {
+			cancelAnimation()
+			<-animationDone
+			fmt.Fprintf(os.Stderr, "\r\033[K") // Clear animation line
+		}
+
+		if requestErr != nil {
+			fmt.Fprintf(os.Stderr, "Tarot request failed: %v\n", requestErr)
+			os.Exit(1)
+		}
+
+		duration := time.Since(startTime)
+
+		if parsedOutput {
+			// Print parsed output for AI consumption
+			outputParsedTarotReading(tarotData)
+		} else if debug {
+			// Print raw JSON
+			jsonData, _ := json.MarshalIndent(tarotData, "", "  ")
+			fmt.Println(string(jsonData))
+		} else {
+			// Print visual formatted output
+			formatTarotReading(tarotData)
+		}
+
+		if !parsedOutput {
+			fmt.Fprintf(os.Stderr, "\n✨ Tarot reading completed in %v\n", duration)
+		}
+		return
+	}
 
 	// Check for override permissions
 	hasOverride := checkOverridePermissions()
@@ -1195,15 +2387,40 @@ func main() {
 		scaffoldingConfig = getDefaultScaffoldingConfig()
 	}
 
-	// Build prompt using scaffolding system
-	prompt := getScaffoldPrompt(promptType, game, tone, scaffoldingConfig)
-	prompt = personality + prompt
+	// Build scaffold text with overrides
+	defaultScaffold := personality + getScaffoldPrompt(format, platform, topic, request, tone, contextExtra, scaffoldingConfig)
+	scaffoldText := defaultScaffold
+	if noScaffold {
+		scaffoldText = ""
+	}
+	if scaffoldOverride != "" {
+		scaffoldText = scaffoldOverride
+	}
+	scaffoldText = strings.TrimSpace(scaffoldText)
 
+	var userPromptBuilder strings.Builder
 	if contextExtra != "" {
-		prompt += fmt.Sprintf("\n\nContext: %s", contextExtra)
+		userPromptBuilder.WriteString(fmt.Sprintf("Context: %s", contextExtra))
 	}
 	if media != "" {
-		prompt += fmt.Sprintf(" React to this media: %s", media)
+		if userPromptBuilder.Len() > 0 {
+			userPromptBuilder.WriteString(" ")
+		}
+		userPromptBuilder.WriteString(fmt.Sprintf("React to this media: %s", media))
+	}
+	userPrompt := strings.TrimSpace(userPromptBuilder.String())
+
+	promptParts := make([]string, 0, 2)
+	if scaffoldText != "" {
+		promptParts = append(promptParts, scaffoldText)
+	}
+	if userPrompt != "" {
+		promptParts = append(promptParts, userPrompt)
+	}
+
+	prompt := strings.TrimSpace(strings.Join(promptParts, "\n\n"))
+	if prompt == "" {
+		fmt.Fprintln(os.Stderr, "Warning: prompt is empty after applying scaffolding options; provide --context or scaffolding text")
 	}
 
 	// Handle NSFW mode with Venice.ai
@@ -1245,9 +2462,25 @@ func main() {
 			}
 
 			fmt.Fprintln(os.Stderr, "🔍 NSFW Upscale Mode: Using Venice.ai upscaler")
+
+			// Start corruption animation if enabled
+			var animationDone chan bool
+			if !noAnimation && shouldShowAnimation() {
+				animationCtx, cancel := context.WithCancel(context.Background())
+				animationDone = make(chan bool)
+				startCorruptionAnimation(animationCtx, animationDone, os.Stderr)
+				defer cancel()
+			}
+
 			startTime := time.Now()
 			imageData, err := makeVeniceUpscaleRequest(imagePath, veniceConfig, enhanceCreativity, replication, enhancePrompt)
 			duration := time.Since(startTime)
+
+			// Stop animation
+			if animationDone != nil {
+				<-animationDone
+				fmt.Fprintf(os.Stderr, "\r\033[K") // Clear animation line
+			}
 
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Venice.ai upscaling failed: %v\n", err)
@@ -1273,9 +2506,25 @@ func main() {
 			fmt.Fprintln(os.Stderr, "🎨 NSFW Image Mode: Using lustify-sdxl for image generation")
 			// Switch to image generation model
 			veniceConfig.Model = "lustify-sdxl"
+
+			// Start corruption animation if enabled
+			var animationDone chan bool
+			if !noAnimation && shouldShowAnimation() {
+				animationCtx, cancel := context.WithCancel(context.Background())
+				animationDone = make(chan bool)
+				startCorruptionAnimation(animationCtx, animationDone, os.Stderr)
+				defer cancel()
+			}
+
 			startTime := time.Now()
 			response, err := makeVeniceImageRequest(prompt, veniceConfig)
 			duration := time.Since(startTime)
+
+			// Stop animation
+			if animationDone != nil {
+				<-animationDone
+				fmt.Fprintf(os.Stderr, "\r\033[K") // Clear animation line
+			}
 
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Venice.ai image generation failed: %v\n", err)
@@ -1311,6 +2560,15 @@ func main() {
 			if editPrompt == "" {
 				fmt.Fprintf(os.Stderr, "Error: --edit-prompt is required for editing\n")
 				os.Exit(1)
+			}
+
+			// Start corruption animation if enabled
+			var animationDone chan bool
+			if !noAnimation && shouldShowAnimation() {
+				animationCtx, cancel := context.WithCancel(context.Background())
+				animationDone = make(chan bool)
+				startCorruptionAnimation(animationCtx, animationDone, os.Stderr)
+				defer cancel()
 			}
 
 			// Declare variables for the edit workflow
@@ -1423,6 +2681,12 @@ func main() {
 				}
 			}
 
+			// Stop animation
+			if animationDone != nil {
+				<-animationDone
+				fmt.Fprintf(os.Stderr, "\r\033[K") // Clear animation line
+			}
+
 			// Generate filename
 			filename := outputFile
 			if filename == "" {
@@ -1441,7 +2705,7 @@ func main() {
 		} else {
 			fmt.Fprintln(os.Stderr, "🔥 NSFW Mode: Using Venice.ai (uncensored text)")
 			startTime := time.Now()
-			response, err := makeVeniceRequest(prompt, veniceConfig)
+			response, err := makeVeniceRequest(prompt, veniceConfig, enableStream, noAnimation)
 			duration := time.Since(startTime)
 
 			if err != nil {
@@ -1449,7 +2713,12 @@ func main() {
 				os.Exit(1)
 			}
 
-			fmt.Printf("Response (took %v):\n%s\n", duration, response)
+			// Only print duration if not streaming (streaming already printed the response)
+			if !enableStream || noAnimation || !shouldShowAnimation() {
+				fmt.Printf("Response (took %v):\n%s\n", duration, response)
+			} else {
+				fmt.Fprintf(os.Stderr, "\n✅ Response completed in %v\n", duration)
+			}
 		}
 		return
 	}
@@ -1471,14 +2740,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Add tarot function call and spread type if needed
-	extraBody := make(map[string]interface{})
-	if promptType == "tarot" {
-		extraBody["function_call"] = map[string]string{"name": "tarot-reading"}
-		extraBody["function_args"] = map[string]string{"spread_type": spreadType}
-	}
-
 	// Build the request payload
+	extraBody := make(map[string]interface{})
 	messages := []Message{{Role: "user", Content: prompt}}
 	chatReq := ChatRequest{
 		Model:     "celeste-ai",
@@ -1492,33 +2755,166 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Send the request
-	fmt.Fprintln(os.Stderr, "⏳ Sending request to CelesteAI...")
-	start := time.Now()
-	req, err := http.NewRequest("POST", endpoint+"chat/completions", bytes.NewBuffer(body))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to create request: %v\n", err)
-		os.Exit(1)
-	}
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", "application/json")
+	// Declare variables for response handling
+	var responseBody []byte
+	var start time.Time
+	var wasStreamed bool // Track if we used streaming to avoid duplicate output
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Request failed: %v\n", err)
-		os.Exit(1)
-	}
-	defer resp.Body.Close()
-
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to read response: %v\n", err)
-		os.Exit(1)
+	// Start corruption animation by default (during wait period)
+	var animationDone chan bool
+	var animationCtx context.Context
+	var cancelAnimation context.CancelFunc
+	if !noAnimation && shouldShowAnimation() {
+		animationCtx, cancelAnimation = context.WithCancel(context.Background())
+		animationDone = make(chan bool)
+		startCorruptionAnimation(animationCtx, animationDone, os.Stderr)
+		defer cancelAnimation()
 	}
 
-	elapsed := time.Since(start)
-	fmt.Fprintf(os.Stderr, "✅ Response received in %s\n", elapsed)
+	// Try streaming if enabled
+	if enableStream {
+		// Add stream parameter to request
+		var streamReq map[string]interface{}
+		if err := json.Unmarshal(body, &streamReq); err == nil {
+			streamReq["stream"] = true
+			body, _ = json.Marshal(streamReq)
+		}
+
+		req, err := http.NewRequest("POST", endpoint+"chat/completions", bytes.NewBuffer(body))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to create request: %v\n", err)
+			os.Exit(1)
+		}
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "text/event-stream")
+
+		start = time.Now()
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Request failed: %v\n", err)
+			os.Exit(1)
+		}
+		defer resp.Body.Close()
+
+		// Check if streaming is supported (Content-Type should be text/event-stream)
+		if resp.Header.Get("Content-Type") == "text/event-stream" || strings.Contains(resp.Header.Get("Content-Type"), "event-stream") {
+			// Handle SSE streaming
+			scanner := bufio.NewScanner(resp.Body)
+			var fullResponse strings.Builder
+			firstToken := true
+
+			for scanner.Scan() {
+				line := scanner.Text()
+				if strings.HasPrefix(line, "data: ") {
+					data := strings.TrimPrefix(line, "data: ")
+					if data == "[DONE]" {
+						break
+					}
+
+					var chunk map[string]interface{}
+					if err := json.Unmarshal([]byte(data), &chunk); err == nil {
+						if choices, ok := chunk["choices"].([]interface{}); ok && len(choices) > 0 {
+							if choice, ok := choices[0].(map[string]interface{}); ok {
+								if delta, ok := choice["delta"].(map[string]interface{}); ok {
+									if content, ok := delta["content"].(string); ok && content != "" {
+										// Stop animation when first token arrives
+										if firstToken && animationDone != nil {
+											cancelAnimation()
+											<-animationDone
+											fmt.Fprintf(os.Stderr, "\r\033[K")
+											firstToken = false
+										}
+										// Print token normally without corruption
+										fmt.Print(content)
+										fullResponse.WriteString(content)
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			if err := scanner.Err(); err != nil {
+				// Stop animation on error
+				if animationDone != nil {
+					cancelAnimation()
+					<-animationDone
+					fmt.Fprintf(os.Stderr, "\r\033[K")
+				}
+				fmt.Fprintf(os.Stderr, "\nStreaming error: %v\n", err)
+				os.Exit(1)
+			}
+
+			fmt.Println() // New line after streaming
+			elapsed := time.Since(start)
+			fmt.Fprintf(os.Stderr, "✅ Response completed in %s\n", elapsed)
+
+			// Parse the full response for conversation entry - properly JSON encode
+			result := map[string]interface{}{
+				"choices": []interface{}{
+					map[string]interface{}{
+						"message": map[string]interface{}{
+							"content": fullResponse.String(),
+						},
+					},
+				},
+			}
+			responseBody, _ = json.Marshal(result)
+			wasStreamed = true // Mark that we already printed the response
+		} else {
+			// Streaming not supported, fall back to regular request
+			// Stop animation before reading response
+			if animationDone != nil {
+				cancelAnimation()
+				<-animationDone
+				fmt.Fprintf(os.Stderr, "\r\033[K")
+			}
+			responseBody, err = io.ReadAll(resp.Body)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to read response: %v\n", err)
+				os.Exit(1)
+			}
+			elapsed := time.Since(start)
+			fmt.Fprintf(os.Stderr, "✅ Response received in %s\n", elapsed)
+		}
+	} else {
+		// Non-streaming request - animation will stop when response arrives
+		fmt.Fprintln(os.Stderr, "⏳ Sending request to CelesteAI...")
+		start = time.Now()
+		req, err := http.NewRequest("POST", endpoint+"chat/completions", bytes.NewBuffer(body))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to create request: %v\n", err)
+			os.Exit(1)
+		}
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+		req.Header.Set("Content-Type", "application/json")
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Request failed: %v\n", err)
+			os.Exit(1)
+		}
+		defer resp.Body.Close()
+
+		responseBody, err = io.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to read response: %v\n", err)
+			os.Exit(1)
+		}
+
+		elapsed := time.Since(start)
+		fmt.Fprintf(os.Stderr, "✅ Response received in %s\n", elapsed)
+	}
+
+	// Stop animation if it was running
+	if animationDone != nil {
+		<-animationDone
+		fmt.Fprintf(os.Stderr, "\r\033[K") // Clear animation line
+	}
 
 	if debug {
 		fmt.Println(string(responseBody))
@@ -1533,11 +2929,14 @@ func main() {
 			if choice, ok := choices[0].(map[string]interface{}); ok {
 				if message, ok := choice["message"].(map[string]interface{}); ok {
 					if content, ok := message["content"].(string); ok {
-						fmt.Println(content)
+						// Only print if we didn't already stream it
+						if !wasStreamed {
+							fmt.Println(content)
+						}
 
 						// Upload conversation to S3 if sync flag is set
 						if sync {
-							entry := createConversationEntry(promptType, game, tone, persona, prompt, content, result)
+							entry := createConversationEntry(format, platform, topic, tone, persona, prompt, content, result)
 							if err := uploadConversationToS3(entry); err != nil {
 								fmt.Fprintf(os.Stderr, "Warning: Failed to upload conversation to S3: %v\n", err)
 							}
