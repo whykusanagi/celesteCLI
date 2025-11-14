@@ -60,6 +60,24 @@ var prefixes = []string{
 
 var corruptionSymbols = []rune{'♟', '☣', '☭', '☾', '⚔', '✡', '☯', '⚡', '▮', '▯', '◉', '◈'}
 
+// Demonic eye animation frames
+var eyeFrames = []string{
+	"👁️  ", // Normal eye
+	"👀 ", // Wide eyes looking
+	"◉◉", // Dark eyes
+	"●●", // Fully dilated
+	"👁️  ", // Back to normal
+}
+
+// Eye looking directions
+var eyeDirections = []string{
+	"👁️  ", // Center
+	"▀▁", // Up-down blink
+	"◉  ", // Left
+	"  ◉", // Right
+	"●●", // Both
+}
+
 var corruptionMap = map[rune]rune{
 	'a': '4', 'A': '4',
 	'e': '3', 'E': '3',
@@ -176,6 +194,86 @@ func startCorruptionAnimation(ctx context.Context, done chan bool, output *os.Fi
 				display := fmt.Sprintf("\r\033[35m%s\033[0m \033[31m%s\033[0m", prefix, phrase)
 				fmt.Fprint(output, display)
 				output.Sync()
+			}
+		}
+	}()
+}
+
+// startDemonicEyeAnimation displays a demonic eye animation indicating processing
+// Similar to Claude's sparkle effect, shows that an agent is thinking/processing
+func startDemonicEyeAnimation(ctx context.Context, done chan bool, output *os.File) {
+	if !shouldShowAnimation() {
+		close(done)
+		return
+	}
+
+	go func() {
+		defer close(done)
+
+		ticker := time.NewTicker(200 * time.Millisecond)
+		defer ticker.Stop()
+
+		frameIdx := 0
+		eyeIdx := 0
+
+		for {
+			select {
+			case <-ctx.Done():
+				// Clear the line and restore cursor
+				fmt.Fprintf(output, "\r\033[K")
+				return
+			case <-ticker.C:
+				_ = eyeFrames[frameIdx%len(eyeFrames)] // Available for future use
+				eye := eyeDirections[eyeIdx%len(eyeDirections)]
+
+				// Color changes based on frame for visual effect
+				color := "\033[95m" // Default magenta
+				if frameIdx%2 == 0 {
+					color = "\033[91m" // Alternate to red
+				}
+
+				// Display: [👁️ ] Celeste is thinking... with corruption
+				phrase := getCorruptedPhrase()
+				display := fmt.Sprintf("\r%s%s [%s] Processing... %s%s\033[0m",
+					color, Bold, eye, phrase, ColorDefault)
+
+				fmt.Fprint(output, display)
+				output.Sync()
+
+				frameIdx++
+				eyeIdx++
+			}
+		}
+	}()
+}
+
+// startProcessingIndicator shows a premium "thinking" indicator
+func startProcessingIndicator(ctx context.Context, done chan bool, output *os.File, message string) {
+	if !shouldShowAnimation() {
+		close(done)
+		return
+	}
+
+	go func() {
+		defer close(done)
+
+		spinner := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+		idx := 0
+
+		ticker := time.NewTicker(80 * time.Millisecond)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				fmt.Fprintf(output, "\r\033[K")
+				return
+			case <-ticker.C:
+				spin := spinner[idx%len(spinner)]
+				display := fmt.Sprintf("\r\033[96m%s %s\033[0m", spin, message)
+				fmt.Fprint(output, display)
+				output.Sync()
+				idx++
 			}
 		}
 	}()

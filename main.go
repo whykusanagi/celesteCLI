@@ -78,19 +78,40 @@ type VeniceModelsResponse struct {
 	Models []VeniceModel `json:"models"`
 }
 
+// TwitterConfig holds Twitter API configuration
+type TwitterConfig struct {
+	BearerToken           string `json:"bearer_token"`
+	APIKey                string `json:"api_key"`
+	APISecret             string `json:"api_secret"`
+	AccessToken           string `json:"access_token"`
+	AccessTokenSecret     string `json:"access_token_secret"`
+}
+
+// Tweet represents a single tweet with metadata
+type Tweet struct {
+	ID           string `json:"id"`
+	Text         string `json:"text"`
+	CreatedAt    string `json:"created_at"`
+	LikeCount    int    `json:"like_count"`
+	RepliesCount int    `json:"replies_count"`
+	RetweetCount int    `json:"retweet_count"`
+	AuthorID     string `json:"author_id"`
+}
+
 // ConversationEntry represents a single conversation for storage
 type ConversationEntry struct {
-	ID          string                 `json:"id"`
-	Timestamp   time.Time              `json:"timestamp"`
-	UserID      string                 `json:"user_id"`
-	ContentType string                 `json:"content_type"`
-	Tone        string                 `json:"tone"`
-	Game        string                 `json:"game"`
-	Persona     string                 `json:"persona"`
-	Prompt      string                 `json:"prompt"`
-	Response    string                 `json:"response"`
-	TokensUsed  map[string]interface{} `json:"tokens_used"`
-	Metadata    map[string]interface{} `json:"metadata"`
+	ID              string                 `json:"id"`
+	Timestamp       time.Time              `json:"timestamp"`
+	UserID          string                 `json:"user_id"`
+	ContentType     string                 `json:"content_type"`
+	Tone            string                 `json:"tone"`
+	Game            string                 `json:"game"`
+	Persona         string                 `json:"persona"`
+	Prompt          string                 `json:"prompt"`
+	Response        string                 `json:"response"`
+	TokensUsed      map[string]interface{} `json:"tokens_used"`
+	Metadata        map[string]interface{} `json:"metadata"`
+	TwitterTweetID  string                 `json:"twitter_tweet_id,omitempty"`
 
 	// Enhanced fields for OpenSearch RAG
 	Intent    string   `json:"intent"`
@@ -1239,6 +1260,72 @@ func loadVeniceConfig() (*VeniceConfig, error) {
 	return config, nil
 }
 
+// loadTwitterConfig loads Twitter API configuration from ~/.celesteAI or environment variables
+func loadTwitterConfig() (*TwitterConfig, error) {
+	config := &TwitterConfig{}
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get home directory: %v", err)
+	}
+
+	// Try to load from ~/.celesteAI config file
+	celesteConfigPath := filepath.Join(homeDir, ".celesteAI")
+	if _, err := os.Stat(celesteConfigPath); err == nil {
+		data, err := os.ReadFile(celesteConfigPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read ~/.celesteAI: %v", err)
+		}
+
+		lines := bytes.Split(data, []byte("\n"))
+		for _, line := range lines {
+			parts := bytes.SplitN(line, []byte("="), 2)
+			if len(parts) != 2 {
+				continue
+			}
+			key := string(bytes.TrimSpace(parts[0]))
+			val := string(bytes.TrimSpace(parts[1]))
+
+			switch key {
+			case "twitter_bearer_token":
+				config.BearerToken = val
+			case "twitter_api_key":
+				config.APIKey = val
+			case "twitter_api_secret":
+				config.APISecret = val
+			case "twitter_access_token":
+				config.AccessToken = val
+			case "twitter_access_token_secret":
+				config.AccessTokenSecret = val
+			}
+		}
+	}
+
+	// Fallback to environment variables
+	if config.BearerToken == "" {
+		config.BearerToken = os.Getenv("TWITTER_BEARER_TOKEN")
+	}
+	if config.APIKey == "" {
+		config.APIKey = os.Getenv("TWITTER_API_KEY")
+	}
+	if config.APISecret == "" {
+		config.APISecret = os.Getenv("TWITTER_API_SECRET")
+	}
+	if config.AccessToken == "" {
+		config.AccessToken = os.Getenv("TWITTER_ACCESS_TOKEN")
+	}
+	if config.AccessTokenSecret == "" {
+		config.AccessTokenSecret = os.Getenv("TWITTER_ACCESS_TOKEN_SECRET")
+	}
+
+	// Bearer token is required for API v2
+	if config.BearerToken == "" {
+		return nil, fmt.Errorf("missing Twitter Bearer token. Set TWITTER_BEARER_TOKEN environment variable or twitter_bearer_token in ~/.celesteAI")
+	}
+
+	return config, nil
+}
+
 // listVeniceModels lists available Venice.ai models
 func listVeniceModels(config *VeniceConfig) ([]VeniceModel, error) {
 	url := config.BaseURL + "/models"
@@ -1818,6 +1905,255 @@ func runCommand(command string) (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
+// postTweetToTwitter posts a tweet to Twitter using API v2
+func postTweetToTwitter(content string, config *TwitterConfig) (string, error) {
+	// Twitter API v2 endpoint for posting tweets
+	url := "https://api.twitter.com/2/tweets"
+
+	// Check tweet length (280 character limit)
+	if len(content) > 280 {
+		return "", fmt.Errorf("tweet exceeds 280 character limit (got %d characters)", len(content))
+	}
+
+	// Create request body
+	payload := map[string]interface{}{
+		"text": content,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal request: %v", err)
+	}
+
+	// Create HTTP request
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %v", err)
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+config.BearerToken)
+
+	// Make request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to post tweet: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %v", err)
+	}
+
+	// Check for errors
+	if resp.StatusCode != 200 && resp.StatusCode != 201 {
+		return "", fmt.Errorf("Twitter API error (%d): %s", resp.StatusCode, string(body))
+	}
+
+	// Parse response to get tweet ID
+	var response map[string]interface{}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return "", fmt.Errorf("failed to parse response: %v", err)
+	}
+
+	// Extract tweet ID from response
+	data, ok := response["data"].(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("unexpected response format: no data field")
+	}
+
+	tweetID, ok := data["id"].(string)
+	if !ok {
+		return "", fmt.Errorf("unexpected response format: no tweet id")
+	}
+
+	return tweetID, nil
+}
+
+// downloadUserTweets downloads tweets from a specific user
+func downloadUserTweets(username string, maxResults int, sinceID, untilID string, config *TwitterConfig) ([]Tweet, error) {
+	// First, get the user ID from the username
+	userID, err := getTwitterUserID(username, config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user ID: %v", err)
+	}
+
+	// Build query parameters
+	params := url.Values{}
+	params.Add("max_results", fmt.Sprintf("%d", min(maxResults, 100))) // API max is 100
+	params.Add("tweet.fields", "created_at,public_metrics")
+
+	if sinceID != "" {
+		params.Add("since_id", sinceID)
+	}
+	if untilID != "" {
+		params.Add("until_id", untilID)
+	}
+
+	var tweets []Tweet
+	paginationToken := ""
+
+	// Pagination loop to get all tweets
+	for {
+		if paginationToken != "" {
+			params.Set("pagination_token", paginationToken)
+		}
+
+		// Build URL
+		tweetsURL := fmt.Sprintf("https://api.twitter.com/2/users/%s/tweets?%s", userID, params.Encode())
+
+		// Create request
+		req, err := http.NewRequest("GET", tweetsURL, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %v", err)
+		}
+
+		// Set headers
+		req.Header.Set("Authorization", "Bearer "+config.BearerToken)
+
+		// Make request
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get tweets: %v", err)
+		}
+		defer resp.Body.Close()
+
+		// Read response
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read response: %v", err)
+		}
+
+		// Check for errors
+		if resp.StatusCode != 200 {
+			return nil, fmt.Errorf("Twitter API error (%d): %s", resp.StatusCode, string(body))
+		}
+
+		// Parse response
+		var response map[string]interface{}
+		if err := json.Unmarshal(body, &response); err != nil {
+			return nil, fmt.Errorf("failed to parse response: %v", err)
+		}
+
+		// Extract tweets
+		data, ok := response["data"].([]interface{})
+		if ok {
+			for _, item := range data {
+				tweetData, ok := item.(map[string]interface{})
+				if !ok {
+					continue
+				}
+
+				tweet := Tweet{
+					ID:   tweetData["id"].(string),
+					Text: tweetData["text"].(string),
+				}
+
+				if createdAt, ok := tweetData["created_at"].(string); ok {
+					tweet.CreatedAt = createdAt
+				}
+
+				// Parse public metrics if available
+				if metrics, ok := tweetData["public_metrics"].(map[string]interface{}); ok {
+					if likeCount, ok := metrics["like_count"].(float64); ok {
+						tweet.LikeCount = int(likeCount)
+					}
+					if replyCount, ok := metrics["reply_count"].(float64); ok {
+						tweet.RepliesCount = int(replyCount)
+					}
+					if retweetCount, ok := metrics["retweet_count"].(float64); ok {
+						tweet.RetweetCount = int(retweetCount)
+					}
+				}
+
+				tweets = append(tweets, tweet)
+			}
+		}
+
+		// Check if there are more results
+		includes, ok := response["meta"].(map[string]interface{})
+		if !ok {
+			break
+		}
+
+		nextToken, ok := includes["next_token"].(string)
+		if !ok || nextToken == "" {
+			break
+		}
+
+		paginationToken = nextToken
+
+		// Stop if we've reached our limit
+		if len(tweets) >= maxResults {
+			tweets = tweets[:maxResults]
+			break
+		}
+	}
+
+	return tweets, nil
+}
+
+// getTwitterUserID gets the user ID for a given username
+func getTwitterUserID(username string, config *TwitterConfig) (string, error) {
+	// Remove @ symbol if present
+	username = strings.TrimPrefix(username, "@")
+
+	// Twitter API v2 endpoint for getting user by username
+	url := fmt.Sprintf("https://api.twitter.com/2/users/by/username/%s", username)
+
+	// Create request
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %v", err)
+	}
+
+	// Set headers
+	req.Header.Set("Authorization", "Bearer "+config.BearerToken)
+
+	// Make request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to get user: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %v", err)
+	}
+
+	// Check for errors
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("Twitter API error (%d): %s", resp.StatusCode, string(body))
+	}
+
+	// Parse response
+	var response map[string]interface{}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return "", fmt.Errorf("failed to parse response: %v", err)
+	}
+
+	// Extract user ID
+	data, ok := response["data"].(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("unexpected response format: no data field")
+	}
+
+	userID, ok := data["id"].(string)
+	if !ok {
+		return "", fmt.Errorf("unexpected response format: no user id")
+	}
+
+	return userID, nil
+}
+
 func main() {
 	// Command-line flags
 	var format, platform, topic, tone, media, request string
@@ -1881,6 +2217,22 @@ func main() {
 	var enableStream bool
 	flag.BoolVar(&enableStream, "stream", true, "Enable streaming responses (default: true)")
 
+	// Twitter API flags
+	var twitterPost bool
+	flag.BoolVar(&twitterPost, "twitter-post", false, "Post generated content to Twitter")
+	var twitterUser string
+	flag.StringVar(&twitterUser, "twitter-user", "", "Download tweets from specified user (username or @username)")
+	var twitterCount int
+	flag.IntVar(&twitterCount, "twitter-count", 100, "Maximum number of tweets to download (default: 100)")
+	var twitterIncludeReplies bool
+	flag.BoolVar(&twitterIncludeReplies, "twitter-include-replies", false, "Include replies in tweet download")
+	var twitterSince string
+	flag.StringVar(&twitterSince, "twitter-since", "", "ISO 8601 date filter for tweets (e.g., 2024-01-01T00:00:00Z)")
+	var twitterUntil string
+	flag.StringVar(&twitterUntil, "twitter-until", "", "ISO 8601 date filter for tweets (e.g., 2024-12-31T23:59:59Z)")
+	var twitterLearn bool
+	flag.BoolVar(&twitterLearn, "twitter-learn", false, "Store downloaded tweets in S3 for RAG/learning")
+
 	flag.Usage = func() {
 		fmt.Println("Usage of CelesteCLI:")
 		fmt.Println("  --format     Content format: short (280 chars), long (5000 chars), or general (flexible)")
@@ -1919,6 +2271,13 @@ func main() {
 		fmt.Println("  --no-animation Disable corruption animation and visual feedback")
 		fmt.Println("  --stream    Enable streaming responses (default: true)")
 		fmt.Println("  --debug     Show raw JSON output from API")
+		fmt.Println("  --twitter-post Post generated content to Twitter")
+		fmt.Println("  --twitter-user Download tweets from specified user (username or @username)")
+		fmt.Println("  --twitter-count Maximum number of tweets to download (default: 100)")
+		fmt.Println("  --twitter-include-replies Include replies in tweet download")
+		fmt.Println("  --twitter-since ISO 8601 date filter for tweets (e.g., 2024-01-01T00:00:00Z)")
+		fmt.Println("  --twitter-until ISO 8601 date filter for tweets (e.g., 2024-12-31T23:59:59Z)")
+		fmt.Println("  --twitter-learn Store downloaded tweets in S3 for RAG/learning")
 		fmt.Println()
 		fmt.Println("Configuration:")
 		fmt.Println("  ~/.celesteAI                - Celeste configuration file")
@@ -1927,6 +2286,11 @@ func main() {
 		fmt.Println("    tarot_function_url          - Tarot function URL (optional)")
 		fmt.Println("    tarot_auth_token            - Tarot Basic Auth token")
 		fmt.Println("    venice_api_key              - Venice.ai API key (for NSFW mode)")
+		fmt.Println("    twitter_bearer_token        - Twitter API Bearer token (required for Twitter integration)")
+		fmt.Println("    twitter_api_key             - Twitter API key (optional)")
+		fmt.Println("    twitter_api_secret          - Twitter API secret (optional)")
+		fmt.Println("    twitter_access_token        - Twitter access token (optional)")
+		fmt.Println("    twitter_access_token_secret - Twitter access token secret (optional)")
 		fmt.Println("  ~/.celeste.cfg              - DigitalOcean Spaces configuration")
 		fmt.Println("  Environment Variables       - Fallback if config files not found")
 		fmt.Println("    CELESTE_API_ENDPOINT        - CelesteAI API endpoint")
@@ -1965,9 +2329,74 @@ func main() {
 		fmt.Println("  ./celestecli --nsfw --upscale --image-path \"input.png\" --enhance-creativity 0.05 --replication 0.9")
 		fmt.Println("  ./celestecli --nsfw --edit --image-path \"image.png\" --edit-prompt \"remove watermark\" --preserve-size")
 		fmt.Println("  ./celestecli --nsfw --edit --image-path \"small_image.png\" --edit-prompt \"remove signature\" --upscale-first")
+		fmt.Println()
+		fmt.Println("  # Twitter integration")
+		fmt.Println("  ./celestecli --format short --platform twitter --topic \"NIKKE\" --twitter-post  # Generate and post tweet")
+		fmt.Println("  ./celestecli --twitter-user \"@yourusername\" --twitter-count 500  # Download tweets")
+		fmt.Println("  ./celestecli --twitter-user \"@yourusername\" --twitter-count 500 --twitter-learn --sync  # Download and store for learning")
+		fmt.Println("  ./celestecli --twitter-user \"@yourusername\" --twitter-since \"2024-01-01T00:00:00Z\"  # Download with date filter")
 	}
 
 	flag.Parse()
+
+	// Handle Twitter download mode first (if no generation is needed)
+	if twitterUser != "" {
+		twitterConfig, err := loadTwitterConfig()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading Twitter configuration: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Fprintf(os.Stderr, "Downloading tweets from @%s...\n", twitterUser)
+
+		tweets, err := downloadUserTweets(twitterUser, twitterCount, "", "", twitterConfig)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error downloading tweets: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Fprintf(os.Stderr, "Downloaded %d tweets\n", len(tweets))
+
+		// Store tweets if learning mode is enabled
+		if twitterLearn && sync {
+			fmt.Fprintf(os.Stderr, "Storing downloaded tweets in S3 for learning...\n")
+			for _, tweet := range tweets {
+				entry := &ConversationEntry{
+					ID:          fmt.Sprintf("%d", time.Now().UnixNano()),
+					Timestamp:   time.Now(),
+					ContentType: "twitter_download",
+					Response:    tweet.Text,
+					Platform:    "twitter",
+					Context:     fmt.Sprintf("Tweet from @%s (ID: %s)", twitterUser, tweet.ID),
+					Success:     true,
+					Metadata: map[string]interface{}{
+						"tweet_id":      tweet.ID,
+						"likes":         tweet.LikeCount,
+						"replies":       tweet.RepliesCount,
+						"retweets":      tweet.RetweetCount,
+						"created_at":    tweet.CreatedAt,
+					},
+				}
+
+				if err := uploadConversationToS3(entry); err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: Failed to upload tweet %s: %v\n", tweet.ID, err)
+				}
+			}
+			fmt.Fprintf(os.Stderr, "Stored tweets in S3\n")
+		}
+
+		// Output tweets as JSON or plain text
+		for _, tweet := range tweets {
+			fmt.Printf("Tweet ID: %s\n", tweet.ID)
+			fmt.Printf("Text: %s\n", tweet.Text)
+			fmt.Printf("Created: %s\n", tweet.CreatedAt)
+			fmt.Printf("Likes: %d | Replies: %d | Retweets: %d\n", tweet.LikeCount, tweet.RepliesCount, tweet.RetweetCount)
+			fmt.Println("---")
+		}
+
+		// Exit after downloading tweets (don't generate content)
+		os.Exit(0)
+	}
 
 	// Handle divine modes (tarot + AI interpretation)
 	if divineMode || divineNSFW {
@@ -2934,9 +3363,32 @@ func main() {
 							fmt.Println(content)
 						}
 
+						// Post to Twitter if --twitter-post flag is set
+						var tweetID string
+						if twitterPost {
+							twitterConfig, err := loadTwitterConfig()
+							if err != nil {
+								fmt.Fprintf(os.Stderr, "Warning: Failed to load Twitter config: %v\n", err)
+							} else {
+								fmt.Fprintf(os.Stderr, "Posting to Twitter...\n")
+								id, err := postTweetToTwitter(content, twitterConfig)
+								if err != nil {
+									fmt.Fprintf(os.Stderr, "Warning: Failed to post tweet: %v\n", err)
+								} else {
+									tweetID = id
+									fmt.Fprintf(os.Stderr, "Tweet posted successfully! ID: %s\n", tweetID)
+									fmt.Fprintf(os.Stderr, "Tweet URL: https://twitter.com/i/web/status/%s\n", tweetID)
+								}
+							}
+						}
+
 						// Upload conversation to S3 if sync flag is set
 						if sync {
 							entry := createConversationEntry(format, platform, topic, tone, persona, prompt, content, result)
+							// Add Twitter tweet ID if we just posted
+							if twitterPost && tweetID != "" {
+								entry.TwitterTweetID = tweetID
+							}
 							if err := uploadConversationToS3(entry); err != nil {
 								fmt.Fprintf(os.Stderr, "Warning: Failed to upload conversation to S3: %v\n", err)
 							}
