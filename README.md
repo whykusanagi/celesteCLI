@@ -1,6 +1,6 @@
-# CelesteCLI - CelesteAI Command Line Interface
+# Celeste - Premium AI Content Generation CLI
 
-A premium, corruption-aesthetic CLI tool for interacting with CelesteAI, a mischievous demon noble VTuber assistant. Designed with Apple-quality polish but twisted by the abyss, featuring real-time demonic eye animations showing when Celeste is thinking, color-coded feedback, and premium visual design. Advanced content generation, image processing, tarot readings, and NSFW capabilities through Venice.ai integration.
+A premium, corruption-aesthetic command-line interface for CelesteAI, a mischievous demon noble VTuber assistant. Designed with Apple-quality polish but twisted by the abyss, featuring real-time demonic eye animations showing when Celeste is thinking, color-coded feedback, and premium visual design. Advanced content generation, image processing, tarot readings, and NSFW capabilities through Venice.ai integration—all with embedded pixel art assets.
 
 ## 🚀 Features
 
@@ -52,6 +52,12 @@ A premium, corruption-aesthetic CLI tool for interacting with CelesteAI, a misch
 - **Configuration Headers** - Shows active settings before processing begins
 - **Success Footers** - Operation metrics displayed after completion
 
+### Embedded Assets
+- **Portable Binary** - Pixel art assets embedded directly in executable (no external files needed)
+- **Pixel Art Support** - High-quality Celeste and Kusanagi pixel animations
+- **Terminal Display** - ASCII art representation with graceful fallback support
+- **Base64 Export** - Assets available for API/export use
+
 ## 📦 Installation
 
 ### Prerequisites
@@ -63,15 +69,21 @@ A premium, corruption-aesthetic CLI tool for interacting with CelesteAI, a misch
 ```bash
 git clone https://github.com/whykusanagi/celesteCLI.git
 cd celesteCLI
-go build -o celestecli main.go scaffolding.go animation.go ui.go
+go build -o Celeste main.go scaffolding.go animation.go ui.go assets.go
 ./install.sh
 ```
 
 ### Manual Install
 ```bash
-go build -o celestecli main.go scaffolding.go animation.go ui.go
-cp celestecli ~/.local/bin/
-chmod +x ~/.local/bin/celestecli
+go build -o Celeste main.go scaffolding.go animation.go ui.go assets.go
+sudo cp Celeste /usr/local/bin/
+chmod +x /usr/local/bin/Celeste
+```
+
+### Verify Installation
+```bash
+which Celeste
+Celeste -h
 ```
 
 ## ⚙️ Configuration
@@ -201,7 +213,7 @@ Errors are displayed in formatted boxes with helpful hints:
 ║ 3. Add to ~/.celesteAI:                 ║
 ║    twitter_bearer_token=your_token      ║
 ║                                          ║
-║ 📖 Docs: https://docs.celestecli.io    ║
+║ 📖 Docs: https://docs.Celeste.io    ║
 ╚══════════════════════════════════════════╝
 ```
 
@@ -213,16 +225,16 @@ The CLI uses a format-based system for flexible content generation:
 
 ```bash
 # Short format (280 chars) for Twitter
-celestecli --format short --platform twitter --topic "NIKKE" --tone "lewd"
+Celeste --format short --platform twitter --topic "NIKKE" --tone "lewd"
 
 # Long format (5000 chars) for YouTube
-celestecli --format long --platform youtube --topic "Streaming" --request "include links to website, socials, products"
+Celeste --format long --platform youtube --topic "Streaming" --request "include links to website, socials, products"
 
 # General format (flexible length)
-celestecli --format general --platform discord --topic "Gaming" --tone "chaotic"
+Celeste --format general --platform discord --topic "Gaming" --tone "chaotic"
 
 # With direct instructions
-celestecli --format short --platform twitter --topic "NIKKE" --tone "lewd" --request "write about Viper character"
+Celeste --format short --platform twitter --topic "NIKKE" --tone "lewd" --request "write about Viper character"
 ```
 
 ### Format Options
@@ -242,78 +254,78 @@ celestecli --format short --platform twitter --topic "NIKKE" --tone "lewd" --req
 
 ```bash
 # Generate content with specific persona
-celestecli --format short --platform twitter --persona celeste_ad_read --tone "wink-and-nudge" --topic "NIKKE"
+Celeste --format short --platform twitter --persona celeste_ad_read --tone "wink-and-nudge" --topic "NIKKE"
 
 # Generate content with media context
-celestecli --format short --platform twitter --media "https://example.com/image.jpg" --tone "teasing"
+Celeste --format short --platform twitter --media "https://example.com/image.jpg" --tone "teasing"
 
 # Generate content with additional context
-celestecli --format long --platform youtube --context "This is a special stream event" --topic "NIKKE"
+Celeste --format long --platform youtube --context "This is a special stream event" --topic "NIKKE"
 
 # Upload conversation to OpenSearch
-celestecli --format short --platform twitter --sync --topic "NIKKE"
+Celeste --format short --platform twitter --sync --topic "NIKKE"
 
 # Enable debug mode
-celestecli --format short --platform twitter --debug
+Celeste --format short --platform twitter --debug
 
 # Disable streaming
-celestecli --format short --platform twitter --no-stream
+Celeste --format short --platform twitter --no-stream
 
 # Disable animation
-celestecli --format short --platform twitter --no-animation
+Celeste --format short --platform twitter --no-animation
 ```
 
 ### Tarot Readings
 
 ```bash
 # Three card spread (default)
-celestecli --tarot
+Celeste --tarot
 
 # Celtic Cross spread (10 cards)
-celestecli --tarot --spread celtic
+Celeste --tarot --spread celtic
 
 # Parsed output for AI consumption
-celestecli --tarot --parsed
+Celeste --tarot --parsed
 
 # Automatic AI interpretation (standard)
-celestecli --divine
+Celeste --divine
 
 # Automatic AI interpretation (NSFW)
-celestecli --divine-nsfw
+Celeste --divine-nsfw
 
 # Celtic spread with AI interpretation
-celestecli --divine --spread celtic
+Celeste --divine --spread celtic
 ```
 
 ### NSFW Mode
 
 ```bash
 # Uncensored text generation
-celestecli --nsfw --format short --platform twitter --topic "NIKKE" --tone "explicit" --request "write about character interactions"
+Celeste --nsfw --format short --platform twitter --topic "NIKKE" --tone "explicit" --request "write about character interactions"
 
 # Image generation
-celestecli --nsfw --image --request "Generate NSFW image of Celeste"
+Celeste --nsfw --image --request "Generate NSFW image of Celeste"
 
 # Image upscaling
-celestecli --nsfw --upscale --image-path "image.png"
+Celeste --nsfw --upscale --image-path "image.png"
 
 # Image editing (signature removal)
-celestecli --nsfw --edit --image-path "image.png" --edit-prompt "remove signature"
+Celeste --nsfw --edit --image-path "image.png" --edit-prompt "remove signature"
 
 # Optimized workflow for small images
-celestecli --nsfw --edit --image-path "small_image.png" --edit-prompt "remove watermark" --upscale-first
+Celeste --nsfw --edit --image-path "small_image.png" --edit-prompt "remove watermark" --upscale-first
 
 # List available Venice.ai models
-celestecli --nsfw --list-models
+Celeste --nsfw --list-models
 
 # Override model
-celestecli --nsfw --model "wai-Illustrious" --image --request "Anime style"
+Celeste --nsfw --model "wai-Illustrious" --image --request "Anime style"
 
 # Custom output filename
-celestecli --nsfw --image --output "my_image.png" --request "Custom filename"
+Celeste --nsfw --image --output "my_image.png" --request "Custom filename"
 
 # Preserve original size
-celestecli --nsfw --edit --image-path "large_image.png" --edit-prompt "edit" --preserve-size
+Celeste --nsfw --edit --image-path "large_image.png" --edit-prompt "edit" --preserve-size
 ```
 
 ### Twitter Integration
@@ -322,22 +334,22 @@ Post generated content directly to Twitter and download your tweets for analysis
 
 ```bash
 # Generate content and post to Twitter
-celestecli --format short --platform twitter --topic "NIKKE" --twitter-post
+Celeste --format short --platform twitter --topic "NIKKE" --twitter-post
 
 # Generate content and post with specific tone
-celestecli --format short --platform twitter --topic "Game Discussion" --tone "teasing" --twitter-post
+Celeste --format short --platform twitter --topic "Game Discussion" --tone "teasing" --twitter-post
 
 # Download your tweets for learning
-celestecli --twitter-user "@yourusername" --twitter-count 500
+Celeste --twitter-user "@yourusername" --twitter-count 500
 
 # Download tweets with date filtering
-celestecli --twitter-user "@yourusername" --twitter-count 1000 --twitter-since "2024-01-01T00:00:00Z"
+Celeste --twitter-user "@yourusername" --twitter-count 1000 --twitter-since "2024-01-01T00:00:00Z"
 
 # Download and store tweets in S3 for Celeste to learn your style
-celestecli --twitter-user "@yourusername" --twitter-count 500 --twitter-learn --sync
+Celeste --twitter-user "@yourusername" --twitter-count 500 --twitter-learn --sync
 
 # Generate content aware of your posting style (requires downloaded tweets in S3)
-celestecli --format short --platform twitter --topic "New Topic" --context "similar to my tweets" --twitter-post
+Celeste --format short --platform twitter --topic "New Topic" --context "similar to my tweets" --twitter-post
 ```
 
 #### Twitter Setup
@@ -588,13 +600,13 @@ export CELESTE_PGP_SIGNATURE="signature"
 ### Usage Examples
 ```bash
 # Discord bot integration
-CELESTE_USER_ID="discord_user_123" CELESTE_PLATFORM="discord" celestecli --format short --platform twitter --topic "NIKKE" --tone "teasing" --sync
+CELESTE_USER_ID="discord_user_123" CELESTE_PLATFORM="discord" Celeste --format short --platform twitter --topic "NIKKE" --tone "teasing" --sync
 
 # Twitch bot integration  
-CELESTE_USER_ID="twitch_user_456" CELESTE_PLATFORM="twitch" celestecli --format short --platform twitter --topic "NIKKE" --tone "chaotic" --sync
+CELESTE_USER_ID="twitch_user_456" CELESTE_PLATFORM="twitch" Celeste --format short --platform twitter --topic "NIKKE" --tone "chaotic" --sync
 
 # PGP-signed override commands
-CELESTE_OVERRIDE_ENABLED="true" CELESTE_PGP_SIGNATURE="kusanagi-abyss-override" celestecli --format short --platform twitter --topic "NIKKE" --tone "explicit"
+CELESTE_OVERRIDE_ENABLED="true" CELESTE_PGP_SIGNATURE="kusanagi-abyss-override" Celeste --format short --platform twitter --topic "NIKKE" --tone "explicit"
 ```
 
 ## 📊 S3 Integration & RAG
@@ -662,7 +674,7 @@ graph TD
 
 ```mermaid
 graph TD
-    A[celestecli Command] --> B{Mode Selection}
+    A[Celeste Command] --> B{Mode Selection}
     
     B -->|Normal Mode| C[DigitalOcean API]
     C --> C1[POST /chat/completions]
@@ -934,7 +946,7 @@ graph TD
 ```mermaid
 graph TB
     subgraph "CLI Interface Layer"
-        A[celestecli main] --> B[flag.Parse]
+        A[Celeste main] --> B[flag.Parse]
         B --> C[Configuration Loading]
         C --> D[readCelesteConfig]
         C --> E[loadPersonalityConfig]
@@ -1040,7 +1052,7 @@ celesteCLI/
 ### Building
 ```bash
 go mod tidy
-go build -o celestecli main.go scaffolding.go animation.go
+go build -o Celeste main.go scaffolding.go animation.go
 ```
 
 ## 🔍 Troubleshooting
@@ -1077,7 +1089,7 @@ go build -o celestecli main.go scaffolding.go animation.go
 
 ### Debug Mode
 ```bash
-celestecli --debug --format short --platform twitter --topic "NIKKE"
+Celeste --debug --format short --platform twitter --topic "NIKKE"
 ```
 
 ## 📈 Performance

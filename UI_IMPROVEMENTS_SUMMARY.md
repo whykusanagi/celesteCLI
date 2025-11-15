@@ -207,11 +207,11 @@ Output:
 ### Build Instructions
 ```bash
 # Build with the new UI module
-go build -o celestecli main.go scaffolding.go animation.go ui.go
+go build -o Celeste main.go scaffolding.go animation.go ui.go
 
 # Install
-cp celestecli ~/.local/bin/
-chmod +x ~/.local/bin/celestecli
+cp Celeste ~/.local/bin/
+chmod +x ~/.local/bin/Celeste
 ```
 
 ### Files Modified/Created
@@ -315,7 +315,7 @@ The tool now clearly shows users that **Celeste is actively thinking** through t
 
 The UI system is fully implemented and ready for use. Build with:
 ```bash
-go build -o celestecli main.go scaffolding.go animation.go ui.go
+go build -o Celeste main.go scaffolding.go animation.go ui.go
 ```
 
 All new functions in `ui.go` are available for use in `main.go` whenever developers want to integrate them further.

@@ -171,19 +171,19 @@
 
 ### Quick Build
 ```bash
-go build -o celestecli main.go scaffolding.go animation.go ui.go
+go build -o Celeste main.go scaffolding.go animation.go ui.go
 ```
 
 ### Install Locally
 ```bash
-go build -o celestecli main.go scaffolding.go animation.go ui.go
-cp celestecli ~/.local/bin/
-chmod +x ~/.local/bin/celestecli
+go build -o Celeste main.go scaffolding.go animation.go ui.go
+cp Celeste ~/.local/bin/
+chmod +x ~/.local/bin/Celeste
 ```
 
 ### Verify Build
 ```bash
-./celestecli -h 2>&1 | head -20
+./Celeste -h 2>&1 | head -20
 ```
 
 ---

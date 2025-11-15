@@ -4,11 +4,11 @@
 
 ```bash
 # Build with UI module
-go build -o celestecli main.go scaffolding.go animation.go ui.go
+go build -o Celeste main.go scaffolding.go animation.go ui.go
 
 # Install (optional)
-cp celestecli ~/.local/bin/
-chmod +x ~/.local/bin/celestecli
+cp Celeste ~/.local/bin/
+chmod +x ~/.local/bin/Celeste
 ```
 
 ## Using the UI Module in Code
@@ -89,7 +89,7 @@ PrintErrorBox(
         "Set environment variable: export CELESTE_API_KEY=...",
         "Or add to ~/.celesteAI: api_key=...",
     },
-    "https://docs.celestecli.io/setup",
+    "https://docs.Celeste.io/setup",
 )
 ```
 
@@ -252,7 +252,7 @@ if err != nil {
             "Format should be: key=value",
             "One setting per line",
         },
-        "https://docs.celestecli.io/config",
+        "https://docs.Celeste.io/config",
     )
 
     // Try fallback

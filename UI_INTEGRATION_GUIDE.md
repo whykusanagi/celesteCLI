@@ -127,7 +127,7 @@ PrintErrorBox(
     "Missing Twitter Bearer Token",
     "Twitter API integration requires a Bearer Token",
     hints,
-    "https://docs.celestecli.io/twitter",
+    "https://docs.Celeste.io/twitter",
 )
 ```
 
@@ -142,7 +142,7 @@ Output:
 ║ 2. Generate a Bearer Token              ║
 ║ 3. Add to ~/.celesteAI: twitter_...     ║
 ║                                          ║
-║ 📖 Docs: https://docs.celestecli...    ║
+║ 📖 Docs: https://docs.Celeste...    ║
 ╚══════════════════════════════════════════╝
 ```
 
@@ -359,7 +359,7 @@ if err != nil {
         "Twitter Configuration Missing",
         err.Error(),
         hints,
-        "https://docs.celestecli.io/twitter",
+        "https://docs.Celeste.io/twitter",
     )
     os.Exit(1)
 }
@@ -393,11 +393,11 @@ PrintMessage(SUCCESS, "All operations completed!")
 
 ```bash
 # Build with the new ui.go module
-go build -o celestecli main.go scaffolding.go animation.go ui.go
+go build -o Celeste main.go scaffolding.go animation.go ui.go
 
 # Install
-cp celestecli ~/.local/bin/
-chmod +x ~/.local/bin/celestecli
+cp Celeste ~/.local/bin/
+chmod +x ~/.local/bin/Celeste
 ```
 
 ## Design Philosophy
