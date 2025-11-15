@@ -2233,6 +2233,10 @@ func main() {
 	var twitterLearn bool
 	flag.BoolVar(&twitterLearn, "twitter-learn", false, "Store downloaded tweets in S3 for RAG/learning")
 
+	// Interactive mode
+	var interactiveMode bool
+	flag.BoolVar(&interactiveMode, "interactive", false, "Launch interactive chat mode with Celeste")
+
 	flag.Usage = func() {
 		fmt.Println("Usage of Celeste:")
 		fmt.Println("  --format     Content format: short (280 chars), long (5000 chars), or general (flexible)")
@@ -2278,6 +2282,7 @@ func main() {
 		fmt.Println("  --twitter-since ISO 8601 date filter for tweets (e.g., 2024-01-01T00:00:00Z)")
 		fmt.Println("  --twitter-until ISO 8601 date filter for tweets (e.g., 2024-12-31T23:59:59Z)")
 		fmt.Println("  --twitter-learn Store downloaded tweets in S3 for RAG/learning")
+		fmt.Println("  --interactive   Launch interactive chat mode with Celeste")
 		fmt.Println()
 		fmt.Println("Configuration:")
 		fmt.Println("  ~/.celesteAI                - Celeste configuration file")
@@ -2338,6 +2343,12 @@ func main() {
 	}
 
 	flag.Parse()
+
+	// Handle interactive mode first
+	if interactiveMode {
+		startInteractiveMode()
+		return
+	}
 
 	// Handle Twitter download mode first (if no generation is needed)
 	if twitterUser != "" {
