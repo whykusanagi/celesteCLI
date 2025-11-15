@@ -2361,6 +2361,18 @@ func main() {
 		return
 	}
 
+	// If no meaningful flags are provided, launch interactive mode by default
+	// Check if any content generation flags were specified
+	hasContentFlags := topic != "" || media != "" || request != "" ||
+		tarotMode || divineMode || divineNSFW ||
+		twitterUser != "" || imageMode || editMode || upscaleMode ||
+		listModels
+
+	if !hasContentFlags && flag.NArg() == 0 {
+		startInteractiveMode()
+		return
+	}
+
 	// Handle Twitter download mode first (if no generation is needed)
 	if twitterUser != "" {
 		twitterConfig, err := loadTwitterConfig()
