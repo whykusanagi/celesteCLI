@@ -64,26 +64,21 @@ func startInteractiveMode() {
 
 // displayCelesteHeader shows the Celeste pixel art at startup
 func displayCelesteHeader() {
-	fmt.Fprintf(os.Stderr, "\n")
 	// Use optimal display - animated GIF if terminal supports it
 	if err := DisplayAssetOptimal(PixelWink); err != nil {
 		// Fallback to ASCII if display fails
 		displayASCIIArtRepresentation(PixelWink)
 	}
-	fmt.Fprintf(os.Stderr, "\n")
 	PrintMessage(SUCCESS, "Celeste is ready to chat~")
-	fmt.Fprintf(os.Stderr, "\n")
 }
 
 // displayGoodbyeAnimation shows a farewell animation
 func displayGoodbyeAnimation() {
-	fmt.Fprintf(os.Stderr, "\n")
 	// Use optimal display - animated GIF if terminal supports it
 	if err := DisplayAssetOptimal(Kusanagi); err != nil {
 		// Fallback to ASCII if display fails
 		displayASCIIArtRepresentation(Kusanagi)
 	}
-	fmt.Fprintf(os.Stderr, "\n")
 }
 
 // processUserMessage handles regular user messages with thinking animation

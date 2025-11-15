@@ -46,9 +46,7 @@ func DisplayGIFAnimated(gifData []byte, assetType AssetType) error {
 
 	if !caps.SupportsInlineImg {
 		// Fallback to ASCII art for unsupported terminals
-		fmt.Fprintf(os.Stderr, "\n")
 		displayASCIIArtRepresentation(assetType)
-		fmt.Fprintf(os.Stderr, "\n")
 		return nil
 	}
 
@@ -56,9 +54,7 @@ func DisplayGIFAnimated(gifData []byte, assetType AssetType) error {
 	g, err := gif.DecodeAll(bytes.NewReader(gifData))
 	if err != nil {
 		// If GIF decode fails, fall back to ASCII
-		fmt.Fprintf(os.Stderr, "\n")
 		displayASCIIArtRepresentation(assetType)
-		fmt.Fprintf(os.Stderr, "\n")
 		return nil
 	}
 
@@ -68,14 +64,11 @@ func DisplayGIFAnimated(gifData []byte, assetType AssetType) error {
 	if len(g.Image) > 0 {
 		if err := displayFrameAsITerm2Image(g.Image[0]); err != nil {
 			// On error, fall back to ASCII
-			fmt.Fprintf(os.Stderr, "\n")
 			displayASCIIArtRepresentation(assetType)
-			fmt.Fprintf(os.Stderr, "\n")
 			return nil
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "\n")
 	return nil
 }
 
@@ -123,37 +116,28 @@ func DisplayGIFStatic(gifData []byte, assetType AssetType) error {
 	caps := DetectTerminalCapabilities()
 
 	if !caps.SupportsInlineImg {
-		fmt.Fprintf(os.Stderr, "\n")
 		displayASCIIArtRepresentation(assetType)
-		fmt.Fprintf(os.Stderr, "\n")
 		return nil
 	}
 
 	// Decode the GIF
 	g, err := gif.DecodeAll(bytes.NewReader(gifData))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "\n")
 		displayASCIIArtRepresentation(assetType)
-		fmt.Fprintf(os.Stderr, "\n")
 		return nil
 	}
 
 	if len(g.Image) == 0 {
-		fmt.Fprintf(os.Stderr, "\n")
 		displayASCIIArtRepresentation(assetType)
-		fmt.Fprintf(os.Stderr, "\n")
 		return nil
 	}
 
 	// Display first frame only
 	if err := displayFrameAsITerm2Image(g.Image[0]); err != nil {
-		fmt.Fprintf(os.Stderr, "\n")
 		displayASCIIArtRepresentation(assetType)
-		fmt.Fprintf(os.Stderr, "\n")
 		return nil
 	}
 
-	fmt.Fprintf(os.Stderr, "\n")
 	return nil
 }
 
