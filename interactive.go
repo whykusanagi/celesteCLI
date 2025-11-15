@@ -65,7 +65,11 @@ func startInteractiveMode() {
 // displayCelesteHeader shows the Celeste pixel art at startup
 func displayCelesteHeader() {
 	fmt.Fprintf(os.Stderr, "\n")
-	displayASCIIArtRepresentation(PixelWink)
+	// Use optimal display - animated GIF if terminal supports it
+	if err := DisplayAssetOptimal(PixelWink); err != nil {
+		// Fallback to ASCII if display fails
+		displayASCIIArtRepresentation(PixelWink)
+	}
 	fmt.Fprintf(os.Stderr, "\n")
 	PrintMessage(SUCCESS, "Celeste is ready to chat~")
 	fmt.Fprintf(os.Stderr, "\n")
@@ -74,7 +78,11 @@ func displayCelesteHeader() {
 // displayGoodbyeAnimation shows a farewell animation
 func displayGoodbyeAnimation() {
 	fmt.Fprintf(os.Stderr, "\n")
-	displayASCIIArtRepresentation(Kusanagi)
+	// Use optimal display - animated GIF if terminal supports it
+	if err := DisplayAssetOptimal(Kusanagi); err != nil {
+		// Fallback to ASCII if display fails
+		displayASCIIArtRepresentation(Kusanagi)
+	}
 	fmt.Fprintf(os.Stderr, "\n")
 }
 
@@ -163,7 +171,8 @@ func showAsset(assetType string) {
 	}
 
 	fmt.Fprintf(os.Stderr, "\n")
-	if err := DisplayPixelArt(asset); err != nil {
+	// Use optimal display (animated GIF if supported, ASCII fallback)
+	if err := DisplayAssetOptimal(asset); err != nil {
 		PrintMessage(ERROR, fmt.Sprintf("Error displaying asset: %v", err))
 	}
 	fmt.Fprintf(os.Stderr, "\n")
@@ -221,11 +230,15 @@ func setTheme(theme string) {
 	case "normal", "friendly", "light":
 		PrintMessage(SUCCESS, "Switched to friendly theme")
 		fmt.Fprintf(os.Stderr, "\n")
-		displayASCIIArtRepresentation(PixelWink)
+		if err := DisplayAssetOptimal(PixelWink); err != nil {
+			displayASCIIArtRepresentation(PixelWink)
+		}
 	case "corrupted", "abyss", "dark":
 		PrintMessage(SUCCESS, "Switched to corrupted abyss theme")
 		fmt.Fprintf(os.Stderr, "\n")
-		displayASCIIArtRepresentation(Kusanagi)
+		if err := DisplayAssetOptimal(Kusanagi); err != nil {
+			displayASCIIArtRepresentation(Kusanagi)
+		}
 	default:
 		PrintMessage(ERROR, fmt.Sprintf("Unknown theme: %s", theme))
 	}
