@@ -8,7 +8,6 @@ import (
 	"image/gif"
 	"image/png"
 	"os"
-	"time"
 )
 
 // TerminalCapabilities holds what the current terminal supports
@@ -63,29 +62,16 @@ func DisplayGIFAnimated(gifData []byte, assetType AssetType) error {
 		return nil
 	}
 
-	// Display each frame
-	for i, frame := range g.Image {
-		// Get frame delay (in hundredths of a second)
-		delay := g.Delay[i]
-		if delay < 1 {
-			delay = 10 // Default 100ms if not specified
-		}
-
-		// Convert frame to PNG and display
-		if err := displayFrameAsITerm2Image(frame); err != nil {
+	// For iTerm2 inline images, we can only display a single frame at a time
+	// Multiple frames would require clearing and repositioning, which doesn't work well with inline images
+	// Display the first frame
+	if len(g.Image) > 0 {
+		if err := displayFrameAsITerm2Image(g.Image[0]); err != nil {
 			// On error, fall back to ASCII
 			fmt.Fprintf(os.Stderr, "\n")
 			displayASCIIArtRepresentation(assetType)
 			fmt.Fprintf(os.Stderr, "\n")
 			return nil
-		}
-
-		// Sleep for frame duration (convert hundredths of second to milliseconds)
-		time.Sleep(time.Duration(delay*10) * time.Millisecond)
-
-		// Clear the line for next frame (move cursor up and clear)
-		if i < len(g.Image)-1 {
-			fmt.Fprint(os.Stderr, "\r\033[A\033[K")
 		}
 	}
 
@@ -123,7 +109,7 @@ func displayFrameAsITerm2Image(frame *image.Paletted) error {
 	fmt.Fprintf(os.Stderr,
 		"\x1b]1337;File=name=celeste.png;size=%d;width=%dchar;height=%dchar;inline=1:%s\x07",
 		pngBuf.Len(),
-		width/32, // Approximate character width (32 pixels per char)
+		width/32,  // Approximate character width (32 pixels per char)
 		height/32, // Approximate character height
 		b64,
 	)

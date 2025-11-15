@@ -2237,6 +2237,10 @@ func main() {
 	var interactiveMode bool
 	flag.BoolVar(&interactiveMode, "interactive", false, "Launch interactive chat mode with Celeste")
 
+	// Terminal info
+	var terminalInfo bool
+	flag.BoolVar(&terminalInfo, "terminal-info", false, "Show terminal capabilities and GIF support info")
+
 	flag.Usage = func() {
 		fmt.Println("Usage of Celeste:")
 		fmt.Println("  --format     Content format: short (280 chars), long (5000 chars), or general (flexible)")
@@ -2283,6 +2287,7 @@ func main() {
 		fmt.Println("  --twitter-until ISO 8601 date filter for tweets (e.g., 2024-12-31T23:59:59Z)")
 		fmt.Println("  --twitter-learn Store downloaded tweets in S3 for RAG/learning")
 		fmt.Println("  --interactive   Launch interactive chat mode with Celeste")
+		fmt.Println("  --terminal-info Show terminal capabilities and GIF support status")
 		fmt.Println()
 		fmt.Println("Configuration:")
 		fmt.Println("  ~/.celesteAI                - Celeste configuration file")
@@ -2344,7 +2349,13 @@ func main() {
 
 	flag.Parse()
 
-	// Handle interactive mode first
+	// Handle terminal info first
+	if terminalInfo {
+		fmt.Println(TerminalInfo())
+		return
+	}
+
+	// Handle interactive mode
 	if interactiveMode {
 		startInteractiveMode()
 		return
