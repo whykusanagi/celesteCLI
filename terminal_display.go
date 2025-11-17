@@ -63,10 +63,13 @@ func DisplayGIFAnimated(gifData []byte, assetType AssetType) error {
 		return nil
 	}
 
-	// Display each frame
-	for i, frame := range g.Image {
+	// Display frames in infinite loop
+	frameIndex := 0
+	for {
+		frame := g.Image[frameIndex]
+
 		// Get frame delay (in hundredths of a second)
-		delay := g.Delay[i]
+		delay := g.Delay[frameIndex]
 		if delay < 1 {
 			delay = 10 // Default 100ms if not specified
 		}
@@ -83,14 +86,13 @@ func DisplayGIFAnimated(gifData []byte, assetType AssetType) error {
 		// Sleep for frame duration (convert hundredths of second to milliseconds)
 		time.Sleep(time.Duration(delay*10) * time.Millisecond)
 
-		// Clear the line for next frame (move cursor up and clear)
-		if i < len(g.Image)-1 {
-			fmt.Fprint(os.Stderr, "\r\033[A\033[K")
-		}
-	}
+		// Move to next frame and wrap around
+		frameIndex = (frameIndex + 1) % len(g.Image)
 
-	fmt.Fprintf(os.Stderr, "\n")
-	return nil
+		// Clear the line for next frame (move cursor up and clear)
+		fmt.Fprint(os.Stderr, "\r\033[A\033[K")
+	}
+	// Note: This function never returns under normal operation - animation loops forever
 }
 
 // displayFrameAsITerm2Image sends a single frame to iTerm2 as inline image
