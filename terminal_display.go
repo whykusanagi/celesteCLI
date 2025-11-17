@@ -1,46 +1,224 @@
 package main
 
 import (
+	"bytes"
+	"encoding/base64"
 	"fmt"
+	"image"
+	"image/gif"
+	"image/png"
 	"os"
+	"time"
 )
 
-// DisplayGIFAnimated displays pre-rendered ASCII art of the GIF
-// No external dependencies required - uses pre-rendered ASCII art
+// TerminalCapabilities holds what the current terminal supports
+type TerminalCapabilities struct {
+	SupportsITerm2    bool
+	SupportsKitty     bool
+	SupportsSixel     bool
+	SupportsInlineImg bool
+}
+
+// DetectTerminalCapabilities checks what image protocols the terminal supports
+func DetectTerminalCapabilities() TerminalCapabilities {
+	caps := TerminalCapabilities{}
+
+	// Check for iTerm2
+	if os.Getenv("ITERM_SESSION_ID") != "" {
+		caps.SupportsITerm2 = true
+		caps.SupportsInlineImg = true
+	}
+
+	// Check for other modern terminals that support iTerm2 protocol
+	termProgram := os.Getenv("TERM_PROGRAM")
+	if termProgram == "WezTerm" || termProgram == "Ghostty" {
+		caps.SupportsITerm2 = true
+		caps.SupportsInlineImg = true
+	}
+
+	return caps
+}
+
+// DisplayGIFAnimated displays a GIF with proper animation
+// Falls back to ASCII art if terminal doesn't support inline images
 func DisplayGIFAnimated(gifData []byte, assetType AssetType) error {
-	displayPreRenderedASCII(assetType)
+	// Check terminal capabilities
+	caps := DetectTerminalCapabilities()
+
+	if !caps.SupportsInlineImg {
+		// Fallback to ASCII art for unsupported terminals
+		fmt.Fprintf(os.Stderr, "\n")
+		displayASCIIArtRepresentation(assetType)
+		fmt.Fprintf(os.Stderr, "\n")
+		return nil
+	}
+
+	// Decode the GIF
+	g, err := gif.DecodeAll(bytes.NewReader(gifData))
+	if err != nil {
+		// If GIF decode fails, fall back to ASCII
+		fmt.Fprintf(os.Stderr, "\n")
+		displayASCIIArtRepresentation(assetType)
+		fmt.Fprintf(os.Stderr, "\n")
+		return nil
+	}
+
+	// Display each frame
+	for i, frame := range g.Image {
+		// Get frame delay (in hundredths of a second)
+		delay := g.Delay[i]
+		if delay < 1 {
+			delay = 10 // Default 100ms if not specified
+		}
+
+		// Convert frame to PNG and display
+		if err := displayFrameAsITerm2Image(frame); err != nil {
+			// On error, fall back to ASCII
+			fmt.Fprintf(os.Stderr, "\n")
+			displayASCIIArtRepresentation(assetType)
+			fmt.Fprintf(os.Stderr, "\n")
+			return nil
+		}
+
+		// Sleep for frame duration (convert hundredths of second to milliseconds)
+		time.Sleep(time.Duration(delay*10) * time.Millisecond)
+
+		// Clear the line for next frame (move cursor up and clear)
+		if i < len(g.Image)-1 {
+			fmt.Fprint(os.Stderr, "\r\033[A\033[K")
+		}
+	}
+
+	fmt.Fprintf(os.Stderr, "\n")
 	return nil
 }
 
-// DisplayGIFStatic displays just the first frame using pre-rendered ASCII
+// displayFrameAsITerm2Image sends a single frame to iTerm2 as inline image
+func displayFrameAsITerm2Image(frame *image.Paletted) error {
+	// Convert frame to RGBA for PNG encoding
+	bounds := frame.Bounds()
+	rgba := image.NewRGBA(bounds)
+
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			rgba.Set(x, y, frame.At(x, y))
+		}
+	}
+
+	// Encode frame as PNG
+	var pngBuf bytes.Buffer
+	if err := png.Encode(&pngBuf, rgba); err != nil {
+		return err
+	}
+
+	// Encode PNG to base64
+	b64 := base64.StdEncoding.EncodeToString(pngBuf.Bytes())
+
+	// Send iTerm2 inline image escape sequence
+	// Format: OSC 1337 ; File=<params> : <base64-data> ST
+	// where OSC = \x1b] and ST = \x07 (BEL) or \x1b\\ (ST)
+	width := bounds.Dx()
+	height := bounds.Dy()
+
+	fmt.Fprintf(os.Stderr,
+		"\x1b]1337;File=name=celeste.png;size=%d;width=%dchar;height=%dchar;inline=1:%s\x07",
+		pngBuf.Len(),
+		width/32, // Approximate character width (32 pixels per char)
+		height/32, // Approximate character height
+		b64,
+	)
+
+	return nil
+}
+
+// DisplayGIFStatic displays just the first frame of a GIF (no animation)
+// Useful for slower connections or when animation isn't desired
 func DisplayGIFStatic(gifData []byte, assetType AssetType) error {
-	displayPreRenderedASCII(assetType)
+	caps := DetectTerminalCapabilities()
+
+	if !caps.SupportsInlineImg {
+		fmt.Fprintf(os.Stderr, "\n")
+		displayASCIIArtRepresentation(assetType)
+		fmt.Fprintf(os.Stderr, "\n")
+		return nil
+	}
+
+	// Decode the GIF
+	g, err := gif.DecodeAll(bytes.NewReader(gifData))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "\n")
+		displayASCIIArtRepresentation(assetType)
+		fmt.Fprintf(os.Stderr, "\n")
+		return nil
+	}
+
+	if len(g.Image) == 0 {
+		fmt.Fprintf(os.Stderr, "\n")
+		displayASCIIArtRepresentation(assetType)
+		fmt.Fprintf(os.Stderr, "\n")
+		return nil
+	}
+
+	// Display first frame only
+	if err := displayFrameAsITerm2Image(g.Image[0]); err != nil {
+		fmt.Fprintf(os.Stderr, "\n")
+		displayASCIIArtRepresentation(assetType)
+		fmt.Fprintf(os.Stderr, "\n")
+		return nil
+	}
+
+	fmt.Fprintf(os.Stderr, "\n")
 	return nil
 }
 
-// displayPreRenderedASCII displays the pre-rendered ASCII art for an asset
-func displayPreRenderedASCII(assetType AssetType) {
+// DisplayAssetOptimal chooses the best display method for the asset
+// Uses animated GIF if terminal supports it, otherwise ASCII art
+func DisplayAssetOptimal(assetType AssetType) error {
+	var gifData []byte
+
 	switch assetType {
 	case PixelWink:
-		fmt.Fprintf(os.Stderr, "%s\n", PixelWinkASCII)
+		gifData = pixelWinkGif
 	case Kusanagi:
-		fmt.Fprintf(os.Stderr, "%s\n", KusanagiASCII)
+		gifData = kusanagiGif
+	default:
+		return fmt.Errorf("unknown asset type: %s", assetType)
 	}
+
+	if len(gifData) == 0 {
+		return fmt.Errorf("asset data is empty")
+	}
+
+	// Try to display as animated GIF
+	return DisplayGIFAnimated(gifData, assetType)
 }
 
-// DisplayAssetOptimal displays the asset using pre-rendered ASCII art
-func DisplayAssetOptimal(assetType AssetType) error {
-	displayPreRenderedASCII(assetType)
-	return nil
-}
-
-// TerminalInfo returns information about the terminal and ASCII art display
+// TerminalInfo returns information about the current terminal
 func TerminalInfo() string {
-	return `Terminal Capabilities:
-  ✓ Pre-rendered ASCII art (no external dependencies)
-  ✓ Zero dependencies - all assets embedded at build time
+	caps := DetectTerminalCapabilities()
 
-  Celeste uses beautiful pre-rendered ASCII art created with chafa.
-  No runtime dependencies required - everything is compiled in!
-`
+	info := "Terminal Capabilities:\n"
+	if caps.SupportsITerm2 {
+		info += "  ✓ iTerm2 inline images\n"
+	} else {
+		info += "  ✗ iTerm2 inline images\n"
+	}
+
+	if caps.SupportsKitty {
+		info += "  ✓ Kitty graphics\n"
+	} else {
+		info += "  ✗ Kitty graphics\n"
+	}
+
+	if caps.SupportsSixel {
+		info += "  ✓ Sixel graphics\n"
+	} else {
+		info += "  ✗ Sixel graphics\n"
+	}
+
+	if !caps.SupportsInlineImg {
+		info += "\n  → Using ASCII art fallback\n"
+	}
+
+	return info
 }

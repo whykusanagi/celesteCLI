@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"math/rand"
 	"os"
 	"strings"
 	"time"
@@ -30,9 +29,9 @@ func startInteractiveMode() {
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
-		// Show animated prompt with pulsing text
+		// Show prompt with colored separator
 		fmt.Fprintf(os.Stderr, "\n")
-		displayAnimatedPrompt()
+		PrintMessage(INFO, "Enter your message or command:")
 
 		// Read user input
 		input, err := reader.ReadString('\n')
@@ -50,6 +49,7 @@ func startInteractiveMode() {
 			handleCommand(strings.TrimPrefix(input, "/"))
 		} else if input == "exit" || input == "quit" {
 			PrintMessage(INFO, "Thanks for chatting with Celeste! Goodbye~")
+			displayGoodbyeAnimation()
 			break
 		} else if input == "help" {
 			displayHelpMenu()
@@ -62,39 +62,29 @@ func startInteractiveMode() {
 	fmt.Fprintf(os.Stderr, "\n")
 }
 
-// displayCelesteHeader shows Kusanagi animation and startup message
+// displayCelesteHeader shows the Celeste pixel art at startup
 func displayCelesteHeader() {
 	fmt.Fprintf(os.Stderr, "\n")
-
-	// Load embedded kusanagi GIF animation
-	gifData, err := GetKusanagiGIFBytes()
-	if err != nil {
-		PrintMessage(SUCCESS, "Celeste is ready to chat~")
-		fmt.Fprintf(os.Stderr, "\n")
-		return
-	}
-
-	animator, err := LoadGIFAnimationFromBytes(gifData, 55)
-	if err != nil || animator == nil || len(animator.frames) == 0 {
-		PrintMessage(SUCCESS, "Celeste is ready to chat~")
-		fmt.Fprintf(os.Stderr, "\n")
-		return
-	}
-
-	// Play full animation loop (all frames)
-	for i := 0; i < len(animator.frames); i++ {
-		fmt.Fprint(os.Stderr, "\033[H\033[2J") // Clear screen
-		output := animator.RenderFrameToBlocks(i)
-		fmt.Fprint(os.Stderr, output)
-		fmt.Fprint(os.Stderr, "\n")
-		os.Stderr.Sync()
-		time.Sleep(animator.delays[i])
+	// Use optimal display - animated GIF if terminal supports it
+	if err := DisplayAssetOptimal(PixelWink); err != nil {
+		// Fallback to ASCII if display fails
+		displayASCIIArtRepresentation(PixelWink)
 	}
 	fmt.Fprintf(os.Stderr, "\n")
 	PrintMessage(SUCCESS, "Celeste is ready to chat~")
 	fmt.Fprintf(os.Stderr, "\n")
 }
 
+// displayGoodbyeAnimation shows a farewell animation
+func displayGoodbyeAnimation() {
+	fmt.Fprintf(os.Stderr, "\n")
+	// Use optimal display - animated GIF if terminal supports it
+	if err := DisplayAssetOptimal(Kusanagi); err != nil {
+		// Fallback to ASCII if display fails
+		displayASCIIArtRepresentation(Kusanagi)
+	}
+	fmt.Fprintf(os.Stderr, "\n")
+}
 
 // processUserMessage handles regular user messages with thinking animation
 func processUserMessage(message string) {
@@ -238,12 +228,21 @@ func displayHelpMenu() {
 func setTheme(theme string) {
 	switch strings.ToLower(theme) {
 	case "normal", "friendly", "light":
-		PrintMessage(SUCCESS, "Switched to friendly theme~")
+		PrintMessage(SUCCESS, "Switched to friendly theme")
+		fmt.Fprintf(os.Stderr, "\n")
+		if err := DisplayAssetOptimal(PixelWink); err != nil {
+			displayASCIIArtRepresentation(PixelWink)
+		}
 	case "corrupted", "abyss", "dark":
-		PrintMessage(SUCCESS, "Switched to corrupted abyss theme~")
+		PrintMessage(SUCCESS, "Switched to corrupted abyss theme")
+		fmt.Fprintf(os.Stderr, "\n")
+		if err := DisplayAssetOptimal(Kusanagi); err != nil {
+			displayASCIIArtRepresentation(Kusanagi)
+		}
 	default:
 		PrintMessage(ERROR, fmt.Sprintf("Unknown theme: %s", theme))
 	}
+	fmt.Fprintf(os.Stderr, "\n")
 }
 
 // setMode changes the operation mode
@@ -285,36 +284,4 @@ func displayStatus() {
 	fmt.Fprintf(os.Stderr, "\n")
 	PrintConfig(status)
 	fmt.Fprintf(os.Stderr, "\n")
-}
-
-// displayAnimatedPrompt shows a pulsing animated prompt text above the input field
-func displayAnimatedPrompt() {
-	prompts := []string{
-		"✨ Tell me something...",
-		"💭 What's on your mind?",
-		"🌙 Speak to me...",
-		"📝 Your message:",
-		"💬 Say something...",
-		"🎀 Tell Celeste...",
-	}
-
-	// Use a simple pulsing effect with color
-	pulseFrames := []string{
-		"\033[38;5;213m",  // Bright magenta
-		"\033[38;5;177m",  // Medium magenta
-		"\033[38;5;141m",  // Light purple
-		"\033[38;5;177m",  // Back to medium
-	}
-
-	selectedPrompt := prompts[rand.Intn(len(prompts))]
-
-	// Show a brief pulsing animation
-	// Use \033[2K to clear the entire line before redrawing to ensure smooth animation
-	for _, colorCode := range pulseFrames {
-		fmt.Fprintf(os.Stderr, "\033[2K\r%s%s\033[0m", colorCode, selectedPrompt)
-		time.Sleep(100 * time.Millisecond)
-	}
-
-	// Final display in bright magenta
-	fmt.Fprintf(os.Stderr, "\033[2K\r\033[38;5;213m%s\033[0m\n", selectedPrompt)
 }
