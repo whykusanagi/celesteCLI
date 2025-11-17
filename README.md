@@ -65,25 +65,59 @@ A premium, corruption-aesthetic command-line interface for CelesteAI, a mischiev
 - Venice.ai API key (for NSFW features)
 - DigitalOcean Spaces credentials (for S3 sync)
 
-### Quick Install
+### Quick Install (Recommended)
 ```bash
 git clone https://github.com/whykusanagi/celesteCLI.git
 cd celesteCLI
-go build -o Celeste main.go scaffolding.go animation.go ui.go assets.go
-./install.sh
+make install
+```
+
+### Build Commands
+
+Use the Makefile for easy building and installation:
+
+```bash
+make help              # Show all available commands
+make build             # Build Celeste binary locally
+make install           # Build and install to ~/.local/bin/Celeste
+make dev               # Build, install, and test
+make clean             # Remove local binary
+make test              # Test installed binary
+```
+
+### Development Workflow
+
+For continuous development with automatic binary updates:
+
+```bash
+# Build and install to PATH (one command)
+make install
+
+# Or use the shortcut for development
+make dev
+
+# Then test it
+Celeste --version
+```
+
+### Script-Based Install (Alternative)
+```bash
+git clone https://github.com/whykusanagi/celesteCLI.git
+cd celesteCLI
+./build-and-install.sh
 ```
 
 ### Manual Install
 ```bash
-go build -o Celeste main.go scaffolding.go animation.go ui.go assets.go
-sudo cp Celeste /usr/local/bin/
-chmod +x /usr/local/bin/Celeste
+go build -o Celeste main.go scaffolding.go animation.go ui.go assets.go interactive.go terminal_display.go ascii_art.go
+cp Celeste ~/.local/bin/
+chmod +x ~/.local/bin/Celeste
 ```
 
 ### Verify Installation
 ```bash
 which Celeste
-Celeste -h
+Celeste --version
 ```
 
 ## ⚙️ Configuration
@@ -1050,9 +1084,98 @@ celesteCLI/
 - `gopkg.in/yaml.v3` - YAML configuration parsing
 
 ### Building
+
+#### Using Makefile (Recommended)
+```bash
+make build      # Build locally
+make install    # Build and install to PATH
+make dev        # Build, install, and test
+```
+
+#### Manual Build
 ```bash
 go mod tidy
-go build -o Celeste main.go scaffolding.go animation.go
+go build -o Celeste main.go scaffolding.go animation.go ui.go assets.go interactive.go terminal_display.go ascii_art.go
+```
+
+## 🔨 Build Automation
+
+### Makefile Targets
+
+The Makefile provides automated build and installation workflows:
+
+| Target | Description |
+|--------|-------------|
+| `make help` | Display all available commands |
+| `make build` | Build Celeste binary in current directory |
+| `make install` | Build and install to ~/.local/bin/Celeste |
+| `make dev` | Build, install, and test in PATH |
+| `make clean` | Remove local binary |
+| `make test` | Verify installed binary works |
+
+### Typical Development Workflow
+
+```bash
+# 1. Make changes to code
+nano main.go
+
+# 2. Rebuild and update binary in PATH
+make install
+
+# 3. Test the updated binary
+Celeste --version
+
+# 4. Verify animation works
+Celeste -i  # Interactive mode
+```
+
+### Continuous Development
+
+For rapid development iterations:
+
+```bash
+# Set up shell alias for quick rebuilds
+alias cbuild='cd ~/Desktop/celesteCLI && make install && Celeste --version'
+
+# Then use it anytime
+cbuild  # Builds, installs, and tests in one command
+```
+
+### Understanding the Build Process
+
+The Makefile automates these steps:
+
+1. **Build**: Compiles all Go source files into a single `Celeste` binary
+2. **Install**: Copies the binary to `~/.local/bin/Celeste`
+3. **Permissions**: Makes the binary executable with `chmod +x`
+4. **Test**: Verifies the installed binary works correctly
+5. **Feedback**: Provides visual confirmation at each step
+
+This ensures:
+- ✅ Your PATH always has the latest binary
+- ✅ No manual copying or permission fixing needed
+- ✅ Single command to update everything
+- ✅ Automated testing confirms success
+
+### Shell Integration
+
+Add to your `~/.bashrc` or `~/.zshrc` for easy access:
+
+```bash
+# Celeste development shortcut
+function cbuild() {
+    cd ~/Desktop/celesteCLI
+    make install
+    if [ $? -eq 0 ]; then
+        echo "✨ Build successful! Testing..."
+        Celeste --version
+    else
+        echo "❌ Build failed!"
+        return 1
+    fi
+}
+
+# Usage: just type 'cbuild' from anywhere
 ```
 
 ## 🔍 Troubleshooting
