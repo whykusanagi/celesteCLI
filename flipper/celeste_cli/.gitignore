@@ -1,0 +1,7 @@
+*.fap
+*.elf
+*.o
+*.d
+build/
+*.log
+

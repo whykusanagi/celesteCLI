@@ -1,0 +1,10 @@
+Filetype: Flipper Application
+Version: 1
+AppID: celeste_cli
+Name: Celeste CLI
+App Version: 1.0.0
+Author: whykusanagi
+Description: CelesteAI CLI remote controller - sends commands to host via USB HID keyboard
+Stack: 2048
+Icon: icon.png
+
