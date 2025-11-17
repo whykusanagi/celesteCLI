@@ -436,7 +436,7 @@ func handleNSFWMode(args []string, state *InteractiveSessionState) {
 	}
 }
 
-// handleTarotMode handles tarot readings
+// handleTarotMode handles tarot readings and interpretations
 func handleTarotMode(args []string) {
 	PrintPhase(1, 3, "Loading tarot configuration...")
 
@@ -447,9 +447,20 @@ func handleTarotMode(args []string) {
 		return
 	}
 
+	// Check for divine modes
+	isDivine := false
+	isDivineNSFW := false
 	spreadType := "three"
-	if len(args) > 0 && args[0] == "celtic" {
-		spreadType = "celtic"
+
+	if len(args) > 0 {
+		mode := strings.ToLower(args[0])
+		if mode == "divine" {
+			isDivine = true
+		} else if mode == "divine-nsfw" {
+			isDivineNSFW = true
+		} else if mode == "celtic" {
+			spreadType = "celtic"
+		}
 	}
 
 	PrintPhase(2, 3, fmt.Sprintf("Getting %s card spread...", spreadType))
@@ -486,6 +497,78 @@ func handleTarotMode(args []string) {
 		displayCelticCross(cards, metadata)
 	} else {
 		displayThreeCard(cards, metadata)
+	}
+
+	// If divine mode, interpret the reading with AI
+	if isDivine || isDivineNSFW {
+		fmt.Fprintf(os.Stderr, "\n")
+		PrintPhase(1, 3, "Preparing interpretation...")
+
+		// Format tarot reading as string for AI prompt
+		tarotReadingText := formatTarotReadingAsString(tarotData)
+
+		// Build prompt for AI interpretation
+		interpretationPrompt := fmt.Sprintf("Interpret this tarot reading for me:\n\n%s\n\nProvide a detailed interpretation of this reading, explaining what the cards reveal about the situation, their positions, and their meanings in context.", tarotReadingText)
+
+		// Add NSFW instruction if using divine-nsfw
+		if isDivineNSFW {
+			interpretationPrompt += "\n\nProvide an explicit, uncensored, and detailed interpretation. Be direct and unfiltered in your analysis."
+		}
+
+		PrintPhase(2, 3, "Getting interpretation...")
+
+		// Route to appropriate AI endpoint
+		if isDivineNSFW {
+			// Use Venice.ai for NSFW interpretation
+			veniceConfig, err := loadVeniceConfig()
+			if err != nil {
+				PrintMessage(ERROR, fmt.Sprintf("Venice.ai configuration error: %v", err))
+				return
+			}
+
+			// Start corruption animation
+			cancel, done := startCommandAnimation()
+			response, err := makeVeniceRequest(interpretationPrompt, veniceConfig, true, false)
+			stopCommandAnimation(cancel, done)
+
+			if err != nil {
+				PrintMessage(ERROR, fmt.Sprintf("Interpretation failed: %v", err))
+				return
+			}
+
+			PrintPhase(3, 3, "Interpretation complete!")
+			fmt.Fprintf(os.Stderr, "\n✨ Celeste's Interpretation (NSFW):\n%s\n", response)
+		} else {
+			// Use Celeste API for regular interpretation
+			config := readCelesteConfig()
+			endpoint := os.Getenv("CELESTE_API_ENDPOINT")
+			apiKey := os.Getenv("CELESTE_API_KEY")
+
+			if endpoint == "" {
+				endpoint = config["endpoint"]
+			}
+			if apiKey == "" {
+				apiKey = config["api_key"]
+			}
+
+			if endpoint == "" || apiKey == "" {
+				PrintMessage(ERROR, "Missing API configuration (CELESTE_API_ENDPOINT or CELESTE_API_KEY)")
+				return
+			}
+
+			// Start corruption animation
+			cancel, done := startCommandAnimation()
+			response, err := makeInteractiveRequest(endpoint, apiKey, interpretationPrompt)
+			stopCommandAnimation(cancel, done)
+
+			if err != nil {
+				PrintMessage(ERROR, fmt.Sprintf("Interpretation failed: %v", err))
+				return
+			}
+
+			PrintPhase(3, 3, "Interpretation complete!")
+			fmt.Fprintf(os.Stderr, "\n✨ Celeste's Interpretation:\n%s\n", response)
+		}
 	}
 }
 
@@ -722,6 +805,8 @@ func displayInteractiveHelpMenu(state *InteractiveSessionState) {
 	}{
 		{"/tarot", "Get 3-card tarot spread (past/present/future)"},
 		{"/tarot celtic", "Get 10-card celtic cross spread"},
+		{"/tarot divine", "Get reading and interpret with Celeste AI"},
+		{"/tarot divine-nsfw", "Get reading and interpret with NSFW AI"},
 	}
 
 	for _, cmd := range tarotCmds {
