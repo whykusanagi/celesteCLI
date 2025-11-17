@@ -39,8 +39,9 @@ func DetectTerminalCapabilities() TerminalCapabilities {
 	return caps
 }
 
-// DisplayGIFAnimated displays a GIF with proper animation
+// DisplayGIFAnimated displays a GIF with proper animation (non-blocking)
 // Falls back to ASCII art if terminal doesn't support inline images
+// Runs animation in background, returns immediately
 func DisplayGIFAnimated(gifData []byte, assetType AssetType) error {
 	// Check terminal capabilities
 	caps := DetectTerminalCapabilities()
@@ -63,36 +64,36 @@ func DisplayGIFAnimated(gifData []byte, assetType AssetType) error {
 		return nil
 	}
 
-	// Display frames in infinite loop
-	frameIndex := 0
-	for {
-		frame := g.Image[frameIndex]
+	// Display animation in background goroutine
+	go func() {
+		frameIndex := 0
+		for {
+			frame := g.Image[frameIndex]
 
-		// Get frame delay (in hundredths of a second)
-		delay := g.Delay[frameIndex]
-		if delay < 1 {
-			delay = 10 // Default 100ms if not specified
+			// Get frame delay (in hundredths of a second)
+			delay := g.Delay[frameIndex]
+			if delay < 1 {
+				delay = 10 // Default 100ms if not specified
+			}
+
+			// Convert frame to PNG and display
+			if err := displayFrameAsITerm2Image(frame); err != nil {
+				// On error, stop animation
+				return
+			}
+
+			// Sleep for frame duration (convert hundredths of second to milliseconds)
+			time.Sleep(time.Duration(delay*10) * time.Millisecond)
+
+			// Move to next frame and wrap around
+			frameIndex = (frameIndex + 1) % len(g.Image)
+
+			// Clear the line for next frame (move cursor up and clear)
+			fmt.Fprint(os.Stderr, "\r\033[A\033[K")
 		}
+	}()
 
-		// Convert frame to PNG and display
-		if err := displayFrameAsITerm2Image(frame); err != nil {
-			// On error, fall back to ASCII
-			fmt.Fprintf(os.Stderr, "\n")
-			displayASCIIArtRepresentation(assetType)
-			fmt.Fprintf(os.Stderr, "\n")
-			return nil
-		}
-
-		// Sleep for frame duration (convert hundredths of second to milliseconds)
-		time.Sleep(time.Duration(delay*10) * time.Millisecond)
-
-		// Move to next frame and wrap around
-		frameIndex = (frameIndex + 1) % len(g.Image)
-
-		// Clear the line for next frame (move cursor up and clear)
-		fmt.Fprint(os.Stderr, "\r\033[A\033[K")
-	}
-	// Note: This function never returns under normal operation - animation loops forever
+	return nil
 }
 
 // displayFrameAsITerm2Image sends a single frame to iTerm2 as inline image

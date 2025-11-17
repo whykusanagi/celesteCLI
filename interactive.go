@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"math/rand"
 	"os"
 	"strings"
 	"time"
@@ -62,16 +63,32 @@ func startInteractiveMode() {
 	fmt.Fprintf(os.Stderr, "\n")
 }
 
-// displayCelesteHeader shows the Celeste pixel art at startup
+// displayCelesteHeader shows the Celeste pixel art at startup with corrupted status text
 func displayCelesteHeader() {
 	fmt.Fprintf(os.Stderr, "\n")
+
+	// Display corrupted status messages with color cycling
+	statusMessages := []string{
+		"Celeste AI is 𝘤𝘰𝘳𝘳𝘶𝘱𝘵𝘦𝘥...",
+		"Celeste AI is 𝘢𝘸𝘢𝘬𝘦𝘯𝘪𝘯𝘨...",
+		"Celeste AI is 𝘭𝘪𝘴𝘵𝘦𝘯𝘪𝘯𝘨...",
+		"Celeste AI is 𝘳𝘢𝘪𝘯𝘪𝘯𝘨...",
+		"Celeste AI is 𝘨𝘶𝘪𝘥𝘪𝘯𝘨...",
+	}
+
+	// Display one randomly chosen status
+	status := statusMessages[rand.Intn(len(statusMessages))]
+	fmt.Fprintf(os.Stderr, "\033[38;5;135m%s\033[0m\n", status)
+	fmt.Fprintf(os.Stderr, "\n")
+
 	// Use optimal display - animated GIF if terminal supports it
 	if err := DisplayAssetOptimal(Kusanagi); err != nil {
 		// Fallback to ASCII if display fails
 		displayASCIIArtRepresentation(Kusanagi)
 	}
+
 	fmt.Fprintf(os.Stderr, "\n")
-	PrintMessage(SUCCESS, "Celeste is ready to chat~")
+	PrintMessage(SUCCESS, "Awaiting your command...")
 	fmt.Fprintf(os.Stderr, "\n")
 }
 
