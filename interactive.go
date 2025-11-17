@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -66,10 +67,19 @@ func startInteractiveMode() {
 func displayCelesteHeader() {
 	fmt.Fprintf(os.Stderr, "\n")
 	// Try to load animation from multiple possible locations
-	gifPaths := []string{
-		"assets/kusanagi_4x.gif",  // Relative path from current directory
-		"./assets/kusanagi_4x.gif", // Explicit relative
+	var gifPaths []string
+
+	// Get executable path for binary-relative loading
+	if exePath, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exePath)
+		gifPaths = append(gifPaths, filepath.Join(exeDir, "assets", "kusanagi_4x.gif"))
 	}
+
+	// Add relative paths for running from project directory
+	gifPaths = append(gifPaths,
+		"assets/kusanagi_4x.gif",        // Relative path from current directory
+		"./assets/kusanagi_4x.gif",      // Explicit relative
+	)
 
 	var animator *PixelBlockAnimator
 	var err error

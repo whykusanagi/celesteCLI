@@ -12,7 +12,7 @@ COPY *.go ./
 COPY assets/ ./assets/
 
 # Build the Celeste binary
-RUN go build -o Celeste main.go scaffolding.go animation.go ui.go assets.go interactive.go terminal_display.go ascii_art.go
+RUN go build -o Celeste main.go scaffolding.go animation.go ui.go assets.go interactive.go terminal_display.go ascii_art.go gif_animator.go
 
 # Runtime stage
 FROM alpine:latest
