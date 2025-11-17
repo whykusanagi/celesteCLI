@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"fmt"
 	"image"
@@ -39,9 +40,9 @@ func DetectTerminalCapabilities() TerminalCapabilities {
 	return caps
 }
 
-// DisplayGIFAnimated displays a GIF with proper animation (non-blocking)
+// DisplayGIFAnimated displays a GIF animation for a limited time
 // Falls back to ASCII art if terminal doesn't support inline images
-// Runs animation in background, returns immediately
+// Animates for 3 seconds then stops to allow user input
 func DisplayGIFAnimated(gifData []byte, assetType AssetType) error {
 	// Check terminal capabilities
 	caps := DetectTerminalCapabilities()
@@ -64,36 +65,31 @@ func DisplayGIFAnimated(gifData []byte, assetType AssetType) error {
 		return nil
 	}
 
-	// Display animation in background goroutine
-	go func() {
-		frameIndex := 0
-		for {
-			frame := g.Image[frameIndex]
+	// Display animation for limited time (3 seconds)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
 
-			// Get frame delay (in hundredths of a second)
-			delay := g.Delay[frameIndex]
-			if delay < 1 {
-				delay = 10 // Default 100ms if not specified
-			}
+	frameIndex := 0
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			// Animation time limit reached
+			return nil
+		case <-ticker.C:
+			frame := g.Image[frameIndex]
 
 			// Convert frame to PNG and display
 			if err := displayFrameAsITerm2Image(frame); err != nil {
-				// On error, stop animation
-				return
+				return err
 			}
-
-			// Sleep for frame duration (convert hundredths of second to milliseconds)
-			time.Sleep(time.Duration(delay*10) * time.Millisecond)
 
 			// Move to next frame and wrap around
 			frameIndex = (frameIndex + 1) % len(g.Image)
-
-			// Clear the line for next frame (move cursor up and clear)
-			fmt.Fprint(os.Stderr, "\r\033[A\033[K")
 		}
-	}()
-
-	return nil
+	}
 }
 
 // displayFrameAsITerm2Image sends a single frame to iTerm2 as inline image
