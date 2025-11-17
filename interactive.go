@@ -74,7 +74,7 @@ func displayCelesteHeader() {
 		return
 	}
 
-	animator, err := LoadGIFAnimationFromBytes(gifData, 100)
+	animator, err := LoadGIFAnimationFromBytes(gifData, 55)
 	if err != nil || animator == nil || len(animator.frames) == 0 {
 		PrintMessage(SUCCESS, "Celeste is ready to chat~")
 		fmt.Fprintf(os.Stderr, "\n")
