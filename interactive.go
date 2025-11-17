@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 )
@@ -66,33 +65,17 @@ func startInteractiveMode() {
 // displayCelesteHeader shows Kusanagi animation and startup message
 func displayCelesteHeader() {
 	fmt.Fprintf(os.Stderr, "\n")
-	// Try to load animation from multiple possible locations
-	var gifPaths []string
 
-	// Get executable path for binary-relative loading
-	if exePath, err := os.Executable(); err == nil {
-		exeDir := filepath.Dir(exePath)
-		gifPaths = append(gifPaths, filepath.Join(exeDir, "assets", "kusanagi_4x.gif"))
+	// Load embedded kusanagi GIF animation
+	gifData, err := GetKusanagiGIFBytes()
+	if err != nil {
+		PrintMessage(SUCCESS, "Celeste is ready to chat~")
+		fmt.Fprintf(os.Stderr, "\n")
+		return
 	}
 
-	// Add relative paths for running from project directory
-	gifPaths = append(gifPaths,
-		"assets/kusanagi_4x.gif",        // Relative path from current directory
-		"./assets/kusanagi_4x.gif",      // Explicit relative
-	)
-
-	var animator *PixelBlockAnimator
-	var err error
-
-	for _, path := range gifPaths {
-		animator, err = LoadGIFAnimation(path, 100)
-		if err == nil && animator != nil && len(animator.frames) > 0 {
-			break
-		}
-	}
-
-	// If loading failed, skip animation but still display message
-	if animator == nil || len(animator.frames) == 0 {
+	animator, err := LoadGIFAnimationFromBytes(gifData, 100)
+	if err != nil || animator == nil || len(animator.frames) == 0 {
 		PrintMessage(SUCCESS, "Celeste is ready to chat~")
 		fmt.Fprintf(os.Stderr, "\n")
 		return

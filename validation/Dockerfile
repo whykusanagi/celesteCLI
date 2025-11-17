@@ -8,11 +8,8 @@ COPY go.mod go.sum ./
 # Copy all source files
 COPY *.go ./
 
-# Copy assets folder
-COPY assets/ ./assets/
-
-# Build the Celeste binary
-RUN go build -o Celeste main.go scaffolding.go animation.go ui.go assets.go interactive.go terminal_display.go ascii_art.go gif_animator.go
+# Build the Celeste binary (with embedded assets)
+RUN go build -o Celeste main.go scaffolding.go animation.go ui.go assets.go interactive.go terminal_display.go ascii_art.go gif_animator.go embedded_assets.go
 
 # Runtime stage
 FROM alpine:latest
