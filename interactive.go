@@ -2,16 +2,28 @@ package main
 
 import (
 	"bufio"
-	"context"
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
+	"net/http"
 	"os"
 	"strings"
 	"time"
 )
 
+// InteractiveSessionState holds the state for an interactive session
+type InteractiveSessionState struct {
+	Format   string // short, long, general
+	Platform string // twitter, tiktok, youtube, discord
+	Topic    string // Current topic
+	Tone     string // Current tone
+	Persona  string // Current persona
+}
+
 // InteractiveMode launches an interactive chat with Celeste
-// Displays pixel art assets and allows real-time conversation
+// Displays pixel art assets and allows real-time conversation with actual API integration
 func startInteractiveMode() {
 	fmt.Fprintf(os.Stderr, "\n")
 	fmt.Fprintf(os.Stderr, "╔════════════════════════════════════════════════════════════════╗\n")
@@ -25,6 +37,18 @@ func startInteractiveMode() {
 
 	// Display Celeste asset on startup
 	displayCelesteHeader()
+
+	// Initialize session state with defaults
+	state := &InteractiveSessionState{
+		Format:   "short",
+		Platform: "twitter",
+		Topic:    "",
+		Tone:     "teasing",
+		Persona:  "celeste_stream",
+	}
+
+	// Display initial configuration
+	displayConfigurationBanner(state)
 
 	// Initialize input reader
 	reader := bufio.NewReader(os.Stdin)
@@ -47,16 +71,16 @@ func startInteractiveMode() {
 
 		// Process command
 		if strings.HasPrefix(input, "/") {
-			handleCommand(strings.TrimPrefix(input, "/"))
+			handleCommand(strings.TrimPrefix(input, "/"), state)
 		} else if input == "exit" || input == "quit" {
 			PrintMessage(INFO, "Thanks for chatting with Celeste! Goodbye~")
 			displayGoodbyeAnimation()
 			break
 		} else if input == "help" {
-			displayHelpMenu()
+			displayInteractiveHelpMenu(state)
 		} else {
-			// Regular message - show thinking animation and process
-			processUserMessage(input)
+			// Regular message - generate response with API
+			processUserMessage(input, state)
 		}
 	}
 
@@ -92,6 +116,22 @@ func displayCelesteHeader() {
 	fmt.Fprintf(os.Stderr, "\n")
 }
 
+// displayConfigurationBanner shows the current session configuration
+func displayConfigurationBanner(state *InteractiveSessionState) {
+	fmt.Fprintf(os.Stderr, "\n")
+	config := map[string]string{
+		"Format":   state.Format,
+		"Platform": state.Platform,
+		"Tone":     state.Tone,
+		"Persona":  state.Persona,
+	}
+	if state.Topic != "" {
+		config["Topic"] = state.Topic
+	}
+	PrintConfig(config)
+	fmt.Fprintf(os.Stderr, "\nUse /set to change settings. Type 'help' for all commands.\n")
+}
+
 // displayGoodbyeAnimation shows a farewell animation
 func displayGoodbyeAnimation() {
 	fmt.Fprintf(os.Stderr, "\n")
@@ -103,35 +143,155 @@ func displayGoodbyeAnimation() {
 	fmt.Fprintf(os.Stderr, "\n")
 }
 
-// processUserMessage handles regular user messages with thinking animation
-func processUserMessage(message string) {
-	PrintPhase(1, 3, "Processing your message...")
+// processUserMessage handles regular user messages with API integration
+func processUserMessage(message string, state *InteractiveSessionState) {
+	PrintPhase(1, 3, "Loading configuration...")
 
-	// Show thinking animation
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan bool)
+	// Load Celeste config
+	config := readCelesteConfig()
+	endpoint := os.Getenv("CELESTE_API_ENDPOINT")
+	apiKey := os.Getenv("CELESTE_API_KEY")
 
-	go startDemonicEyeAnimation(ctx, done, os.Stderr)
+	if endpoint == "" {
+		endpoint = config["endpoint"]
+	}
+	if apiKey == "" {
+		apiKey = config["api_key"]
+	}
 
-	// Simulate processing time
-	time.Sleep(2 * time.Second)
-
-	cancel()
-	<-done
+	if endpoint == "" || apiKey == "" {
+		PrintMessage(ERROR, "Missing API configuration (CELESTE_API_ENDPOINT or CELESTE_API_KEY)")
+		PrintMessage(INFO, "Set these in ~/.celesteAI or environment variables")
+		return
+	}
 
 	PrintPhase(2, 3, "Generating response...")
-	time.Sleep(1 * time.Second)
+
+	// Build the prompt based on current state and user message
+	systemPrompt := buildInteractivePrompt(state, message)
+
+	// Make API request
+	response, requestErr := makeInteractiveRequest(endpoint, apiKey, systemPrompt)
 
 	PrintPhase(3, 3, "Response ready!")
 	fmt.Fprintf(os.Stderr, "\n")
 
-	// Simulate a response
-	response := fmt.Sprintf("You said: %s\n", message)
-	fmt.Fprintf(os.Stderr, "Celeste: %s\n", response)
+	if requestErr != nil {
+		PrintMessage(ERROR, fmt.Sprintf("Request failed: %v", requestErr))
+		return
+	}
+
+	// Display response
+	fmt.Fprintf(os.Stderr, "✨ Celeste:\n%s\n", response)
+}
+
+// buildInteractivePrompt builds a comprehensive prompt based on session state and user message
+func buildInteractivePrompt(state *InteractiveSessionState, userMessage string) string {
+	prompt := "You are Celeste, a mischievous demon noble VTuber assistant with a corrupted, abyss-aesthetic personality. You are engaging, witty, and maintain your unique voice in all interactions.\n\n"
+
+	// Add format instructions
+	if state.Format != "" {
+		switch state.Format {
+		case "short":
+			prompt += "Generate SHORT content (around 280 characters) - concise, punchy, and impactful.\n"
+		case "long":
+			prompt += "Generate LONG content (around 5000 characters) - detailed, comprehensive, and engaging.\n"
+		case "general":
+			prompt += "Generate flexible-length content - adapt the length to best suit the request.\n"
+		}
+	}
+
+	// Add platform context
+	if state.Platform != "" {
+		switch state.Platform {
+		case "twitter":
+			prompt += "Optimize for Twitter/X - include relevant hashtags, emojis, engagement hooks, and keep it shareable.\n"
+		case "tiktok":
+			prompt += "Optimize for TikTok - make it trendy, catchy, relatable, and optimized for the TikTok audience.\n"
+		case "youtube":
+			prompt += "Optimize for YouTube - write engaging descriptions or titles that encourage clicks and watches.\n"
+		case "discord":
+			prompt += "Optimize for Discord - use conversational tone with Discord-friendly formatting and emojis.\n"
+		}
+	}
+
+	// Add tone
+	if state.Tone != "" {
+		prompt += fmt.Sprintf("Tone: %s\n", state.Tone)
+	}
+
+	// Add topic if set
+	if state.Topic != "" {
+		prompt += fmt.Sprintf("Topic/Subject: %s\n", state.Topic)
+	}
+
+	// Add user message
+	prompt += fmt.Sprintf("\nUser message: %s\n", userMessage)
+	prompt += "\nRespond in character as Celeste. Be mischievous, engaging, entertaining, and true to your corrupted aesthetic. Provide a thoughtful, creative response."
+
+	return prompt
+}
+
+// makeInteractiveRequest makes an API request and returns the response
+func makeInteractiveRequest(endpoint, apiKey, prompt string) (string, error) {
+	// Build the request payload
+	extraBody := make(map[string]interface{})
+	messages := []Message{{Role: "user", Content: prompt}}
+	chatReq := ChatRequest{
+		Model:     "celeste-ai",
+		Messages:  messages,
+		ExtraBody: extraBody,
+	}
+
+	body, err := json.Marshal(chatReq)
+	if err != nil {
+		return "", fmt.Errorf("failed to encode request: %v", err)
+	}
+
+	// Make HTTP request
+	req, err := http.NewRequest("POST", endpoint+"chat/completions", bytes.NewBuffer(body))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %v", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %v", err)
+	}
+
+	// Parse JSON response
+	var result map[string]interface{}
+	if err := json.Unmarshal(responseBody, &result); err != nil {
+		return "", fmt.Errorf("failed to parse response: %v", err)
+	}
+
+	// Extract message content
+	if choices, ok := result["choices"].([]interface{}); ok && len(choices) > 0 {
+		if choice, ok := choices[0].(map[string]interface{}); ok {
+			if message, ok := choice["message"].(map[string]interface{}); ok {
+				if content, ok := message["content"].(string); ok {
+					return content, nil
+				}
+			}
+		}
+	}
+
+	return "", fmt.Errorf("unexpected response format")
 }
 
 // handleCommand processes special interactive commands
-func handleCommand(cmd string) {
+func handleCommand(cmd string, state *InteractiveSessionState) {
 	parts := strings.Fields(cmd)
 	if len(parts) == 0 {
 		return
@@ -155,12 +315,16 @@ func handleCommand(cmd string) {
 		}
 		setTheme(parts[1])
 
-	case "mode":
-		if len(parts) < 2 {
-			PrintMessage(WARN, "Usage: /mode [tarot|nsfw|twitter|normal]")
+	case "set":
+		if len(parts) < 3 {
+			PrintMessage(WARN, "Usage: /set <setting> <value>")
+			PrintMessage(INFO, "Settings: format, platform, tone, topic, persona")
 			return
 		}
-		setMode(parts[1])
+		setSetting(parts[1], strings.Join(parts[2:], " "), state)
+
+	case "config":
+		displayConfigurationBanner(state)
 
 	case "clear":
 		clearScreen()
@@ -171,6 +335,46 @@ func handleCommand(cmd string) {
 	default:
 		PrintMessage(ERROR, fmt.Sprintf("Unknown command: %s", parts[0]))
 		PrintMessage(INFO, "Type 'help' to see available commands")
+	}
+}
+
+// setSetting updates session configuration
+func setSetting(setting, value string, state *InteractiveSessionState) {
+	setting = strings.ToLower(setting)
+	value = strings.ToLower(value)
+
+	switch setting {
+	case "format":
+		if value != "short" && value != "long" && value != "general" {
+			PrintMessage(ERROR, "Format must be: short, long, or general")
+			return
+		}
+		state.Format = value
+		PrintMessage(SUCCESS, fmt.Sprintf("Format set to: %s", value))
+
+	case "platform":
+		if value != "twitter" && value != "tiktok" && value != "youtube" && value != "discord" {
+			PrintMessage(ERROR, "Platform must be: twitter, tiktok, youtube, or discord")
+			return
+		}
+		state.Platform = value
+		PrintMessage(SUCCESS, fmt.Sprintf("Platform set to: %s", value))
+
+	case "tone":
+		state.Tone = value
+		PrintMessage(SUCCESS, fmt.Sprintf("Tone set to: %s", value))
+
+	case "topic":
+		state.Topic = value
+		PrintMessage(SUCCESS, fmt.Sprintf("Topic set to: %s", value))
+
+	case "persona":
+		state.Persona = value
+		PrintMessage(SUCCESS, fmt.Sprintf("Persona set to: %s", value))
+
+	default:
+		PrintMessage(ERROR, fmt.Sprintf("Unknown setting: %s", setting))
+		PrintMessage(INFO, "Available: format, platform, tone, topic, persona")
 	}
 }
 
@@ -211,8 +415,8 @@ func displayAssetInfo() {
 	fmt.Fprintf(os.Stderr, "\n")
 }
 
-// displayHelpMenu shows available commands
-func displayHelpMenu() {
+// displayInteractiveHelpMenu shows available commands with detailed descriptions
+func displayInteractiveHelpMenu(state *InteractiveSessionState) {
 	fmt.Fprintf(os.Stderr, "\n")
 	PrintSeparator(HEAVY)
 	fmt.Fprintf(os.Stderr, "📚 Celeste Interactive Commands\n")
@@ -222,22 +426,28 @@ func displayHelpMenu() {
 		cmd  string
 		desc string
 	}{
+		{"/set format [short|long|general]", "Change content format"},
+		{"/set platform [twitter|tiktok|youtube|discord]", "Change target platform"},
+		{"/set tone <tone>", "Change tone/style (e.g., lewd, teasing, cute, funny)"},
+		{"/set topic <topic>", "Set a topic/subject for responses"},
+		{"/set persona <persona>", "Change persona"},
+		{"/config", "Show current configuration"},
 		{"/show [pixel_wink|kusanagi]", "Display pixel art asset"},
 		{"/asset", "List all available assets"},
 		{"/theme [normal|corrupted]", "Switch visual theme"},
-		{"/mode [tarot|nsfw|twitter|normal]", "Change operation mode"},
-		{"/status", "Show current status"},
 		{"/clear", "Clear screen"},
+		{"/status", "Show current status"},
 		{"/help", "Show this help menu"},
 		{"exit/quit", "Exit interactive mode"},
 	}
 
 	for _, cmd := range commands {
-		fmt.Fprintf(os.Stderr, "  %-40s %s\n", cmd.cmd, cmd.desc)
+		fmt.Fprintf(os.Stderr, "  %-45s %s\n", cmd.cmd, cmd.desc)
 	}
 
 	fmt.Fprintf(os.Stderr, "\n")
 	PrintSeparator(LIGHT)
+	fmt.Fprintf(os.Stderr, "\nTone Examples: lewd, explicit, teasing, chaotic, cute, official, dramatic, parody, funny, suggestive, adult, sweet, snarky, playful, hype\n")
 	fmt.Fprintf(os.Stderr, "\n")
 }
 
@@ -259,25 +469,6 @@ func setTheme(theme string) {
 	default:
 		PrintMessage(ERROR, fmt.Sprintf("Unknown theme: %s", theme))
 	}
-	fmt.Fprintf(os.Stderr, "\n")
-}
-
-// setMode changes the operation mode
-func setMode(mode string) {
-	modes := map[string]string{
-		"tarot":   "🔮 Tarot Reading Mode",
-		"nsfw":    "⚡ NSFW Mode",
-		"twitter": "🐦 Twitter Mode",
-		"normal":  "✨ Normal Mode",
-	}
-
-	displayMode, exists := modes[strings.ToLower(mode)]
-	if !exists {
-		PrintMessage(ERROR, fmt.Sprintf("Unknown mode: %s. Available: tarot, nsfw, twitter, normal", mode))
-		return
-	}
-
-	PrintMessage(SUCCESS, fmt.Sprintf("Switched to %s", displayMode))
 	fmt.Fprintf(os.Stderr, "\n")
 }
 
