@@ -2,14 +2,12 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/base64"
 	"fmt"
 	"image"
 	"image/gif"
 	"image/png"
 	"os"
-	"time"
 )
 
 // TerminalCapabilities holds what the current terminal supports
@@ -65,31 +63,18 @@ func DisplayGIFAnimated(gifData []byte, assetType AssetType) error {
 		return nil
 	}
 
-	// Display animation for limited time (3 seconds)
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	frameIndex := 0
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			// Animation time limit reached
-			return nil
-		case <-ticker.C:
-			frame := g.Image[frameIndex]
-
-			// Convert frame to PNG and display
-			if err := displayFrameAsITerm2Image(frame); err != nil {
-				return err
-			}
-
-			// Move to next frame and wrap around
-			frameIndex = (frameIndex + 1) % len(g.Image)
-		}
+	if len(g.Image) == 0 {
+		return fmt.Errorf("GIF has no frames")
 	}
+
+	// Display first frame once (static, no animation)
+	// This shows the GIF without creating excessive output or cursor movement
+	if err := displayFrameAsITerm2Image(g.Image[0]); err != nil {
+		// Fallback to ASCII if frame display fails
+		displayASCIIArtRepresentation(assetType)
+	}
+
+	return nil
 }
 
 // displayFrameAsITerm2Image sends a single frame to iTerm2 as inline image
