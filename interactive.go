@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -420,7 +421,18 @@ func handleTarotMode(args []string) {
 	}
 
 	PrintPhase(2, 3, fmt.Sprintf("Getting %s card spread...", spreadType))
+
+	// Start corruption animation while fetching tarot data
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan bool)
+	startCorruptionAnimation(ctx, done, os.Stderr)
+
 	tarotData, err := makeTarotRequest(tarotConfig, spreadType)
+
+	// Stop the animation
+	cancel()
+	<-done
+
 	if err != nil {
 		PrintMessage(ERROR, fmt.Sprintf("Tarot request failed: %v", err))
 		return
