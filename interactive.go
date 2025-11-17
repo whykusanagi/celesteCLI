@@ -171,8 +171,10 @@ func processUserMessage(message string, state *InteractiveSessionState) {
 	// Build the prompt based on current state and user message
 	systemPrompt := buildInteractivePrompt(state, message)
 
-	// Make API request
+	// Start corruption animation while generating response
+	cancel, done := startCommandAnimation()
 	response, requestErr := makeInteractiveRequest(endpoint, apiKey, systemPrompt)
+	stopCommandAnimation(cancel, done)
 
 	PrintPhase(3, 3, "Response ready!")
 	fmt.Fprintf(os.Stderr, "\n")
@@ -352,6 +354,22 @@ func handleCommand(cmd string, state *InteractiveSessionState) {
 	}
 }
 
+// startCommandAnimation starts corruption animation for a command execution
+// Returns cancel function and done channel for the caller to manage
+func startCommandAnimation() (context.CancelFunc, chan bool) {
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan bool)
+	startCorruptionAnimation(ctx, done, os.Stderr)
+	return cancel, done
+}
+
+// stopCommandAnimation stops the corruption animation cleanly
+func stopCommandAnimation(cancel context.CancelFunc, done chan bool) {
+	cancel()
+	<-done
+	fmt.Fprintf(os.Stderr, "\r\033[K") // Clear animation line
+}
+
 // handleNSFWMode handles NSFW content generation
 func handleNSFWMode(args []string, state *InteractiveSessionState) {
 	PrintPhase(1, 3, "Loading Venice.ai configuration...")
@@ -369,7 +387,12 @@ func handleNSFWMode(args []string, state *InteractiveSessionState) {
 		systemPrompt += "\n\nProvide explicit, uncensored content."
 
 		PrintPhase(2, 3, "Generating NSFW response...")
+
+		// Start corruption animation
+		cancel, done := startCommandAnimation()
 		response, err := makeVeniceRequest(systemPrompt, veniceConfig, true, false)
+		stopCommandAnimation(cancel, done)
+
 		if err != nil {
 			PrintMessage(ERROR, fmt.Sprintf("Venice.ai request failed: %v", err))
 			return
@@ -386,7 +409,12 @@ func handleNSFWMode(args []string, state *InteractiveSessionState) {
 		systemPrompt := buildInteractivePrompt(state, strings.Join(args[1:], " "))
 		systemPrompt += "\n\nProvide explicit, uncensored content."
 		PrintPhase(2, 3, "Generating NSFW text...")
+
+		// Start corruption animation
+		cancel, done := startCommandAnimation()
 		response, err := makeVeniceRequest(systemPrompt, veniceConfig, true, false)
+		stopCommandAnimation(cancel, done)
+
 		if err != nil {
 			PrintMessage(ERROR, fmt.Sprintf("Failed: %v", err))
 			return
@@ -397,7 +425,11 @@ func handleNSFWMode(args []string, state *InteractiveSessionState) {
 	case "models":
 		PrintPhase(1, 3, "Fetching Venice.ai models...")
 		PrintPhase(2, 3, "Listing available models...")
+
+		// Start corruption animation
+		cancel, done := startCommandAnimation()
 		listVeniceModels(veniceConfig)
+		stopCommandAnimation(cancel, done)
 
 	default:
 		PrintMessage(WARN, "Usage: /nsfw [text|models]")
@@ -423,15 +455,9 @@ func handleTarotMode(args []string) {
 	PrintPhase(2, 3, fmt.Sprintf("Getting %s card spread...", spreadType))
 
 	// Start corruption animation while fetching tarot data
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan bool)
-	startCorruptionAnimation(ctx, done, os.Stderr)
-
+	cancel, done := startCommandAnimation()
 	tarotData, err := makeTarotRequest(tarotConfig, spreadType)
-
-	// Stop the animation
-	cancel()
-	<-done
+	stopCommandAnimation(cancel, done)
 
 	if err != nil {
 		PrintMessage(ERROR, fmt.Sprintf("Tarot request failed: %v", err))
@@ -481,7 +507,12 @@ func handleImageCommand(cmd string, args []string) {
 		prompt := strings.Join(args, " ")
 		PrintPhase(1, 3, "Loading Venice.ai...")
 		PrintPhase(2, 3, "Generating image...")
+
+		// Start corruption animation
+		cancel, done := startCommandAnimation()
 		imageURL, err := makeVeniceImageRequest(prompt, veniceConfig)
+		stopCommandAnimation(cancel, done)
+
 		if err != nil {
 			PrintMessage(ERROR, fmt.Sprintf("Failed: %v", err))
 			return
@@ -501,7 +532,12 @@ func handleImageCommand(cmd string, args []string) {
 		}
 		PrintPhase(1, 3, "Loading image...")
 		PrintPhase(2, 3, "Upscaling image...")
+
+		// Start corruption animation
+		cancel, done := startCommandAnimation()
 		imageData, err := makeVeniceUpscaleRequest(imagePath, veniceConfig, 0.1, 0.8, "preserve original details")
+		stopCommandAnimation(cancel, done)
+
 		if err != nil {
 			PrintMessage(ERROR, fmt.Sprintf("Failed: %v", err))
 			return
@@ -526,7 +562,12 @@ func handleImageCommand(cmd string, args []string) {
 		editPrompt := strings.Join(args[1:], " ")
 		PrintPhase(1, 3, "Loading image...")
 		PrintPhase(2, 3, "Editing image...")
+
+		// Start corruption animation
+		cancel, done := startCommandAnimation()
 		imageData, err := makeVeniceEditRequest(imagePath, editPrompt, veniceConfig)
+		stopCommandAnimation(cancel, done)
+
 		if err != nil {
 			PrintMessage(ERROR, fmt.Sprintf("Failed: %v", err))
 			return
