@@ -318,13 +318,26 @@ func handleCommand(cmd string, state *InteractiveSessionState) {
 	case "set":
 		if len(parts) < 3 {
 			PrintMessage(WARN, "Usage: /set <setting> <value>")
-			PrintMessage(INFO, "Settings: format, platform, tone, topic, persona")
+			PrintMessage(INFO, "Settings: format, platform, tone, topic, persona, nsfw")
 			return
 		}
 		setSetting(parts[1], strings.Join(parts[2:], " "), state)
 
 	case "config":
 		displayConfigurationBanner(state)
+
+	case "nsfw":
+		handleNSFWMode(parts[1:], state)
+
+	case "tarot":
+		handleTarotMode(parts[1:])
+
+	case "image":
+		if len(parts) < 2 {
+			PrintMessage(WARN, "Usage: /image [generate|upscale|edit]")
+			return
+		}
+		handleImageCommand(parts[1], parts[2:])
 
 	case "clear":
 		clearScreen()
@@ -335,6 +348,188 @@ func handleCommand(cmd string, state *InteractiveSessionState) {
 	default:
 		PrintMessage(ERROR, fmt.Sprintf("Unknown command: %s", parts[0]))
 		PrintMessage(INFO, "Type 'help' to see available commands")
+	}
+}
+
+// handleNSFWMode handles NSFW content generation
+func handleNSFWMode(args []string, state *InteractiveSessionState) {
+	PrintPhase(1, 3, "Loading Venice.ai configuration...")
+
+	veniceConfig, err := loadVeniceConfig()
+	if err != nil {
+		PrintMessage(ERROR, fmt.Sprintf("Venice.ai configuration error: %v", err))
+		PrintMessage(INFO, "Set VENICE_API_KEY in ~/.celesteAI or environment")
+		return
+	}
+
+	if len(args) == 0 {
+		// Default to text generation with current settings
+		systemPrompt := buildInteractivePrompt(state, "Generate NSFW content based on my current settings")
+		systemPrompt += "\n\nProvide explicit, uncensored content."
+
+		PrintPhase(2, 3, "Generating NSFW response...")
+		response, err := makeVeniceRequest(systemPrompt, veniceConfig, true, false)
+		if err != nil {
+			PrintMessage(ERROR, fmt.Sprintf("Venice.ai request failed: %v", err))
+			return
+		}
+		PrintPhase(3, 3, "Response ready!")
+		fmt.Fprintf(os.Stderr, "\n✨ Celeste (NSFW):\n%s\n", response)
+		return
+	}
+
+	// Handle subcommands
+	subcommand := strings.ToLower(args[0])
+	switch subcommand {
+	case "text":
+		systemPrompt := buildInteractivePrompt(state, strings.Join(args[1:], " "))
+		systemPrompt += "\n\nProvide explicit, uncensored content."
+		PrintPhase(2, 3, "Generating NSFW text...")
+		response, err := makeVeniceRequest(systemPrompt, veniceConfig, true, false)
+		if err != nil {
+			PrintMessage(ERROR, fmt.Sprintf("Failed: %v", err))
+			return
+		}
+		PrintPhase(3, 3, "Response ready!")
+		fmt.Fprintf(os.Stderr, "\n✨ Celeste (NSFW):\n%s\n", response)
+
+	case "models":
+		PrintPhase(1, 3, "Fetching Venice.ai models...")
+		PrintPhase(2, 3, "Listing available models...")
+		listVeniceModels(veniceConfig)
+
+	default:
+		PrintMessage(WARN, "Usage: /nsfw [text|models]")
+	}
+}
+
+// handleTarotMode handles tarot readings
+func handleTarotMode(args []string) {
+	PrintPhase(1, 3, "Loading tarot configuration...")
+
+	tarotConfig, err := loadTarotConfig()
+	if err != nil {
+		PrintMessage(ERROR, fmt.Sprintf("Tarot configuration error: %v", err))
+		PrintMessage(INFO, "Set tarot_function_url and tarot_auth_token in ~/.celesteAI")
+		return
+	}
+
+	spreadType := "three"
+	if len(args) > 0 && args[0] == "celtic" {
+		spreadType = "celtic"
+	}
+
+	PrintPhase(2, 3, fmt.Sprintf("Getting %s card spread...", spreadType))
+	tarotData, err := makeTarotRequest(tarotConfig, spreadType)
+	if err != nil {
+		PrintMessage(ERROR, fmt.Sprintf("Tarot request failed: %v", err))
+		return
+	}
+
+	PrintPhase(3, 3, "Tarot reading ready!")
+	fmt.Fprintf(os.Stderr, "\n")
+
+	// Extract cards from tarot data
+	cards, ok := tarotData["cards"].([]interface{})
+	if !ok {
+		PrintMessage(ERROR, "Invalid tarot data structure")
+		return
+	}
+
+	// Fetch card metadata
+	metadata, err := fetchTarotCardMetadata()
+	if err != nil {
+		PrintMessage(WARN, fmt.Sprintf("Could not load card metadata: %v", err))
+		metadata = make(map[string]TarotCardMetadata)
+	}
+
+	// Display the tarot reading based on spread type
+	if spreadType == "celtic" {
+		displayCelticCross(cards, metadata)
+	} else {
+		displayThreeCard(cards, metadata)
+	}
+}
+
+// handleImageCommand handles Venice.ai image operations
+func handleImageCommand(cmd string, args []string) {
+	veniceConfig, err := loadVeniceConfig()
+	if err != nil {
+		PrintMessage(ERROR, fmt.Sprintf("Venice.ai configuration error: %v", err))
+		return
+	}
+
+	cmd = strings.ToLower(cmd)
+	switch cmd {
+	case "generate":
+		if len(args) == 0 {
+			PrintMessage(WARN, "Usage: /image generate <prompt>")
+			return
+		}
+		prompt := strings.Join(args, " ")
+		PrintPhase(1, 3, "Loading Venice.ai...")
+		PrintPhase(2, 3, "Generating image...")
+		imageURL, err := makeVeniceImageRequest(prompt, veniceConfig)
+		if err != nil {
+			PrintMessage(ERROR, fmt.Sprintf("Failed: %v", err))
+			return
+		}
+		PrintPhase(3, 3, "Image generated!")
+		fmt.Fprintf(os.Stderr, "\n✨ Image URL: %s\n", imageURL)
+
+	case "upscale":
+		if len(args) == 0 {
+			PrintMessage(WARN, "Usage: /image upscale <image_path> [output_file]")
+			return
+		}
+		imagePath := args[0]
+		outputFile := ""
+		if len(args) > 1 {
+			outputFile = args[1]
+		}
+		PrintPhase(1, 3, "Loading image...")
+		PrintPhase(2, 3, "Upscaling image...")
+		imageData, err := makeVeniceUpscaleRequest(imagePath, veniceConfig, 0.1, 0.8, "preserve original details")
+		if err != nil {
+			PrintMessage(ERROR, fmt.Sprintf("Failed: %v", err))
+			return
+		}
+		PrintPhase(3, 3, "Upscale complete!")
+
+		if outputFile == "" {
+			outputFile = "upscaled_image.png"
+		}
+		if err := saveImageData(imageData, outputFile); err != nil {
+			PrintMessage(ERROR, fmt.Sprintf("Failed to save: %v", err))
+			return
+		}
+		fmt.Fprintf(os.Stderr, "\n✨ Saved to: %s\n", outputFile)
+
+	case "edit":
+		if len(args) < 2 {
+			PrintMessage(WARN, "Usage: /image edit <image_path> <prompt>")
+			return
+		}
+		imagePath := args[0]
+		editPrompt := strings.Join(args[1:], " ")
+		PrintPhase(1, 3, "Loading image...")
+		PrintPhase(2, 3, "Editing image...")
+		imageData, err := makeVeniceEditRequest(imagePath, editPrompt, veniceConfig)
+		if err != nil {
+			PrintMessage(ERROR, fmt.Sprintf("Failed: %v", err))
+			return
+		}
+		PrintPhase(3, 3, "Edit complete!")
+
+		outputFile := "edited_image.png"
+		if err := saveImageData(imageData, outputFile); err != nil {
+			PrintMessage(ERROR, fmt.Sprintf("Failed to save: %v", err))
+			return
+		}
+		fmt.Fprintf(os.Stderr, "\n✨ Saved to: %s\n", outputFile)
+
+	default:
+		PrintMessage(WARN, "Usage: /image [generate|upscale|edit]")
 	}
 }
 
@@ -422,32 +617,98 @@ func displayInteractiveHelpMenu(state *InteractiveSessionState) {
 	fmt.Fprintf(os.Stderr, "📚 Celeste Interactive Commands\n")
 	PrintSeparator(HEAVY)
 
+	fmt.Fprintf(os.Stderr, "\n🎯 Content Generation:\n")
 	commands := []struct {
 		cmd  string
 		desc string
 	}{
-		{"/set format [short|long|general]", "Change content format"},
+		{"/set format [short|long|general]", "Change content format (280 chars, 5000 chars, flexible)"},
 		{"/set platform [twitter|tiktok|youtube|discord]", "Change target platform"},
 		{"/set tone <tone>", "Change tone/style (e.g., lewd, teasing, cute, funny)"},
 		{"/set topic <topic>", "Set a topic/subject for responses"},
-		{"/set persona <persona>", "Change persona"},
+		{"/set persona <persona>", "Change persona (celeste_stream, celeste_ad_read, etc)"},
 		{"/config", "Show current configuration"},
-		{"/show [pixel_wink|kusanagi]", "Display pixel art asset"},
-		{"/asset", "List all available assets"},
-		{"/theme [normal|corrupted]", "Switch visual theme"},
-		{"/clear", "Clear screen"},
-		{"/status", "Show current status"},
-		{"/help", "Show this help menu"},
-		{"exit/quit", "Exit interactive mode"},
 	}
 
 	for _, cmd := range commands {
 		fmt.Fprintf(os.Stderr, "  %-45s %s\n", cmd.cmd, cmd.desc)
 	}
 
+	fmt.Fprintf(os.Stderr, "\n🔥 NSFW Mode (Venice.ai):\n")
+	nsfwCmds := []struct {
+		cmd  string
+		desc string
+	}{
+		{"/nsfw", "Generate NSFW text with current settings"},
+		{"/nsfw text <request>", "Generate NSFW text with custom request"},
+		{"/nsfw models", "List available Venice.ai models"},
+	}
+
+	for _, cmd := range nsfwCmds {
+		fmt.Fprintf(os.Stderr, "  %-45s %s\n", cmd.cmd, cmd.desc)
+	}
+
+	fmt.Fprintf(os.Stderr, "\n🖼️  Image Generation (Venice.ai):\n")
+	imageCmds := []struct {
+		cmd  string
+		desc string
+	}{
+		{"/image generate <prompt>", "Generate image with prompt"},
+		{"/image upscale <path> [output]", "Upscale image (2x quality)"},
+		{"/image edit <path> <prompt>", "Edit/inpaint image with prompt"},
+	}
+
+	for _, cmd := range imageCmds {
+		fmt.Fprintf(os.Stderr, "  %-45s %s\n", cmd.cmd, cmd.desc)
+	}
+
+	fmt.Fprintf(os.Stderr, "\n🔮 Tarot Readings:\n")
+	tarotCmds := []struct {
+		cmd  string
+		desc string
+	}{
+		{"/tarot", "Get 3-card tarot spread (past/present/future)"},
+		{"/tarot celtic", "Get 10-card celtic cross spread"},
+	}
+
+	for _, cmd := range tarotCmds {
+		fmt.Fprintf(os.Stderr, "  %-45s %s\n", cmd.cmd, cmd.desc)
+	}
+
+	fmt.Fprintf(os.Stderr, "\n🎨 Visual & UI:\n")
+	uiCmds := []struct {
+		cmd  string
+		desc string
+	}{
+		{"/show [pixel_wink|kusanagi]", "Display pixel art asset"},
+		{"/asset", "List all available assets"},
+		{"/theme [normal|corrupted]", "Switch visual theme"},
+		{"/clear", "Clear screen"},
+	}
+
+	for _, cmd := range uiCmds {
+		fmt.Fprintf(os.Stderr, "  %-45s %s\n", cmd.cmd, cmd.desc)
+	}
+
+	fmt.Fprintf(os.Stderr, "\n📋 System:\n")
+	sysCmds := []struct {
+		cmd  string
+		desc string
+	}{
+		{"/status", "Show current status"},
+		{"/help", "Show this help menu"},
+		{"exit/quit", "Exit interactive mode"},
+	}
+
+	for _, cmd := range sysCmds {
+		fmt.Fprintf(os.Stderr, "  %-45s %s\n", cmd.cmd, cmd.desc)
+	}
+
 	fmt.Fprintf(os.Stderr, "\n")
 	PrintSeparator(LIGHT)
 	fmt.Fprintf(os.Stderr, "\nTone Examples: lewd, explicit, teasing, chaotic, cute, official, dramatic, parody, funny, suggestive, adult, sweet, snarky, playful, hype\n")
+	fmt.Fprintf(os.Stderr, "\nNote: NSFW mode requires VENICE_API_KEY\n")
+	fmt.Fprintf(os.Stderr, "Note: Tarot requires tarot_function_url and tarot_auth_token\n")
 	fmt.Fprintf(os.Stderr, "\n")
 }
 
