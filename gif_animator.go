@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/gif"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -45,6 +46,7 @@ func LoadGIFAnimation(gifPath string, displayWidth int) (*PixelBlockAnimator, er
 
 // RenderFrameToBlocks renders a single image frame using half-pixel characters for high detail
 // Uses Unicode block elements to achieve 2x vertical resolution per character
+// Optimized with strings.Builder for better performance
 func (a *PixelBlockAnimator) RenderFrameToBlocks(frameIdx int) string {
 	if frameIdx >= len(a.frames) {
 		return ""
@@ -69,11 +71,13 @@ func (a *PixelBlockAnimator) RenderFrameToBlocks(frameIdx int) string {
 	xStep := float64(w) / float64(a.width)
 	yStep := float64(h) / float64(scaledHeight)
 
-	var output string
+	// Use strings.Builder for efficient string concatenation
+	var output strings.Builder
+	// Pre-allocate approximate capacity (rough estimate)
+	output.Grow((a.width + 50) * newHeight)
 
 	// Process pixels in pairs (top/bottom for each character row)
 	for y := 0; y < newHeight; y++ {
-		row := ""
 		for x := 0; x < a.width; x++ {
 			srcX := int(float64(x) * xStep)
 			if srcX >= w {
@@ -104,7 +108,7 @@ func (a *PixelBlockAnimator) RenderFrameToBlocks(frameIdx int) string {
 
 			// Skip if both pixels are fully transparent
 			if topA8 < 128 && botA8 < 128 {
-				row += " "
+				output.WriteByte(' ')
 				continue
 			}
 
@@ -123,32 +127,19 @@ func (a *PixelBlockAnimator) RenderFrameToBlocks(frameIdx int) string {
 				// Only top visible: upper half block
 				char = "▀"
 				r8, g8, b8 = topR8, topG8, topB8
-			} else if !topTransparent && !botTransparent {
-				// Both visible: need to blend or choose based on similarity
-				// For now, use full block with average color
-				if topR8 == botR8 && topG8 == botG8 && topB8 == botB8 {
-					// Same color - use full block
-					char = "█"
-					r8, g8, b8 = topR8, topG8, topB8
-				} else {
-					// Different colors - use full block with top color (more visible)
-					char = "█"
-					r8, g8, b8 = topR8, topG8, topB8
-				}
 			} else {
-				// Both transparent - shouldn't reach here
-				row += " "
-				continue
+				// Both visible or both transparent - use full block with top color
+				char = "█"
+				r8, g8, b8 = topR8, topG8, topB8
 			}
 
 			// Use true color (RGB) format: \033[38;2;R;G;Bm
-			row += fmt.Sprintf("\033[38;2;%d;%d;%dm%s", r8, g8, b8, char)
+			fmt.Fprintf(&output, "\033[38;2;%d;%d;%dm%s", r8, g8, b8, char)
 		}
-		row += "\033[0m\n" // Reset color at end of line
-		output += row
+		output.WriteString("\033[0m\n") // Reset color at end of line
 	}
 
-	return output
+	return output.String()
 }
 
 // PlayAnimation displays the animation in an infinite loop

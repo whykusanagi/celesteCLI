@@ -50,7 +50,6 @@ func startInteractiveMode() {
 			handleCommand(strings.TrimPrefix(input, "/"))
 		} else if input == "exit" || input == "quit" {
 			PrintMessage(INFO, "Thanks for chatting with Celeste! Goodbye~")
-			displayGoodbyeAnimation()
 			break
 		} else if input == "help" {
 			displayHelpMenu()
@@ -66,44 +65,43 @@ func startInteractiveMode() {
 // displayCelesteHeader shows Kusanagi animation and startup message
 func displayCelesteHeader() {
 	fmt.Fprintf(os.Stderr, "\n")
-	// Display Kusanagi GIF animation looping until complete
-	// Using width 100 for high detail with half-pixel characters
-	animator, err := LoadGIFAnimation("assets/kusanagi_4x.gif", 100)
-	if err == nil && animator != nil && len(animator.frames) > 0 {
-		// Play full animation loop (all frames)
-		for i := 0; i < len(animator.frames); i++ {
-			fmt.Fprint(os.Stderr, "\033[H\033[2J") // Clear screen
-			output := animator.RenderFrameToBlocks(i)
-			fmt.Fprint(os.Stderr, output)
-			fmt.Fprint(os.Stderr, "\n")
-			os.Stderr.Sync()
-			time.Sleep(animator.delays[i])
+	// Try to load animation from multiple possible locations
+	gifPaths := []string{
+		"assets/kusanagi_4x.gif",  // Relative path from current directory
+		"./assets/kusanagi_4x.gif", // Explicit relative
+	}
+
+	var animator *PixelBlockAnimator
+	var err error
+
+	for _, path := range gifPaths {
+		animator, err = LoadGIFAnimation(path, 100)
+		if err == nil && animator != nil && len(animator.frames) > 0 {
+			break
 		}
+	}
+
+	// If loading failed, skip animation but still display message
+	if animator == nil || len(animator.frames) == 0 {
+		PrintMessage(SUCCESS, "Celeste is ready to chat~")
+		fmt.Fprintf(os.Stderr, "\n")
+		return
+	}
+
+	// Play full animation loop (all frames)
+	for i := 0; i < len(animator.frames); i++ {
+		fmt.Fprint(os.Stderr, "\033[H\033[2J") // Clear screen
+		output := animator.RenderFrameToBlocks(i)
+		fmt.Fprint(os.Stderr, output)
+		fmt.Fprint(os.Stderr, "\n")
+		os.Stderr.Sync()
+		time.Sleep(animator.delays[i])
 	}
 	fmt.Fprintf(os.Stderr, "\n")
 	PrintMessage(SUCCESS, "Celeste is ready to chat~")
 	fmt.Fprintf(os.Stderr, "\n")
 }
 
-// displayGoodbyeAnimation shows a farewell animation with PixelWink
-func displayGoodbyeAnimation() {
-	fmt.Fprintf(os.Stderr, "\n")
-	// Display PixelWink GIF animation looping until complete
-	// Using width 100 for high detail with half-pixel characters
-	animator, err := LoadGIFAnimation("assets/pixel_wink_full.gif", 100)
-	if err == nil && animator != nil && len(animator.frames) > 0 {
-		// Play full animation loop (all frames)
-		for i := 0; i < len(animator.frames); i++ {
-			fmt.Fprint(os.Stderr, "\033[H\033[2J") // Clear screen
-			output := animator.RenderFrameToBlocks(i)
-			fmt.Fprint(os.Stderr, output)
-			fmt.Fprint(os.Stderr, "\n")
-			os.Stderr.Sync()
-			time.Sleep(animator.delays[i])
-		}
-	}
-	fmt.Fprintf(os.Stderr, "\n")
-}
 
 // processUserMessage handles regular user messages with thinking animation
 func processUserMessage(message string) {
