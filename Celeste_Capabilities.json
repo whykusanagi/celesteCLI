@@ -1,0 +1,491 @@
+{
+  "version": "1.0",
+  "title": "Celeste AI - Comprehensive Capabilities Document",
+  "description": "Complete listing of Celeste AI functionality across all 7 projects and platforms",
+  "last_updated": "2025-11-21",
+
+  "projects": [
+    {
+      "id": 1,
+      "name": "celesteCLI",
+      "description": "Go-based command-line interface for Celeste AI",
+      "url": "https://github.com/whykusanagi/celesteCLI",
+      "capabilities": [
+        {
+          "feature": "Interactive Chat Mode",
+          "description": "Real-time chat interaction with Celeste AI personality",
+          "usage": "celestecli chat"
+        },
+        {
+          "feature": "Streaming Mode",
+          "description": "Integration with Twitch/streaming platforms for live chat moderation and personality injection",
+          "usage": "celestecli stream --platform twitch"
+        },
+        {
+          "feature": "TTS (Text-to-Speech)",
+          "description": "Convert Celeste responses to audio using ElevenLabs voice synthesis",
+          "usage": "celestecli tts --text 'message' --voice-id {id}",
+          "voice_id": "7TBTdg5LrJrBcI4PxYiy"
+        },
+        {
+          "feature": "Content Generation",
+          "description": "Generate social media content (tweets, TikTok captions, YouTube scripts)",
+          "sub_features": [
+            "Twitter/X posts",
+            "TikTok captions",
+            "YouTube descriptions & scripts",
+            "Discord announcements",
+            "Twitch titles"
+          ]
+        },
+        {
+          "feature": "Animation & ASCII Art",
+          "description": "Terminal-based animations and ASCII art rendering for UI",
+          "usage": "Various animation modes for loading screens and visual effects"
+        },
+        {
+          "feature": "Tarot Card System",
+          "description": "Integrated tarot card system with custom Celeste-themed deck",
+          "data_file": "tarot_cards.json",
+          "cards": 78
+        },
+        {
+          "feature": "Event Logging",
+          "description": "Comprehensive event logging for chat, subscriptions, raids, and interactions",
+          "logged_events": ["chat_message", "sub", "resub", "gift_sub", "raid", "channel_point_redemption"]
+        },
+        {
+          "feature": "Behavior Scoring",
+          "description": "Real-time computation of user behavior scores based on chat activity",
+          "scoring_axes": 10,
+          "output_range": "0-100"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Celeste Discord Bot",
+      "description": "Discord bot implementation of Celeste AI for servers",
+      "platforms": ["Discord"],
+      "capabilities": [
+        {
+          "feature": "Chat Completion",
+          "description": "Respond to mentions and messages in Discord channels",
+          "trigger": "@Celeste or /celeste command"
+        },
+        {
+          "feature": "Custom Commands",
+          "description": "Specialized commands for game info and entertainment",
+          "commands": [
+            {
+              "name": "/vndb",
+              "description": "Visual novel database lookup"
+            },
+            {
+              "name": "/anilist",
+              "description": "Anime & manga database lookup"
+            },
+            {
+              "name": "/steamcharts",
+              "description": "Steam game charts and statistics"
+            },
+            {
+              "name": "/degenlevel",
+              "description": "Degenerate level analysis (playful)"
+            },
+            {
+              "name": "/illustration",
+              "description": "Art generation and sourcing"
+            }
+          ]
+        },
+        {
+          "feature": "Moderation Support",
+          "description": "Chat moderation with warnings and behavior tracking",
+          "features": [
+            "User behavior scoring",
+            "Playful warnings",
+            "Context-aware responses"
+          ]
+        },
+        {
+          "feature": "User Profiles",
+          "description": "Track user interactions and behavior over time",
+          "stored_data": [
+            "behavior_score",
+            "infractions",
+            "chat_history",
+            "last_seen",
+            "interaction_patterns"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Union Raid (Nikke Game Companion)",
+      "description": "Game companion for NIKKE: Goddess of Victory with Celeste personality",
+      "game": "NIKKE: Goddess of Victory",
+      "url": "https://raid.whykusanagi.xyz",
+      "capabilities": [
+        {
+          "feature": "Character Database",
+          "description": "Complete NIKKE character information and stats",
+          "includes": [
+            "Character names and roles",
+            "Equipment recommendations",
+            "Team compositions",
+            "Tier information"
+          ]
+        },
+        {
+          "feature": "Team Builder",
+          "description": "Interactive tool for building optimal squads",
+          "features": [
+            "Character filtering",
+            "Synergy checking",
+            "Meta recommendations",
+            "Clear difficulty analysis"
+          ]
+        },
+        {
+          "feature": "Tier Lists",
+          "description": "Current and historical tier lists by patch and strategy",
+          "types": [
+            "Overall character tier",
+            "DPS rankings",
+            "Support rankings",
+            "Event-specific tiers",
+            "Farm efficiency tiers"
+          ]
+        },
+        {
+          "feature": "Farm Route Guides",
+          "description": "Optimal farming strategies for progression",
+          "content": [
+            "Stamina-efficient routes",
+            "Squad recommendations per route",
+            "Experience optimization",
+            "Equipment farming strategies"
+          ]
+        },
+        {
+          "feature": "Raid Guides",
+          "description": "Strategies for raid bosses and events",
+          "features": [
+            "Boss patterns and mechanics",
+            "Recommended squads",
+            "Buff/debuff strategies",
+            "Clear time optimization"
+          ]
+        },
+        {
+          "feature": "Interception Combat Info",
+          "description": "Information about Interception combat mode",
+          "content": [
+            "Squad composition tips",
+            "Weapon synergies",
+            "Boss mechanics",
+            "Timing guides"
+          ]
+        },
+        {
+          "feature": "Celeste Personality Integration",
+          "description": "All guides and tips delivered in Celeste's voice",
+          "tone": "Teasing, flirty, authoritative on game mechanics"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Flipper Zero App",
+      "description": "Flipper Zero app implementation featuring Celeste",
+      "platforms": ["Flipper Zero"],
+      "capabilities": [
+        {
+          "feature": "Interactive UI",
+          "description": "Custom UI for Flipper Zero with Celeste animations",
+          "includes": [
+            "ASCII art rendering",
+            "Animation sequences",
+            "Text rendering with personality"
+          ]
+        },
+        {
+          "feature": "Game/Entertainment",
+          "description": "Games or interactive experiences",
+          "possible_features": [
+            "Tarot reading",
+            "Chat simulation",
+            "Random event generator"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Website (whykusanagi.xyz)",
+      "description": "Main portfolio and content hub featuring Celeste widget",
+      "url": "https://whykusanagi.xyz",
+      "pages": [
+        "index.html (home)",
+        "celeste.html (Celeste AI chat)",
+        "art.html (art gallery)",
+        "references.html (character references)",
+        "doujin.html (manga projects hub)",
+        "links.html (social links)",
+        "tools.html (utility tools)",
+        "privacy.html (privacy policy)"
+      ],
+      "capabilities": [
+        {
+          "feature": "Celeste Chat Widget",
+          "description": "Embedded chat interface on website",
+          "deployment": "celeste-widget.js on all pages",
+          "context_aware": "Detects current page and provides context-specific responses"
+        },
+        {
+          "feature": "Art Gallery",
+          "description": "Showcase of commissioned artwork with filtering",
+          "filters": ["All", "Animation", "NSFW", "Character"],
+          "features": [
+            "Lightbox preview",
+            "NSFW blur overlay",
+            "Tag-based filtering",
+            "Responsive grid layout"
+          ]
+        },
+        {
+          "feature": "Reference Pages",
+          "description": "Character reference materials and design documentation",
+          "content": [
+            "Celeste appearance specs",
+            "Costume variations",
+            "Design notes"
+          ]
+        },
+        {
+          "feature": "Doujin/Manga Hub",
+          "description": "Centralized hub for manga projects",
+          "projects": [
+            "Fall of Kirara",
+            "Bastard Hero"
+          ],
+          "features": [
+            "Project descriptions",
+            "Link aggregation",
+            "Preview images"
+          ]
+        },
+        {
+          "feature": "Social Links Page",
+          "description": "Aggregated links to all social platforms and projects",
+          "platforms": [
+            "TikTok",
+            "Twitch",
+            "YouTube",
+            "Twitter/X",
+            "GitHub",
+            "Discord",
+            "MyFigureCollection"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Cloudflare Worker (Config Injection)",
+      "description": "Serverless function for environment variable injection",
+      "deployment": "Cloudflare Workers",
+      "auto_deploy": "On push to GitLab main branch",
+      "capabilities": [
+        {
+          "feature": "Environment Variable Injection",
+          "description": "Securely inject API keys and endpoints into HTML at request time",
+          "injected_variables": [
+            "CELESTE_API_KEY",
+            "CELESTE_AGENT_ID",
+            "CELESTE_AGENT_BASE_URL",
+            "NIKKE_AGENT_ENDPOINT",
+            "NIKKE_AGENT_KEY"
+          ]
+        },
+        {
+          "feature": "No Key Exposure",
+          "description": "API keys never stored in code, always injected from Cloudflare dashboard",
+          "security": "Environment variables set in Cloudflare Workers dashboard only"
+        },
+        {
+          "feature": "Auto-Deployment",
+          "description": "Automatically deploys when code is pushed to GitLab main branch",
+          "ci_cd": "GitLab CI/CD integration"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "NIKKE Sub-Agent (NEW)",
+      "description": "Dedicated agent for NIKKE-specific queries and data management",
+      "deployment": "nikke-agent.whykusanagi.xyz",
+      "status": "In Development",
+      "capabilities": [
+        {
+          "feature": "Character Data Retrieval",
+          "description": "Fetch NIKKE character information from OpenSearch indices",
+          "data_sources": [
+            "nikke_characters index",
+            "Character stats",
+            "Role classifications",
+            "Equipment compatibility"
+          ]
+        },
+        {
+          "feature": "Tier List Queries",
+          "description": "Retrieve current and historical tier lists",
+          "query_types": [
+            "Overall meta tier",
+            "Role-specific rankings",
+            "Event-specific tiers",
+            "Patch history"
+          ]
+        },
+        {
+          "feature": "Build Guide Generation",
+          "description": "Provide equipment and squad building recommendations",
+          "includes": [
+            "Weapon recommendations",
+            "Burst skill synergies",
+            "Squad composition",
+            "Stat optimization"
+          ]
+        },
+        {
+          "feature": "Public Data Management",
+          "description": "Shareable, generalized NIKKE content for public consumption",
+          "content": [
+            "Character info",
+            "Meta tier lists",
+            "General guides",
+            "Farm strategies"
+          ]
+        },
+        {
+          "feature": "Protected Union Data",
+          "description": "Union-specific strategies and private analysis (encrypted, auth-required)",
+          "content": [
+            "Union roster optimization",
+            "Private clear strategies",
+            "Equipment allocation",
+            "Union-specific tier lists"
+          ],
+          "access_control": "Authenticated only"
+        },
+        {
+          "feature": "Automatic Syncing",
+          "description": "Auto-sync public data from Cloudflare R2 tier lists",
+          "frequency": "On schedule",
+          "target": "Keep public data current with latest patches"
+        }
+      ]
+    }
+  ],
+
+  "integration_points": {
+    "OpenSearch_indices": [
+      {
+        "name": "celeste_capabilities",
+        "purpose": "Retrieve Celeste's capabilities when asked 'what can you do'",
+        "priority": "high"
+      },
+      {
+        "name": "celeste_emotes",
+        "purpose": "7TV emote recommendations based on context",
+        "priority": "medium"
+      },
+      {
+        "name": "celeste_user_profiles",
+        "purpose": "User behavior data for moderation and personalization",
+        "priority": "medium"
+      },
+      {
+        "name": "nikke_characters",
+        "purpose": "NIKKE character database (sub-agent)",
+        "priority": "medium"
+      },
+      {
+        "name": "nikke_tiers",
+        "purpose": "Tier list data (sub-agent)",
+        "priority": "medium"
+      },
+      {
+        "name": "nikke_guides",
+        "purpose": "Build and farm guides (sub-agent)",
+        "priority": "medium"
+      },
+      {
+        "name": "nikke_union_data",
+        "purpose": "Union-specific analysis (sub-agent, protected)",
+        "priority": "low",
+        "access_control": "authenticated_only"
+      }
+    ],
+    "external_apis": [
+      {
+        "name": "Digital Ocean Agent Endpoint",
+        "url": "https://svzuwvds2ipgf4ysetvzxvai.agents.do-ai.run",
+        "purpose": "Main Celeste agent processing",
+        "auth": "Bearer token"
+      },
+      {
+        "name": "NIKKE Sub-Agent Endpoint",
+        "url": "https://nikke-agent.whykusanagi.xyz/v1/nikke/query",
+        "purpose": "NIKKE-specific queries",
+        "auth": "Bearer token"
+      },
+      {
+        "name": "ElevenLabs TTS",
+        "url": "https://api.elevenlabs.io",
+        "purpose": "Text-to-speech audio generation",
+        "voice_id": "7TBTdg5LrJrBcI4PxYiy"
+      },
+      {
+        "name": "Twitch API",
+        "purpose": "Stream integration, chat reading, events",
+        "features": ["Pubsub", "Chat downloader", "Event subscriptions"]
+      },
+      {
+        "name": "Discord API",
+        "purpose": "Bot commands and interactions",
+        "features": ["Message commands", "User profiles"]
+      }
+    ]
+  },
+
+  "deployment_status": {
+    "celesteCLI": "Production",
+    "discord_bot": "Production",
+    "union_raid": "Production",
+    "flipper_app": "Production",
+    "website": "Production",
+    "cloudflare_worker": "Production",
+    "nikke_sub_agent": "In Development"
+  },
+
+  "summary": {
+    "total_projects": 7,
+    "platforms": [
+      "Web (HTML/CSS/JavaScript)",
+      "Twitch",
+      "Discord",
+      "TikTok",
+      "Twitter/X",
+      "YouTube",
+      "Flipper Zero",
+      "CLI (Go)",
+      "Serverless (Cloudflare)"
+    ],
+    "total_capabilities": "50+",
+    "personality_consistency": "All implementations use celeste_essence.json for core personality",
+    "data_sources": "OpenSearch (primary), S3, Cloudflare R2, Local JSON"
+  }
+}
