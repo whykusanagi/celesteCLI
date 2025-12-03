@@ -1,3 +1,10 @@
+//go:build ignore
+// +build ignore
+
+// This file contains the old interactive mode implementation.
+// It is kept for reference but excluded from build.
+// See tui/ for the new Bubble Tea TUI implementation.
+
 package main
 
 import (
