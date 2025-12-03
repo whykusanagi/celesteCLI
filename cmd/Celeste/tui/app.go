@@ -139,6 +139,18 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "help":
 			m.chat = m.chat.AddSystemMessage(helpText())
 			return m, nil
+		case "tools", "skills", "debug":
+			// Show tools/skills debug info
+			skills := m.skills.GetDefinitions()
+			debugMsg := fmt.Sprintf("📋 Available Tools (%d):\n", len(skills))
+			for _, s := range skills {
+				debugMsg += fmt.Sprintf("  • %s: %s\n", s.Name, s.Description)
+			}
+			debugMsg += "\n⚠️  Note: DigitalOcean GenAI Agents may not support function calling.\n"
+			debugMsg += "Tool calls only work with OpenAI-compatible APIs that support the 'tools' parameter.\n"
+			debugMsg += fmt.Sprintf("\nLog file: %s", GetLogPath())
+			m.chat = m.chat.AddSystemMessage(debugMsg)
+			return m, nil
 		}
 
 		// Add user message to chat
