@@ -59,11 +59,12 @@ func DefaultConfig() *Config {
 }
 
 // Paths returns the configuration directory and file paths.
-func Paths() (configDir, configFile, secretsFile, oldConfigFile string) {
+func Paths() (configDir, configFile, secretsFile, skillsFile, oldConfigFile string) {
 	homeDir, _ := os.UserHomeDir()
 	configDir = filepath.Join(homeDir, ".celeste")
 	configFile = filepath.Join(configDir, "config.json")
 	secretsFile = filepath.Join(configDir, "secrets.json")
+	skillsFile = filepath.Join(configDir, "skills.json")
 	oldConfigFile = filepath.Join(homeDir, ".celesteAI")
 	return
 }
@@ -79,6 +80,48 @@ func NamedConfigPath(name string) string {
 	return filepath.Join(configDir, fmt.Sprintf("config.%s.json", name))
 }
 
+// LoadSkillsConfig loads skill-specific configuration from skills.json.
+func LoadSkillsConfig() (*Config, error) {
+	_, _, _, skillsFile, _ := Paths()
+	
+	skillsConfig := &Config{}
+	
+	// Load skills.json if it exists
+	if data, err := os.ReadFile(skillsFile); err == nil {
+		if err := json.Unmarshal(data, skillsConfig); err != nil {
+			return nil, fmt.Errorf("failed to parse skills config: %w", err)
+		}
+	}
+	
+	return skillsConfig, nil
+}
+
+// SaveSkillsConfig saves skill-specific configuration to skills.json.
+func SaveSkillsConfig(skillsConfig *Config) error {
+	_, _, _, skillsFile, _ := Paths()
+	
+	// Create skills config with only skill-related fields
+	skillsOnly := &Config{
+		VeniceAPIKey:             skillsConfig.VeniceAPIKey,
+		VeniceBaseURL:            skillsConfig.VeniceBaseURL,
+		VeniceModel:              skillsConfig.VeniceModel,
+		TarotFunctionURL:         skillsConfig.TarotFunctionURL,
+		TarotAuthToken:           skillsConfig.TarotAuthToken,
+		TwitterBearerToken:       skillsConfig.TwitterBearerToken,
+		TwitterAPIKey:            skillsConfig.TwitterAPIKey,
+		TwitterAPISecret:          skillsConfig.TwitterAPISecret,
+		TwitterAccessToken:       skillsConfig.TwitterAccessToken,
+		TwitterAccessTokenSecret: skillsConfig.TwitterAccessTokenSecret,
+	}
+	
+	data, err := json.MarshalIndent(skillsOnly, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal skills config: %w", err)
+	}
+	
+	return os.WriteFile(skillsFile, data, 0600) // Restrictive permissions for secrets
+}
+
 // LoadNamed loads configuration from a named config file.
 // If name is empty, loads the default config.
 func LoadNamed(name string) (*Config, error) {
@@ -88,12 +131,6 @@ func LoadNamed(name string) (*Config, error) {
 
 	config := DefaultConfig()
 	configPath := NamedConfigPath(name)
-	configDir, _, secretsFile, _ := Paths()
-
-	// Ensure config directory exists
-	if err := os.MkdirAll(configDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create config directory: %w", err)
-	}
 
 	// Load named config file
 	data, err := os.ReadFile(configPath)
@@ -105,20 +142,38 @@ func LoadNamed(name string) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config '%s': %w", name, err)
 	}
 
-	// Load shared secrets file (for common secrets like Venice, Twitter)
-	if data, err := os.ReadFile(secretsFile); err == nil {
-		var secrets Config
-		if err := json.Unmarshal(data, &secrets); err == nil {
-			// Only merge secrets that aren't already set in the named config
-			if config.VeniceAPIKey == "" && secrets.VeniceAPIKey != "" {
-				config.VeniceAPIKey = secrets.VeniceAPIKey
-			}
-			if config.TarotAuthToken == "" && secrets.TarotAuthToken != "" {
-				config.TarotAuthToken = secrets.TarotAuthToken
-			}
-			if config.TwitterBearerToken == "" && secrets.TwitterBearerToken != "" {
-				config.TwitterBearerToken = secrets.TwitterBearerToken
-			}
+	// Load shared skills.json (for all skill configurations)
+	if skillsConfig, err := LoadSkillsConfig(); err == nil {
+		// Merge skill configs (skills.json takes precedence if set)
+		if skillsConfig.VeniceAPIKey != "" {
+			config.VeniceAPIKey = skillsConfig.VeniceAPIKey
+		}
+		if skillsConfig.VeniceBaseURL != "" {
+			config.VeniceBaseURL = skillsConfig.VeniceBaseURL
+		}
+		if skillsConfig.VeniceModel != "" {
+			config.VeniceModel = skillsConfig.VeniceModel
+		}
+		if skillsConfig.TarotFunctionURL != "" {
+			config.TarotFunctionURL = skillsConfig.TarotFunctionURL
+		}
+		if skillsConfig.TarotAuthToken != "" {
+			config.TarotAuthToken = skillsConfig.TarotAuthToken
+		}
+		if skillsConfig.TwitterBearerToken != "" {
+			config.TwitterBearerToken = skillsConfig.TwitterBearerToken
+		}
+		if skillsConfig.TwitterAPIKey != "" {
+			config.TwitterAPIKey = skillsConfig.TwitterAPIKey
+		}
+		if skillsConfig.TwitterAPISecret != "" {
+			config.TwitterAPISecret = skillsConfig.TwitterAPISecret
+		}
+		if skillsConfig.TwitterAccessToken != "" {
+			config.TwitterAccessToken = skillsConfig.TwitterAccessToken
+		}
+		if skillsConfig.TwitterAccessTokenSecret != "" {
+			config.TwitterAccessTokenSecret = skillsConfig.TwitterAccessTokenSecret
 		}
 	}
 
@@ -129,13 +184,19 @@ func LoadNamed(name string) (*Config, error) {
 	if endpoint := os.Getenv("CELESTE_API_ENDPOINT"); endpoint != "" {
 		config.BaseURL = endpoint
 	}
+	if veniceKey := os.Getenv("VENICE_API_KEY"); veniceKey != "" {
+		config.VeniceAPIKey = veniceKey
+	}
+	if tarotToken := os.Getenv("TAROT_AUTH_TOKEN"); tarotToken != "" {
+		config.TarotAuthToken = tarotToken
+	}
 
 	return config, nil
 }
 
 // ListConfigs returns all available config names.
 func ListConfigs() ([]string, error) {
-	configDir, _, _, _ := Paths()
+	configDir, _, _, _, _ := Paths()
 	
 	entries, err := os.ReadDir(configDir)
 	if err != nil {
@@ -160,7 +221,7 @@ func ListConfigs() ([]string, error) {
 // Load loads configuration from file and environment.
 func Load() (*Config, error) {
 	config := DefaultConfig()
-	configDir, configFile, secretsFile, oldConfigFile := Paths()
+	configDir, configFile, secretsFile, _, oldConfigFile := Paths()
 
 	// Ensure config directory exists
 	if err := os.MkdirAll(configDir, 0755); err != nil {
@@ -183,34 +244,48 @@ func Load() (*Config, error) {
 		}
 	}
 
-	// Load secrets file (overwrites sensitive fields)
+	// Load secrets file (for API keys - backward compatibility)
 	if data, err := os.ReadFile(secretsFile); err == nil {
 		var secrets Config
 		if err := json.Unmarshal(data, &secrets); err == nil {
 			if secrets.APIKey != "" {
 				config.APIKey = secrets.APIKey
 			}
-			if secrets.VeniceAPIKey != "" {
-				config.VeniceAPIKey = secrets.VeniceAPIKey
-			}
-			if secrets.TarotAuthToken != "" {
-				config.TarotAuthToken = secrets.TarotAuthToken
-			}
-			if secrets.TwitterBearerToken != "" {
-				config.TwitterBearerToken = secrets.TwitterBearerToken
-			}
-			if secrets.TwitterAPIKey != "" {
-				config.TwitterAPIKey = secrets.TwitterAPIKey
-			}
-			if secrets.TwitterAPISecret != "" {
-				config.TwitterAPISecret = secrets.TwitterAPISecret
-			}
-			if secrets.TwitterAccessToken != "" {
-				config.TwitterAccessToken = secrets.TwitterAccessToken
-			}
-			if secrets.TwitterAccessTokenSecret != "" {
-				config.TwitterAccessTokenSecret = secrets.TwitterAccessTokenSecret
-			}
+		}
+	}
+
+	// Load skills.json (shared across all configs)
+	if skillsConfig, err := LoadSkillsConfig(); err == nil {
+		// Merge skill configs
+		if skillsConfig.VeniceAPIKey != "" {
+			config.VeniceAPIKey = skillsConfig.VeniceAPIKey
+		}
+		if skillsConfig.VeniceBaseURL != "" {
+			config.VeniceBaseURL = skillsConfig.VeniceBaseURL
+		}
+		if skillsConfig.VeniceModel != "" {
+			config.VeniceModel = skillsConfig.VeniceModel
+		}
+		if skillsConfig.TarotFunctionURL != "" {
+			config.TarotFunctionURL = skillsConfig.TarotFunctionURL
+		}
+		if skillsConfig.TarotAuthToken != "" {
+			config.TarotAuthToken = skillsConfig.TarotAuthToken
+		}
+		if skillsConfig.TwitterBearerToken != "" {
+			config.TwitterBearerToken = skillsConfig.TwitterBearerToken
+		}
+		if skillsConfig.TwitterAPIKey != "" {
+			config.TwitterAPIKey = skillsConfig.TwitterAPIKey
+		}
+		if skillsConfig.TwitterAPISecret != "" {
+			config.TwitterAPISecret = skillsConfig.TwitterAPISecret
+		}
+		if skillsConfig.TwitterAccessToken != "" {
+			config.TwitterAccessToken = skillsConfig.TwitterAccessToken
+		}
+		if skillsConfig.TwitterAccessTokenSecret != "" {
+			config.TwitterAccessTokenSecret = skillsConfig.TwitterAccessTokenSecret
 		}
 	}
 
@@ -233,7 +308,7 @@ func Load() (*Config, error) {
 
 // Save saves configuration to file.
 func Save(config *Config) error {
-	_, configFile, _, _ := Paths()
+	_, configFile, _, _, _ := Paths()
 
 	data, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
@@ -243,19 +318,12 @@ func Save(config *Config) error {
 	return os.WriteFile(configFile, data, 0644)
 }
 
-// SaveSecrets saves sensitive configuration to secrets file.
+// SaveSecrets saves API key to secrets file (backward compatibility).
 func SaveSecrets(config *Config) error {
-	_, _, secretsFile, _ := Paths()
+	_, _, secretsFile, _, _ := Paths()
 
 	secrets := &Config{
-		APIKey:                   config.APIKey,
-		VeniceAPIKey:             config.VeniceAPIKey,
-		TarotAuthToken:           config.TarotAuthToken,
-		TwitterBearerToken:       config.TwitterBearerToken,
-		TwitterAPIKey:            config.TwitterAPIKey,
-		TwitterAPISecret:         config.TwitterAPISecret,
-		TwitterAccessToken:       config.TwitterAccessToken,
-		TwitterAccessTokenSecret: config.TwitterAccessTokenSecret,
+		APIKey: config.APIKey, // Only API key in secrets.json now
 	}
 
 	data, err := json.MarshalIndent(secrets, "", "  ")
@@ -333,6 +401,24 @@ func migrateOldConfig(oldPath, configPath, secretsPath string) error {
 	secretsData, _ := json.MarshalIndent(secrets, "", "  ")
 	if err := os.WriteFile(secretsPath, secretsData, 0600); err != nil {
 		return err
+	}
+
+	// Migrate skill configs to skills.json
+	_, _, _, skillsFile, _ := Paths()
+	skillsConfig := &Config{
+		VeniceAPIKey:             secrets.VeniceAPIKey,
+		TarotAuthToken:           secrets.TarotAuthToken,
+		TwitterBearerToken:       secrets.TwitterBearerToken,
+		TwitterAPIKey:            secrets.TwitterAPIKey,
+		TwitterAPISecret:         secrets.TwitterAPISecret,
+		TwitterAccessToken:       secrets.TwitterAccessToken,
+		TwitterAccessTokenSecret: secrets.TwitterAccessTokenSecret,
+	}
+	if skillsConfig.VeniceAPIKey != "" || skillsConfig.TarotAuthToken != "" || skillsConfig.TwitterBearerToken != "" {
+		skillsData, _ := json.MarshalIndent(skillsConfig, "", "  ")
+		if err := os.WriteFile(skillsFile, skillsData, 0600); err == nil {
+			fmt.Fprintf(os.Stderr, "Migrated skill configs to %s\n", skillsFile)
+		}
 	}
 
 	fmt.Fprintf(os.Stderr, "Migrated configuration from %s to %s\n", oldPath, configPath)

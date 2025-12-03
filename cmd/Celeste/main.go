@@ -364,6 +364,12 @@ func runConfigCommand(args []string) {
 	skipPersona := fs.String("skip-persona", "", "Skip persona prompt (true/false)")
 	simulateTyping := fs.String("simulate-typing", "", "Simulate typing (true/false)")
 	typingSpeed := fs.Int("typing-speed", 0, "Typing speed (chars/sec)")
+	
+	// Skill configuration flags
+	setTarotToken := fs.String("set-tarot-token", "", "Set tarot auth token (saved to skills.json)")
+	setVeniceKey := fs.String("set-venice-key", "", "Set Venice.ai API key (saved to skills.json)")
+	setTarotURL := fs.String("set-tarot-url", "", "Set tarot function URL (saved to skills.json)")
+	
 	fs.Parse(args)
 
 	// Handle --list
@@ -433,6 +439,24 @@ func runConfigCommand(args []string) {
 		fmt.Printf("Typing speed: %d chars/sec\n", cfg.TypingSpeed)
 	}
 
+	// Handle skill configuration
+	skillsChanged := false
+	if *setTarotToken != "" {
+		cfg.TarotAuthToken = *setTarotToken
+		skillsChanged = true
+		fmt.Println("Tarot auth token updated (saved to skills.json)")
+	}
+	if *setVeniceKey != "" {
+		cfg.VeniceAPIKey = *setVeniceKey
+		skillsChanged = true
+		fmt.Println("Venice.ai API key updated (saved to skills.json)")
+	}
+	if *setTarotURL != "" {
+		cfg.TarotFunctionURL = *setTarotURL
+		skillsChanged = true
+		fmt.Printf("Tarot function URL set to: %s (saved to skills.json)\n", *setTarotURL)
+	}
+
 	if changed {
 		if err := config.Save(cfg); err != nil {
 			fmt.Fprintf(os.Stderr, "Error saving config: %v\n", err)
@@ -443,6 +467,14 @@ func runConfigCommand(args []string) {
 			os.Exit(1)
 		}
 		fmt.Println("Configuration saved")
+	}
+
+	if skillsChanged {
+		if err := config.SaveSkillsConfig(cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "Error saving skills config: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("Skills configuration saved to skills.json")
 	}
 
 	if *showConfig || !changed {
