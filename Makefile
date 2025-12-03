@@ -14,7 +14,7 @@ help:
 # Build the binary
 build:
 	@echo "🔨 Building Celeste..."
-	@go build -o Celeste main.go scaffolding.go animation.go ui.go assets.go interactive.go terminal_display.go ascii_art.go
+	@cd cmd/Celeste && go build -o ../../Celeste .
 	@echo "✅ Build complete: ./Celeste"
 
 # Build and install to PATH
