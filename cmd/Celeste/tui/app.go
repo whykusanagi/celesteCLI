@@ -152,6 +152,10 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.streaming = false
 		m.status = m.status.SetStreaming(false)
 		m.status = m.status.SetText(fmt.Sprintf("Done (%s)", msg.FinishReason))
+		// Add the full response to chat
+		if msg.FullContent != "" {
+			m.chat = m.chat.AddAssistantMessage(msg.FullContent)
+		}
 
 	case StreamErrorMsg:
 		m.streaming = false
