@@ -194,25 +194,33 @@ func TarotHandler(args map[string]interface{}, configLoader ConfigLoader) (inter
 	req.Header.Set("Authorization", "Basic "+config.AuthToken)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	// Create client with timeout and logging
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	// Make request with timeout
+	startTime := time.Now()
 	resp, err := client.Do(req)
+	elapsed := time.Since(startTime)
+	
 	if err != nil {
-		return nil, fmt.Errorf("tarot request failed: %w", err)
+		return nil, fmt.Errorf("tarot request failed after %v: %w", elapsed, err)
 	}
 	defer resp.Body.Close()
 
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
+		return nil, fmt.Errorf("failed to read response after %v: %w", elapsed, err)
 	}
 
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("tarot API error (status %d): %s", resp.StatusCode, string(responseBody))
+		return nil, fmt.Errorf("tarot API error (status %d) after %v: %s", resp.StatusCode, elapsed, string(responseBody))
 	}
 
 	var result map[string]interface{}
 	if err := json.Unmarshal(responseBody, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+		return nil, fmt.Errorf("failed to parse response after %v: %w", elapsed, err)
 	}
 
 	return result, nil

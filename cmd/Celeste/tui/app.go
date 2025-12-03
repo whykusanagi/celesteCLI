@@ -44,6 +44,7 @@ type AppModel struct {
 type LLMClient interface {
 	SendMessage(messages []ChatMessage, tools []SkillDefinition) tea.Cmd
 	GetSkills() []SkillDefinition
+	ExecuteSkill(name string, args map[string]any) tea.Cmd
 }
 
 // SkillDefinition represents a skill/function that can be called.
@@ -201,9 +202,15 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case SkillCallMsg:
 		// Log the skill call for debugging
 		LogSkillCall(msg.Call.Name, msg.Call.Arguments)
+		LogInfo(fmt.Sprintf("Starting execution of skill: %s", msg.Call.Name))
 		m.skills = m.skills.SetExecuting(msg.Call.Name)
 		m.chat = m.chat.AddFunctionCall(msg.Call)
 		m.status = m.status.SetText(fmt.Sprintf("⚡ Executing: %s", msg.Call.Name))
+		
+		// Execute the skill asynchronously
+		if m.llmClient != nil {
+			cmds = append(cmds, m.llmClient.ExecuteSkill(msg.Call.Name, msg.Call.Arguments))
+		}
 
 	case SkillResultMsg:
 		// Log the skill result

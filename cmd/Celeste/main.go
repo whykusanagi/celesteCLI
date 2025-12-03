@@ -283,6 +283,66 @@ func (a *TUIClientAdapter) GetSkills() []tui.SkillDefinition {
 	return a.client.GetSkills()
 }
 
+// ExecuteSkill implements tui.LLMClient.
+func (a *TUIClientAdapter) ExecuteSkill(name string, args map[string]any) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		startTime := time.Now()
+		tui.LogInfo(fmt.Sprintf("Executing skill '%s' with timeout: 30s", name))
+
+		// Convert args to JSON
+		argsJSON, err := json.Marshal(args)
+		if err != nil {
+			tui.LogInfo(fmt.Sprintf("Failed to marshal args for '%s': %v", name, err))
+			return tui.SkillResultMsg{
+				Name:   name,
+				Result: "",
+				Err:    fmt.Errorf("failed to marshal arguments: %w", err),
+			}
+		}
+
+		// Execute the skill
+		result, err := a.client.ExecuteSkill(ctx, name, string(argsJSON))
+		
+		elapsed := time.Since(startTime)
+		if err != nil {
+			tui.LogInfo(fmt.Sprintf("Skill '%s' failed after %v: %v", name, elapsed, err))
+			return tui.SkillResultMsg{
+				Name:   name,
+				Result: "",
+				Err:    err,
+			}
+		}
+
+		// Format result as string
+		var resultStr string
+		if result.Success {
+			switch v := result.Result.(type) {
+			case string:
+				resultStr = v
+			case map[string]interface{}:
+				b, _ := json.Marshal(v)
+				resultStr = string(b)
+			default:
+				b, _ := json.Marshal(result.Result)
+				resultStr = string(b)
+			}
+			tui.LogInfo(fmt.Sprintf("Skill '%s' completed successfully in %v", name, elapsed))
+		} else {
+			resultStr = fmt.Sprintf("Error: %s", result.Error)
+			tui.LogInfo(fmt.Sprintf("Skill '%s' returned error after %v: %s", name, elapsed, result.Error))
+		}
+
+		return tui.SkillResultMsg{
+			Name:   name,
+			Result: resultStr,
+			Err:    nil,
+		}
+	}
+}
+
 func parseArgs(argsJSON string) map[string]any {
 	var args map[string]any
 	json.Unmarshal([]byte(argsJSON), &args)
