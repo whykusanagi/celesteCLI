@@ -94,12 +94,18 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		m.ready = true
 
-		// Calculate component heights
+		// Calculate component heights - compact layout
 		headerHeight := 1
-		inputHeight := 3
-		skillsHeight := 5
+		inputHeight := 2
+		skillsHeight := 3 // Reduced from 5
 		statusHeight := 1
 		chatHeight := m.height - headerHeight - inputHeight - skillsHeight - statusHeight
+
+		// Ensure minimum chat height
+		if chatHeight < 5 {
+			chatHeight = 5
+			skillsHeight = 2 // Further reduce skills if needed
+		}
 
 		// Update component sizes
 		m.header = m.header.SetWidth(m.width)

@@ -3,8 +3,6 @@
 package tui
 
 import (
-	"strconv"
-
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -60,56 +58,55 @@ func (m SkillsModel) GetDefinitions() []SkillDefinition {
 	return m.skills
 }
 
-// View renders the skills panel.
+// View renders the skills panel - compact single-line format.
 func (m SkillsModel) View() string {
 	if len(m.skills) == 0 {
 		return SkillsPanelStyle.
 			Width(m.width).
 			Height(m.height).
-			Render(TextMutedStyle.Render("No skills loaded"))
+			Render(TextMutedStyle.Render("No skills"))
 	}
 
-	// Build skills display
-	var skillCards []string
-	maxSkillWidth := (m.width - 8) / 4 // 4 skills per row with padding
-	if maxSkillWidth < 20 {
-		maxSkillWidth = 20
-	}
-
+	// Compact: just show skill names in a line
+	var skillNames []string
 	for _, skill := range m.skills {
-		card := m.renderSkillCard(skill, maxSkillWidth)
-		skillCards = append(skillCards, card)
-	}
-
-	// Arrange in rows
-	var rows []string
-	skillsPerRow := (m.width - 4) / (maxSkillWidth + 2)
-	if skillsPerRow < 1 {
-		skillsPerRow = 1
-	}
-
-	for i := 0; i < len(skillCards); i += skillsPerRow {
-		end := i + skillsPerRow
-		if end > len(skillCards) {
-			end = len(skillCards)
+		status, ok := m.executingSkills[skill.Name]
+		var name string
+		if !ok {
+			name = SkillNameStyle.Render(skill.Name)
+		} else {
+			switch status {
+			case "executing":
+				name = SkillExecutingStyle.Render("⏳" + skill.Name)
+			case "completed":
+				name = SkillCompletedStyle.Render("✓" + skill.Name)
+			case "error":
+				name = SkillErrorStyle.Render("✗" + skill.Name)
+			default:
+				name = SkillNameStyle.Render(skill.Name)
+			}
 		}
-		row := lipgloss.JoinHorizontal(lipgloss.Top, skillCards[i:end]...)
-		rows = append(rows, row)
+		skillNames = append(skillNames, name)
 	}
 
-	content := lipgloss.JoinVertical(lipgloss.Left, rows...)
-
-	// Title
-	title := AccentStyle.Render("Skills") + " " + TextMutedStyle.Render("(")
-	title += TextSecondaryStyle.Render(strconv.Itoa(len(m.skills)))
-	title += TextMutedStyle.Render(")")
-
-	fullContent := lipgloss.JoinVertical(lipgloss.Left, title, content)
+	// Title + skills on same line
+	title := AccentStyle.Render("Skills:") + " "
+	
+	// Join skill names with separator
+	var joined string
+	for i, name := range skillNames {
+		if i > 0 {
+			joined += TextMutedStyle.Render(" • ")
+		}
+		joined += name
+	}
+	
+	content := title + TextMutedStyle.Render("[") + joined + TextMutedStyle.Render("]")
 
 	return SkillsPanelStyle.
 		Width(m.width).
 		Height(m.height).
-		Render(fullContent)
+		Render(content)
 }
 
 // renderSkillCard renders a single skill card.

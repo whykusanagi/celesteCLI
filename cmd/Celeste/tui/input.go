@@ -5,7 +5,6 @@ package tui
 import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // InputModel represents the text input component.
@@ -133,21 +132,12 @@ func (m InputModel) Update(msg tea.Msg) (InputModel, tea.Cmd) {
 
 // View renders the input component.
 func (m InputModel) View() string {
-	// Create the input line
+	// Create the input line - compact, no extra lines
 	input := m.textInput.View()
-
-	// Hint text
-	hint := TextMutedStyle.Render("↑↓ history • Enter send • 'help' for commands")
-
-	// Combine with border
-	content := lipgloss.JoinVertical(lipgloss.Left,
-		input,
-		hint,
-	)
 
 	return InputPanelStyle.
 		Width(m.width).
-		Render(content)
+		Render(input)
 }
 
 // Focus focuses the input.
