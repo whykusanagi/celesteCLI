@@ -70,14 +70,11 @@ var (
 
 // Component-specific styles
 var (
-	// Header styles
+	// Header styles - minimal, no border
 	HeaderStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(ColorAccent).
-			Background(ColorBgSecondary).
-			Padding(0, 1).
-			Border(lipgloss.NormalBorder(), false, false, true, false).
-			BorderForeground(ColorBorder)
+			Background(ColorBgSecondary)
 
 	HeaderTitleStyle = lipgloss.NewStyle().
 				Foreground(ColorAccent).
@@ -86,10 +83,8 @@ var (
 	HeaderInfoStyle = lipgloss.NewStyle().
 			Foreground(ColorTextMuted)
 
-	// Chat panel styles
+	// Chat panel styles - no border, just padding
 	ChatPanelStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(ColorBorder).
 			Padding(0, 1)
 
 	// Message styles
@@ -107,11 +102,9 @@ var (
 			Foreground(ColorTextMuted).
 			Width(6)
 
-	// Input panel styles
+	// Input panel styles - simple top border
 	InputPanelStyle = lipgloss.NewStyle().
-			Border(lipgloss.NormalBorder(), true, false, false, false).
-			BorderForeground(ColorBorder).
-			Padding(0, 1)
+			Foreground(ColorText)
 
 	InputPromptStyle = lipgloss.NewStyle().
 				Foreground(ColorAccent).
@@ -123,11 +116,9 @@ var (
 	InputPlaceholderStyle = lipgloss.NewStyle().
 				Foreground(ColorTextMuted)
 
-	// Skills panel styles
+	// Skills panel styles - minimal
 	SkillsPanelStyle = lipgloss.NewStyle().
-				Border(lipgloss.NormalBorder(), true, false, false, false).
-				BorderForeground(ColorBorder).
-				Padding(0, 1)
+				Foreground(ColorTextMuted)
 
 	SkillNameStyle = lipgloss.NewStyle().
 			Foreground(ColorAccent)
@@ -144,10 +135,9 @@ var (
 	SkillErrorStyle = lipgloss.NewStyle().
 			Foreground(ColorError)
 
-	// Status bar styles
+	// Status bar styles - minimal
 	StatusBarStyle = lipgloss.NewStyle().
-			Foreground(ColorTextMuted).
-			Padding(0, 1)
+			Foreground(ColorTextMuted)
 
 	StatusActiveStyle = lipgloss.NewStyle().
 				Foreground(ColorSuccess)
@@ -160,12 +150,10 @@ var (
 			Foreground(ColorWarning).
 			Bold(true)
 
-	// Function call display
+	// Function call display - minimal
 	FunctionCallStyle = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(ColorPurple).
-				Padding(0, 1).
-				Margin(0, 0, 1, 2)
+				Foreground(ColorPurple).
+				MarginLeft(2)
 
 	FunctionNameStyle = lipgloss.NewStyle().
 				Foreground(ColorPurple).

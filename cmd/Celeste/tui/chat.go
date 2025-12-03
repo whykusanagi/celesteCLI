@@ -35,13 +35,19 @@ func (m ChatModel) SetSize(width, height int) ChatModel {
 	m.width = width
 	m.height = height
 
+	// Account for padding (1 on each side = 2 total)
+	viewWidth := width - 2
+	if viewWidth < 10 {
+		viewWidth = 10
+	}
+
 	if !m.ready {
-		m.viewport = viewport.New(width-4, height-2) // Account for borders
+		m.viewport = viewport.New(viewWidth, height)
 		m.viewport.YPosition = 0
 		m.ready = true
 	} else {
-		m.viewport.Width = width - 4
-		m.viewport.Height = height - 2
+		m.viewport.Width = viewWidth
+		m.viewport.Height = height
 	}
 
 	m.updateContent()
@@ -190,7 +196,7 @@ func (m *ChatModel) updateContent() {
 	}
 
 	var lines []string
-	contentWidth := m.width - 6 // Account for borders and padding
+	contentWidth := m.width - 4 // Account for padding and some margin
 
 	// Render messages
 	for _, msg := range m.messages {
