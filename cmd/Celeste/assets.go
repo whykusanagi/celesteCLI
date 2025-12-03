@@ -7,20 +7,16 @@ import (
 	"os"
 )
 
-// Embed pixel art assets directly into the binary for portability
+// Embed pixel art asset directly into the binary for portability
 //
-//go:embed assets/pixel_wink_full.gif
-var pixelWinkGif []byte
-
 //go:embed assets/kusanagi_4x.gif
-var kusanagiGif []byte
+var celesteGif []byte
 
 // AssetType defines different asset types available
 type AssetType string
 
 const (
-	PixelWink  AssetType = "pixel_wink"
-	Kusanagi   AssetType = "kusanagi"
+	Celeste AssetType = "celeste"
 )
 
 // DisplayPixelArt displays a pixel art asset in the terminal
@@ -29,10 +25,8 @@ func DisplayPixelArt(assetType AssetType) error {
 	var gifData []byte
 
 	switch assetType {
-	case PixelWink:
-		gifData = pixelWinkGif
-	case Kusanagi:
-		gifData = kusanagiGif
+	case Celeste:
+		gifData = celesteGif
 	default:
 		return fmt.Errorf("unknown asset type: %s", assetType)
 	}
@@ -50,17 +44,10 @@ func DisplayPixelArt(assetType AssetType) error {
 // displayASCIIArtRepresentation shows an ASCII art version of the pixel art
 func displayASCIIArtRepresentation(assetType AssetType) {
 	switch assetType {
-	case PixelWink:
-		// Simple ASCII representation of Celeste winking
-		fmt.Fprintf(os.Stderr, "    ┌─────────────────┐\n")
-		fmt.Fprintf(os.Stderr, "    │   ✨ Celeste ✨  │\n")
-		fmt.Fprintf(os.Stderr, "    │  (╯°□°)╯︵ ┻━┻  │\n")
-		fmt.Fprintf(os.Stderr, "    └─────────────────┘\n")
-
-	case Kusanagi:
-		// Kusanagi/abyss themed art
+	case Celeste:
+		// Celeste pixel art representation
 		fmt.Fprintf(os.Stderr, "    ┌─────────────────────┐\n")
-		fmt.Fprintf(os.Stderr, "    │  🌑 Kusanagi Abyss 🌑│\n")
+		fmt.Fprintf(os.Stderr, "    │   ✨ Celeste ✨     │\n")
 		fmt.Fprintf(os.Stderr, "    │    c0rrupt3d...    │\n")
 		fmt.Fprintf(os.Stderr, "    │   深淵への堕落...    │\n")
 		fmt.Fprintf(os.Stderr, "    └─────────────────────┘\n")
@@ -73,10 +60,8 @@ func GetAssetBase64(assetType AssetType) (string, error) {
 	var gifData []byte
 
 	switch assetType {
-	case PixelWink:
-		gifData = pixelWinkGif
-	case Kusanagi:
-		gifData = kusanagiGif
+	case Celeste:
+		gifData = celesteGif
 	default:
 		return "", fmt.Errorf("unknown asset type: %s", assetType)
 	}
@@ -88,10 +73,14 @@ func GetAssetBase64(assetType AssetType) (string, error) {
 	return base64.StdEncoding.EncodeToString(gifData), nil
 }
 
+// GetCelesteGif returns the raw GIF data for the Celeste pixel art
+func GetCelesteGif() []byte {
+	return celesteGif
+}
+
 // ListAvailableAssets returns a list of available embedded assets
 func ListAvailableAssets() []string {
 	return []string{
-		"pixel_wink - Celeste pixel art winking",
-		"kusanagi - Kusanagi/abyss themed artwork",
+		"celeste - Celeste pixel art (364x560)",
 	}
 }

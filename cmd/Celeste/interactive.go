@@ -107,9 +107,9 @@ func displayCelesteHeader() {
 	fmt.Fprintf(os.Stderr, "\n")
 
 	// Use optimal display - animated GIF if terminal supports it
-	if err := DisplayAssetOptimal(Kusanagi); err != nil {
+	if err := DisplayAssetOptimal(Celeste); err != nil {
 		// Fallback to ASCII if display fails
-		displayASCIIArtRepresentation(Kusanagi)
+		displayASCIIArtRepresentation(Celeste)
 	}
 
 	fmt.Fprintf(os.Stderr, "\n")
@@ -137,9 +137,9 @@ func displayConfigurationBanner(state *InteractiveSessionState) {
 func displayGoodbyeAnimation() {
 	fmt.Fprintf(os.Stderr, "\n")
 	// Use optimal display - animated GIF if terminal supports it
-	if err := DisplayAssetOptimal(Kusanagi); err != nil {
+	if err := DisplayAssetOptimal(Celeste); err != nil {
 		// Fallback to ASCII if display fails
-		displayASCIIArtRepresentation(Kusanagi)
+		displayASCIIArtRepresentation(Celeste)
 	}
 	fmt.Fprintf(os.Stderr, "\n")
 }
@@ -303,7 +303,7 @@ func handleCommand(cmd string, state *InteractiveSessionState) {
 	switch parts[0] {
 	case "show":
 		if len(parts) < 2 {
-			PrintMessage(WARN, "Usage: /show [pixel_wink|kusanagi]")
+			PrintMessage(WARN, "Usage: /show celeste")
 			return
 		}
 		showAsset(parts[1])
@@ -711,12 +711,9 @@ func setSetting(setting, value string, state *InteractiveSessionState) {
 
 // showAsset displays a specific asset
 func showAsset(assetType string) {
-	var asset AssetType
 	switch strings.ToLower(assetType) {
-	case "pixel_wink", "wink", "celeste":
-		asset = PixelWink
-	case "kusanagi", "abyss", "corrupted":
-		asset = Kusanagi
+	case "celeste", "kusanagi", "abyss", "corrupted", "pixel":
+		// All aliases point to the single Celeste asset
 	default:
 		PrintMessage(ERROR, fmt.Sprintf("Unknown asset: %s", assetType))
 		return
@@ -724,7 +721,7 @@ func showAsset(assetType string) {
 
 	fmt.Fprintf(os.Stderr, "\n")
 	// Use optimal display (animated GIF if supported, ASCII fallback)
-	if err := DisplayAssetOptimal(asset); err != nil {
+	if err := DisplayAssetOptimal(Celeste); err != nil {
 		PrintMessage(ERROR, fmt.Sprintf("Error displaying asset: %v", err))
 	}
 	fmt.Fprintf(os.Stderr, "\n")
@@ -742,7 +739,7 @@ func displayAssetInfo() {
 	}
 
 	fmt.Fprintf(os.Stderr, "\n")
-	PrintMessage(INFO, "Use: /show [pixel_wink|kusanagi] to display an asset")
+	PrintMessage(INFO, "Use: /show celeste to display the asset")
 	fmt.Fprintf(os.Stderr, "\n")
 }
 
@@ -818,8 +815,8 @@ func displayInteractiveHelpMenu(state *InteractiveSessionState) {
 		cmd  string
 		desc string
 	}{
-		{"/show [pixel_wink|kusanagi]", "Display pixel art asset"},
-		{"/asset", "List all available assets"},
+		{"/show celeste", "Display Celeste pixel art"},
+		{"/asset", "List available assets"},
 		{"/theme [normal|corrupted]", "Switch visual theme"},
 		{"/clear", "Clear screen"},
 	}
@@ -856,14 +853,14 @@ func setTheme(theme string) {
 	case "normal", "friendly", "light":
 		PrintMessage(SUCCESS, "Switched to friendly theme")
 		fmt.Fprintf(os.Stderr, "\n")
-		if err := DisplayAssetOptimal(PixelWink); err != nil {
-			displayASCIIArtRepresentation(PixelWink)
+		if err := DisplayAssetOptimal(Celeste); err != nil {
+			displayASCIIArtRepresentation(Celeste)
 		}
 	case "corrupted", "abyss", "dark":
 		PrintMessage(SUCCESS, "Switched to corrupted abyss theme")
 		fmt.Fprintf(os.Stderr, "\n")
-		if err := DisplayAssetOptimal(Kusanagi); err != nil {
-			displayASCIIArtRepresentation(Kusanagi)
+		if err := DisplayAssetOptimal(Celeste); err != nil {
+			displayASCIIArtRepresentation(Celeste)
 		}
 	default:
 		PrintMessage(ERROR, fmt.Sprintf("Unknown theme: %s", theme))

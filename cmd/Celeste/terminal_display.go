@@ -161,10 +161,8 @@ func DisplayAssetOptimal(assetType AssetType) error {
 	var gifData []byte
 
 	switch assetType {
-	case PixelWink:
-		gifData = pixelWinkGif
-	case Kusanagi:
-		gifData = kusanagiGif
+	case Celeste:
+		gifData = celesteGif
 	default:
 		return fmt.Errorf("unknown asset type: %s", assetType)
 	}
