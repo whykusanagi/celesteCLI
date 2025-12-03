@@ -5,10 +5,15 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
+
+// Typing speed: characters per tick
+const charsPerTick = 3
+const typingTickInterval = 15 * time.Millisecond
 
 // AppModel is the root model for the Celeste TUI application.
 type AppModel struct {
@@ -25,6 +30,10 @@ type AppModel struct {
 	ready     bool
 	nsfwMode  bool
 	streaming bool
+
+	// Simulated typing state
+	typingContent string // Full content to type
+	typingPos     int    // Current position in content
 
 	// LLM client (injected)
 	llmClient LLMClient
@@ -149,12 +158,20 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, nil) // Keep processing
 
 	case StreamDoneMsg:
-		m.streaming = false
-		m.status = m.status.SetStreaming(false)
-		m.status = m.status.SetText(fmt.Sprintf("Done (%s)", msg.FinishReason))
-		// Add the full response to chat
 		if msg.FullContent != "" {
-			m.chat = m.chat.AddAssistantMessage(msg.FullContent)
+			// Start simulated typing for the response
+			m.typingContent = msg.FullContent
+			m.typingPos = 0
+			m.chat = m.chat.AddAssistantMessage("") // Start with empty message
+			m.status = m.status.SetText("Typing...")
+			// Schedule first typing tick
+			cmds = append(cmds, tea.Tick(typingTickInterval, func(t time.Time) tea.Msg {
+				return TickMsg{Time: t}
+			}))
+		} else {
+			m.streaming = false
+			m.status = m.status.SetStreaming(false)
+			m.status = m.status.SetText(fmt.Sprintf("Done (%s)", msg.FinishReason))
 		}
 
 	case StreamErrorMsg:
@@ -198,10 +215,36 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case TickMsg:
-		// Handle animation ticks
-		var cmd tea.Cmd
-		m.status, cmd = m.status.Update(msg)
-		cmds = append(cmds, cmd)
+		// Handle simulated typing
+		if m.typingContent != "" && m.typingPos < len(m.typingContent) {
+			// Advance typing position
+			m.typingPos += charsPerTick
+			if m.typingPos > len(m.typingContent) {
+				m.typingPos = len(m.typingContent)
+			}
+			// Update chat with current typed content
+			displayed := m.typingContent[:m.typingPos]
+			m.chat = m.chat.SetLastAssistantContent(displayed)
+			
+			if m.typingPos < len(m.typingContent) {
+				// Schedule next typing tick
+				cmds = append(cmds, tea.Tick(typingTickInterval, func(t time.Time) tea.Msg {
+					return TickMsg{Time: t}
+				}))
+			} else {
+				// Typing complete
+				m.typingContent = ""
+				m.typingPos = 0
+				m.streaming = false
+				m.status = m.status.SetStreaming(false)
+				m.status = m.status.SetText("Ready")
+			}
+		} else {
+			// Handle other animation ticks
+			var cmd tea.Cmd
+			m.status, cmd = m.status.Update(msg)
+			cmds = append(cmds, cmd)
+		}
 
 	case NSFWToggleMsg:
 		m.nsfwMode = msg.Enabled
