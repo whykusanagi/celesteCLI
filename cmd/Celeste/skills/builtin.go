@@ -853,26 +853,31 @@ func ImageHandler(args map[string]interface{}, configLoader ConfigLoader) (inter
 
 // WeatherHandler gets weather forecast for a location.
 func WeatherHandler(args map[string]interface{}, configLoader ConfigLoader) (interface{}, error) {
+	// Try to get config, but don't fail if it's not configured
 	config, err := configLoader.GetWeatherConfig()
 	if err != nil {
 		// If config not available, use empty config (will require zip in args)
 		config = WeatherConfig{}
 	}
 
-	// Get zip code from args or use default
+	// Get zip code from args first (user-provided takes precedence)
 	zipCode := ""
 	if z, ok := args["zip_code"].(string); ok && z != "" {
+		// User provided zip code - use it
 		zipCode = z
 	} else if config.DefaultZipCode != "" {
+		// Fall back to default if user didn't provide one
 		zipCode = config.DefaultZipCode
 	}
 
-	// If still no zip code, return helpful error that LLM can interpret
+	// Only return error/info if BOTH user-provided zip AND default are missing
 	if zipCode == "" {
+		// No zip code provided and no default configured
 		return map[string]interface{}{
 			"error":   "zip_code_required",
 			"message": "A zip code is required for weather lookup. Please provide a 5-digit zip code in your request, or set a default using: celeste config --set-weather-zip <zip>",
 			"hint":    "You can ask the user for their zip code or location",
+			"info":    "No default zip code configured. User must provide zip code in request.",
 		}, nil
 	}
 
