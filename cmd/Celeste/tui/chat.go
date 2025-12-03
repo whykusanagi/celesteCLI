@@ -20,6 +20,7 @@ type ChatModel struct {
 	width         int
 	height        int
 	ready         bool
+	userScrolled  bool // Track if user has scrolled manually
 }
 
 // NewChatModel creates a new chat model.
@@ -68,12 +69,27 @@ func (m ChatModel) Update(msg tea.Msg) (ChatModel, tea.Cmd) {
 		switch msg.String() {
 		case "pgup":
 			m.viewport.ViewUp()
+			m.userScrolled = true
 		case "pgdown":
 			m.viewport.ViewDown()
+			// If at bottom, reset userScrolled
+			if m.viewport.AtBottom() {
+				m.userScrolled = false
+			}
 		case "shift+up":
 			m.viewport.LineUp(3)
+			m.userScrolled = true
 		case "shift+down":
 			m.viewport.LineDown(3)
+			if m.viewport.AtBottom() {
+				m.userScrolled = false
+			}
+		case "end":
+			m.viewport.GotoBottom()
+			m.userScrolled = false
+		case "home":
+			m.viewport.GotoTop()
+			m.userScrolled = true
 		}
 	}
 
@@ -102,6 +118,7 @@ func (m ChatModel) AddUserMessage(content string) ChatModel {
 	})
 	m.updateContent()
 	m.viewport.GotoBottom()
+	m.userScrolled = false // Reset scroll state for new conversation turn
 	return m
 }
 
@@ -151,7 +168,10 @@ func (m ChatModel) SetLastAssistantContent(content string) ChatModel {
 		}
 	}
 	m.updateContent()
-	m.viewport.GotoBottom()
+	// Only auto-scroll if user hasn't manually scrolled
+	if !m.userScrolled {
+		m.viewport.GotoBottom()
+	}
 	return m
 }
 
