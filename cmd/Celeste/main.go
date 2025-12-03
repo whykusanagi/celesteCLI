@@ -260,7 +260,7 @@ func (a *TUIClientAdapter) SendMessage(messages []tui.ChatMessage, tools []tui.S
 		// Handle tool calls
 		if len(toolCalls) > 0 {
 			tc := toolCalls[0]
-			tui.LogInfo(fmt.Sprintf("LLM requested tool call: %s", tc.Name))
+			tui.LogInfo(fmt.Sprintf("LLM requested tool call: %s (ID: %s)", tc.Name, tc.ID))
 			return tui.SkillCallMsg{
 				Call: tui.FunctionCall{
 					Name:      tc.Name,
@@ -268,6 +268,7 @@ func (a *TUIClientAdapter) SendMessage(messages []tui.ChatMessage, tools []tui.S
 					Status:    "executing",
 					Timestamp: time.Now(),
 				},
+				ToolCallID: tc.ID, // Store tool call ID for sending result back
 			}
 		}
 
@@ -284,7 +285,7 @@ func (a *TUIClientAdapter) GetSkills() []tui.SkillDefinition {
 }
 
 // ExecuteSkill implements tui.LLMClient.
-func (a *TUIClientAdapter) ExecuteSkill(name string, args map[string]any) tea.Cmd {
+func (a *TUIClientAdapter) ExecuteSkill(name string, args map[string]any, toolCallID string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
@@ -297,9 +298,10 @@ func (a *TUIClientAdapter) ExecuteSkill(name string, args map[string]any) tea.Cm
 		if err != nil {
 			tui.LogInfo(fmt.Sprintf("Failed to marshal args for '%s': %v", name, err))
 			return tui.SkillResultMsg{
-				Name:   name,
-				Result: "",
-				Err:    fmt.Errorf("failed to marshal arguments: %w", err),
+				Name:       name,
+				Result:     "",
+				Err:        fmt.Errorf("failed to marshal arguments: %w", err),
+				ToolCallID: toolCallID,
 			}
 		}
 
@@ -310,9 +312,10 @@ func (a *TUIClientAdapter) ExecuteSkill(name string, args map[string]any) tea.Cm
 		if err != nil {
 			tui.LogInfo(fmt.Sprintf("Skill '%s' failed after %v: %v", name, elapsed, err))
 			return tui.SkillResultMsg{
-				Name:   name,
-				Result: "",
-				Err:    err,
+				Name:       name,
+				Result:     "",
+				Err:        err,
+				ToolCallID: toolCallID,
 			}
 		}
 
@@ -336,9 +339,10 @@ func (a *TUIClientAdapter) ExecuteSkill(name string, args map[string]any) tea.Cm
 		}
 
 		return tui.SkillResultMsg{
-			Name:   name,
-			Result: resultStr,
-			Err:    nil,
+			Name:       name,
+			Result:     resultStr,
+			Err:        nil,
+			ToolCallID: toolCallID,
 		}
 	}
 }

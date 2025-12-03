@@ -146,6 +146,23 @@ func (m ChatModel) AddSystemMessage(content string) ChatModel {
 	return m
 }
 
+// AddToolResult adds a tool result message to the chat.
+func (m ChatModel) AddToolResult(toolCallID, name, result string) ChatModel {
+	m.messages = append(m.messages, ChatMessage{
+		Role:       "tool",
+		Content:    result,
+		ToolCallID: toolCallID,
+		Name:       name,
+		Timestamp:  time.Now(),
+	})
+	m.updateContent()
+	// Only auto-scroll if user hasn't manually scrolled
+	if !m.userScrolled {
+		m.viewport.GotoBottom()
+	}
+	return m
+}
+
 // AppendToLastAssistant appends content to the last assistant message.
 func (m ChatModel) AppendToLastAssistant(content string) ChatModel {
 	for i := len(m.messages) - 1; i >= 0; i-- {

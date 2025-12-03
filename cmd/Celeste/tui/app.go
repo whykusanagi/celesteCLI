@@ -36,6 +36,9 @@ type AppModel struct {
 	typingPos     int    // Current position in content
 	animFrame     int    // Animation frame counter
 
+	// Pending tool call tracking
+	pendingToolCallID string // Track tool call ID for sending result back to LLM
+
 	// LLM client (injected)
 	llmClient LLMClient
 }
@@ -44,7 +47,7 @@ type AppModel struct {
 type LLMClient interface {
 	SendMessage(messages []ChatMessage, tools []SkillDefinition) tea.Cmd
 	GetSkills() []SkillDefinition
-	ExecuteSkill(name string, args map[string]any) tea.Cmd
+	ExecuteSkill(name string, args map[string]any, toolCallID string) tea.Cmd
 }
 
 // SkillDefinition represents a skill/function that can be called.
@@ -207,9 +210,12 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.chat = m.chat.AddFunctionCall(msg.Call)
 		m.status = m.status.SetText(fmt.Sprintf("⚡ Executing: %s", msg.Call.Name))
 		
+		// Store tool call ID for sending result back to LLM
+		m.pendingToolCallID = msg.ToolCallID
+		
 		// Execute the skill asynchronously
 		if m.llmClient != nil {
-			cmds = append(cmds, m.llmClient.ExecuteSkill(msg.Call.Name, msg.Call.Arguments))
+			cmds = append(cmds, m.llmClient.ExecuteSkill(msg.Call.Name, msg.Call.Arguments, msg.ToolCallID))
 		}
 
 	case SkillResultMsg:
@@ -229,6 +235,26 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if msg.Name == "nsfw_mode" && strings.Contains(msg.Result, "disabled") {
 				m.nsfwMode = false
 				m.header = m.header.SetNSFWMode(false)
+			}
+
+			// For successful skill results, send result back to LLM for interpretation
+			// Add tool result message to conversation and send to LLM
+			if m.llmClient != nil && msg.ToolCallID != "" {
+				// Add tool result as a "tool" message to chat
+				m.chat = m.chat.AddToolResult(msg.ToolCallID, msg.Name, msg.Result)
+				
+				// Send updated conversation back to LLM for interpretation
+				m.streaming = true
+				m.status = m.status.SetStreaming(true)
+				m.status = m.status.SetText(StreamingSpinner(0) + " " + ThinkingAnimation(0))
+				cmds = append(cmds, m.llmClient.SendMessage(m.chat.GetMessages(), m.skills.GetDefinitions()))
+				// Start animation tick
+				cmds = append(cmds, tea.Tick(typingTickInterval*2, func(t time.Time) tea.Msg {
+					return TickMsg{Time: t}
+				}))
+				
+				// Clear pending tool call ID
+				m.pendingToolCallID = ""
 			}
 		}
 

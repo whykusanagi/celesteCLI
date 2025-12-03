@@ -10,9 +10,11 @@ import (
 
 // ChatMessage represents a message in the conversation.
 type ChatMessage struct {
-	Role      string    // "user", "assistant", "system"
-	Content   string    // Message content
-	Timestamp time.Time // When the message was created
+	Role       string    // "user", "assistant", "system", "tool"
+	Content    string    // Message content
+	ToolCallID string    // For tool messages, the tool call ID
+	Name       string    // For tool messages, the function name
+	Timestamp  time.Time // When the message was created
 }
 
 // FunctionCall represents a tool/function call from the LLM.
@@ -52,14 +54,16 @@ type StreamErrorMsg struct {
 
 // SkillCallMsg is sent when the LLM wants to call a skill/function.
 type SkillCallMsg struct {
-	Call FunctionCall
+	Call       FunctionCall
+	ToolCallID string // OpenAI tool call ID for sending result back
 }
 
 // SkillResultMsg is sent when a skill execution completes.
 type SkillResultMsg struct {
-	Name   string
-	Result string
-	Err    error
+	Name       string
+	Result     string
+	Err        error
+	ToolCallID string // OpenAI tool call ID for sending result back
 }
 
 // SendMessageMsg is sent when the user submits a message.

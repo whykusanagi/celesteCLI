@@ -268,12 +268,22 @@ func (c *Client) convertMessages(messages []tui.ChatMessage) []openai.ChatComple
 		})
 	}
 
-	// Convert user messages
+	// Convert messages
 	for _, msg := range messages {
-		result = append(result, openai.ChatCompletionMessage{
-			Role:    msg.Role,
-			Content: msg.Content,
-		})
+		if msg.Role == "tool" {
+			// Tool messages need special format with tool_call_id
+			result = append(result, openai.ChatCompletionMessage{
+				Role:       "tool",
+				Content:    msg.Content,
+				ToolCallID: msg.ToolCallID,
+			})
+		} else {
+			// Regular messages (user, assistant, system)
+			result = append(result, openai.ChatCompletionMessage{
+				Role:    msg.Role,
+				Content: msg.Content,
+			})
+		}
 	}
 
 	return result
