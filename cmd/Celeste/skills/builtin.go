@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -191,7 +192,12 @@ func TarotHandler(args map[string]interface{}, configLoader ConfigLoader) (inter
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Basic "+config.AuthToken)
+	// Set Authorization header - token may already include "Basic " prefix
+	authToken := config.AuthToken
+	if !strings.HasPrefix(authToken, "Basic ") {
+		authToken = "Basic " + authToken
+	}
+	req.Header.Set("Authorization", authToken)
 	req.Header.Set("Content-Type", "application/json")
 
 	// Create client with timeout and logging
