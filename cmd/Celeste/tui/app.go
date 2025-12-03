@@ -11,9 +11,9 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Typing speed: characters per tick
-const charsPerTick = 3
-const typingTickInterval = 15 * time.Millisecond
+// Typing speed: ~40 chars/sec for visible corruption effects
+const charsPerTick = 2
+const typingTickInterval = 50 * time.Millisecond
 
 // AppModel is the root model for the Celeste TUI application.
 type AppModel struct {

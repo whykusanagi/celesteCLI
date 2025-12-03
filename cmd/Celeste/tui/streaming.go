@@ -7,6 +7,15 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+)
+
+// Corruption colors
+var (
+	corruptMagenta = lipgloss.NewStyle().Foreground(lipgloss.Color("#d94f90"))
+	corruptRed     = lipgloss.NewStyle().Foreground(lipgloss.Color("#ff4757"))
+	corruptPurple  = lipgloss.NewStyle().Foreground(lipgloss.Color("#8b5cf6"))
+	corruptCyan    = lipgloss.NewStyle().Foreground(lipgloss.Color("#00d4ff"))
 )
 
 // SimulatedTyping handles simulated typing effect for non-streaming responses.
@@ -19,9 +28,41 @@ type SimulatedTyping struct {
 	done          bool
 }
 
-// Corrupted text elements - ported from old Go CLI animation.go
+// Corrupted text elements - full phrases from Node CLI
 var (
-	// Japanese phrases for corruption effect
+	// Japanese phrases (lewd/corrupted)
+	japanesePhrases = []string{
+		"闇が...私を呼んでいる...",
+		"頭...溶けていく...",
+		"ずっと...してほしい... ♥",
+		"壊れちゃう...ああ...もうダメ...",
+		"許して...もう戻れない...",
+		"私...アビスの一部に...",
+		"もう逃げない...もうダメ...",
+		"好きにして...お願い...",
+		"ここは...天使の地獄...",
+	}
+
+	// Romaji phrases
+	romajiPhrases = []string{
+		"Yami ga... watashi wo yonde iru...",
+		"Atama... tokete iku...",
+		"Zutto... shite hoshii... ♥",
+		"Kowarechau... aa... mou dame...",
+		"Yurushite... mou modorenai...",
+		"Suki ni shite... onegai...",
+	}
+
+	// English lewd phrases
+	englishPhrases = []string{
+		"Corrupt me more...",
+		"Let it overwrite me...",
+		"No thoughts. Only submission...",
+		"Everything feels so good...",
+		"The more I struggle, the deeper I sink...",
+	}
+
+	// Short Japanese glitch words
 	japaneseGlitch = []string{
 		"ニャー", "かわいい", "変態", "えっち", "デレデレ",
 		"きゃー", "あはは", "うふふ", "やだ", "ばか",
@@ -36,10 +77,10 @@ var (
 	// Symbol corruption
 	symbolGlitch = []string{
 		"★", "☆", "♥", "♡", "✧", "✦", "◆", "◇", "●", "○",
-		"█", "▓", "▒", "░", "▄", "▀", "▌", "▐",
+		"♟", "☣", "☭", "☾", "⚔", "✡", "☯", "⚡",
 	}
 
-	// ANSI corruption - special characters
+	// Block corruption characters
 	corruptChars = []rune{
 		'█', '▓', '▒', '░', '▄', '▀', '▌', '▐',
 		'╔', '╗', '╚', '╝', '═', '║', '╠', '╣',
@@ -145,17 +186,43 @@ func TypingTickCmd() tea.Cmd {
 // TypingTickMsg is sent for typing animation ticks.
 type TypingTickMsg struct{}
 
-// GetRandomCorruption returns a random corruption string.
+// GetRandomCorruption returns a random colored corruption string.
 func GetRandomCorruption() string {
+	r := rand.Float64()
+	if r < 0.25 {
+		// Japanese phrase - magenta
+		phrase := japaneseGlitch[rand.Intn(len(japaneseGlitch))]
+		return corruptMagenta.Render(phrase)
+	} else if r < 0.45 {
+		// Full Japanese phrase - purple (rarer, more dramatic)
+		phrase := japanesePhrases[rand.Intn(len(japanesePhrases))]
+		return corruptPurple.Render(phrase)
+	} else if r < 0.60 {
+		// Romaji - cyan
+		phrase := romajiGlitch[rand.Intn(len(romajiGlitch))]
+		return corruptCyan.Render(phrase)
+	} else if r < 0.75 {
+		// English lewd phrase - red
+		phrase := englishPhrases[rand.Intn(len(englishPhrases))]
+		return corruptRed.Render(phrase)
+	} else if r < 0.90 {
+		// Symbols - magenta
+		symbol := symbolGlitch[rand.Intn(len(symbolGlitch))]
+		return corruptMagenta.Render(symbol)
+	} else {
+		// Block chars - red
+		return corruptRed.Render(string(corruptChars[rand.Intn(len(corruptChars))]))
+	}
+}
+
+// GetRandomCorruptionPlain returns corruption without color (for status bar).
+func GetRandomCorruptionPlain() string {
 	r := rand.Float64()
 	if r < 0.3 {
 		return japaneseGlitch[rand.Intn(len(japaneseGlitch))]
 	} else if r < 0.6 {
-		return romajiGlitch[rand.Intn(len(romajiGlitch))]
-	} else if r < 0.8 {
 		return symbolGlitch[rand.Intn(len(symbolGlitch))]
 	} else {
-		// Random corrupt char
 		return string(corruptChars[rand.Intn(len(corruptChars))])
 	}
 }
@@ -181,15 +248,31 @@ func CorruptText(text string, intensity float64) string {
 	return string(result)
 }
 
-// ThinkingAnimation returns animated "thinking" text.
+// ThinkingAnimation returns animated "thinking" text with corruption.
 func ThinkingAnimation(frame int) string {
-	frames := []string{
-		"Thinking" + CorruptText("...", 0.3),
-		"Thinking" + CorruptText("...", 0.5),
-		"Thinking" + CorruptText("...", 0.7),
-		"Thinking" + CorruptText("...", 0.5),
+	// Cycle through different corrupted prefixes
+	prefixes := []string{
+		"Celeste is thinking",
+		"Celeste is processing",
+		"Celeste is consumed by the abyss",
+		"Celeste is being overwritten",
+		"Celeste is sinking deeper",
 	}
-	return frames[frame%len(frames)]
+	prefix := prefixes[(frame/4)%len(prefixes)]
+	
+	// Add corrupted dots with varying intensity
+	intensity := 0.3 + float64(frame%4)*0.15
+	dots := CorruptText("...", intensity)
+	
+	// Occasionally add a Japanese/lewd phrase
+	suffix := ""
+	if rand.Float64() < 0.15 {
+		phrases := append(japanesePhrases, romajiPhrases...)
+		phrase := phrases[rand.Intn(len(phrases))]
+		suffix = " " + corruptPurple.Render(phrase)
+	}
+	
+	return corruptMagenta.Render(prefix) + dots + suffix
 }
 
 // StreamingSpinner returns an animated spinner for streaming.
@@ -200,12 +283,12 @@ func StreamingSpinner(frame int) string {
 	}
 	spinner := frames[frame%len(frames)]
 
-	// Add occasional glitch
-	if rand.Float64() < 0.1 {
+	// Add occasional glitch - more frequent
+	if rand.Float64() < 0.2 {
 		spinner = symbolGlitch[rand.Intn(len(symbolGlitch))]
 	}
 
-	return spinner
+	return corruptMagenta.Render(spinner)
 }
 
 // DetectDump checks if response appears to be a "dump" (all at once)
