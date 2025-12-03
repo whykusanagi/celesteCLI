@@ -168,6 +168,12 @@ func runChatTUI() {
 		registry: registry,
 	}
 
+	// Initialize logging for skill calls
+	if err := tui.InitLogging(); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to init logging: %v\n", err)
+	}
+	defer tui.CloseLogging()
+
 	// Create and run TUI
 	app := tui.NewApp(tuiClient)
 	p := tea.NewProgram(app, tea.WithAltScreen(), tea.WithMouseCellMotion())
@@ -175,6 +181,11 @@ func runChatTUI() {
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error running TUI: %v\n", err)
 		os.Exit(1)
+	}
+
+	// Print log path on exit
+	if logPath := tui.GetLogPath(); logPath != "" {
+		fmt.Printf("\nSkill call log: %s\n", logPath)
 	}
 }
 
@@ -190,6 +201,9 @@ func (a *TUIClientAdapter) SendMessage(messages []tui.ChatMessage, tools []tui.S
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
 
+		// Log the request
+		tui.LogLLMRequest(len(messages), len(tools))
+
 		var fullContent string
 		var toolCalls []llm.ToolCallResult
 
@@ -201,12 +215,17 @@ func (a *TUIClientAdapter) SendMessage(messages []tui.ChatMessage, tools []tui.S
 		})
 
 		if err != nil {
+			tui.LogInfo(fmt.Sprintf("LLM error: %v", err))
 			return tui.StreamErrorMsg{Err: err}
 		}
+
+		// Log the response
+		tui.LogLLMResponse(len(fullContent), len(toolCalls) > 0)
 
 		// Handle tool calls
 		if len(toolCalls) > 0 {
 			tc := toolCalls[0]
+			tui.LogInfo(fmt.Sprintf("LLM requested tool call: %s", tc.Name))
 			return tui.SkillCallMsg{
 				Call: tui.FunctionCall{
 					Name:      tc.Name,

@@ -100,7 +100,7 @@ func (s *SimulatedTyping) GetDisplayedWithCorruption() string {
 
 	// Add corruption effect to the "cursor" position
 	if rand.Float64() < s.glitchChance {
-		corruption := getRandomCorruption()
+		corruption := GetRandomCorruption()
 		return displayed + corruption
 	}
 
@@ -145,8 +145,8 @@ func TypingTickCmd() tea.Cmd {
 // TypingTickMsg is sent for typing animation ticks.
 type TypingTickMsg struct{}
 
-// getRandomCorruption returns a random corruption string.
-func getRandomCorruption() string {
+// GetRandomCorruption returns a random corruption string.
+func GetRandomCorruption() string {
 	r := rand.Float64()
 	if r < 0.3 {
 		return japaneseGlitch[rand.Intn(len(japaneseGlitch))]

@@ -34,6 +34,7 @@ type AppModel struct {
 	// Simulated typing state
 	typingContent string // Full content to type
 	typingPos     int    // Current position in content
+	animFrame     int    // Animation frame counter
 
 	// LLM client (injected)
 	llmClient LLMClient
@@ -144,10 +145,15 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.chat = m.chat.AddUserMessage(content)
 		m.streaming = true
 		m.status = m.status.SetStreaming(true)
+		m.status = m.status.SetText(StreamingSpinner(0) + " " + ThinkingAnimation(0))
 
-		// Send to LLM
+		// Send to LLM and start animation
 		if m.llmClient != nil {
 			cmds = append(cmds, m.llmClient.SendMessage(m.chat.GetMessages(), m.skills.GetDefinitions()))
+			// Start animation tick for waiting state
+			cmds = append(cmds, tea.Tick(typingTickInterval*2, func(t time.Time) tea.Msg {
+				return TickMsg{Time: t}
+			}))
 		}
 
 	case StreamChunkMsg:
@@ -181,10 +187,15 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.chat = m.chat.AddSystemMessage(fmt.Sprintf("Error: %v", msg.Err))
 
 	case SkillCallMsg:
+		// Log the skill call for debugging
+		LogSkillCall(msg.Call.Name, msg.Call.Arguments)
 		m.skills = m.skills.SetExecuting(msg.Call.Name)
 		m.chat = m.chat.AddFunctionCall(msg.Call)
+		m.status = m.status.SetText(fmt.Sprintf("⚡ Executing: %s", msg.Call.Name))
 
 	case SkillResultMsg:
+		// Log the skill result
+		LogSkillResult(msg.Name, msg.Result, msg.Err)
 		if msg.Err != nil {
 			m.skills = m.skills.SetError(msg.Name, msg.Err)
 			m.chat = m.chat.UpdateFunctionResult(msg.Name, fmt.Sprintf("Error: %v", msg.Err))
@@ -215,6 +226,8 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case TickMsg:
+		m.animFrame++
+		
 		// Handle simulated typing
 		if m.typingContent != "" && m.typingPos < len(m.typingContent) {
 			// Advance typing position
@@ -222,9 +235,17 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.typingPos > len(m.typingContent) {
 				m.typingPos = len(m.typingContent)
 			}
-			// Update chat with current typed content
+			
+			// Update chat with current typed content + corruption at cursor
 			displayed := m.typingContent[:m.typingPos]
+			if m.typingPos < len(m.typingContent) {
+				// Add corruption effect at typing cursor
+				displayed += GetRandomCorruption()
+			}
 			m.chat = m.chat.SetLastAssistantContent(displayed)
+			
+			// Update status with corrupted animation
+			m.status = m.status.SetText(StreamingSpinner(m.animFrame) + " " + ThinkingAnimation(m.animFrame))
 			
 			if m.typingPos < len(m.typingContent) {
 				// Schedule next typing tick
@@ -232,18 +253,20 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return TickMsg{Time: t}
 				}))
 			} else {
-				// Typing complete
+				// Typing complete - show final content without corruption
+				m.chat = m.chat.SetLastAssistantContent(m.typingContent)
 				m.typingContent = ""
 				m.typingPos = 0
 				m.streaming = false
 				m.status = m.status.SetStreaming(false)
 				m.status = m.status.SetText("Ready")
 			}
-		} else {
-			// Handle other animation ticks
-			var cmd tea.Cmd
-			m.status, cmd = m.status.Update(msg)
-			cmds = append(cmds, cmd)
+		} else if m.streaming {
+			// Just streaming (waiting for response) - show animated status
+			m.status = m.status.SetText(StreamingSpinner(m.animFrame) + " " + ThinkingAnimation(m.animFrame))
+			cmds = append(cmds, tea.Tick(typingTickInterval*2, func(t time.Time) tea.Msg {
+				return TickMsg{Time: t}
+			}))
 		}
 
 	case NSFWToggleMsg:
