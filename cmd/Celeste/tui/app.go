@@ -229,6 +229,32 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Err != nil {
 			m.skills = m.skills.SetError(msg.Name, msg.Err)
 			m.chat = m.chat.UpdateFunctionResult(msg.Name, fmt.Sprintf("Error: %v", msg.Err))
+			
+			// IMPORTANT: Send error result back to LLM so conversation can continue
+			// The LLM needs to receive a tool result message even for errors
+			if m.llmClient != nil && msg.ToolCallID != "" {
+				// Format error as JSON for LLM to interpret
+				// Escape quotes and newlines in error message
+				errorMsg := strings.ReplaceAll(msg.Err.Error(), `"`, `\"`)
+				errorMsg = strings.ReplaceAll(errorMsg, "\n", "\\n")
+				errorResult := fmt.Sprintf(`{"error": true, "message": "%s", "skill": "%s"}`, errorMsg, msg.Name)
+				
+				// Add tool result as a "tool" message to chat (even for errors)
+				m.chat = m.chat.AddToolResult(msg.ToolCallID, msg.Name, errorResult)
+				
+				// Send updated conversation back to LLM for interpretation
+				m.streaming = true
+				m.status = m.status.SetStreaming(true)
+				m.status = m.status.SetText(StreamingSpinner(0) + " " + ThinkingAnimation(0))
+				cmds = append(cmds, m.llmClient.SendMessage(m.chat.GetMessages(), m.skills.GetDefinitions()))
+				// Start animation tick
+				cmds = append(cmds, tea.Tick(typingTickInterval*2, func(t time.Time) tea.Msg {
+					return TickMsg{Time: t}
+				}))
+				
+				// Clear pending tool call ID
+				m.pendingToolCallID = ""
+			}
 		} else {
 			m.skills = m.skills.SetCompleted(msg.Name)
 			m.chat = m.chat.UpdateFunctionResult(msg.Name, msg.Result)

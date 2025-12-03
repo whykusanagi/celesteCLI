@@ -45,6 +45,14 @@ type Config struct {
 
 	// Weather settings
 	WeatherDefaultZipCode string `json:"weather_default_zip_code,omitempty"`
+
+	// Twitch settings
+	TwitchClientID string `json:"twitch_client_id,omitempty"`
+	TwitchDefaultStreamer string `json:"twitch_default_streamer,omitempty"`
+
+	// YouTube settings
+	YouTubeAPIKey string `json:"youtube_api_key,omitempty"`
+	YouTubeDefaultChannel string `json:"youtube_default_channel,omitempty"`
 }
 
 // DefaultConfig returns a config with default values.
@@ -116,6 +124,10 @@ func SaveSkillsConfig(skillsConfig *Config) error {
 		TwitterAccessToken:       skillsConfig.TwitterAccessToken,
 		TwitterAccessTokenSecret: skillsConfig.TwitterAccessTokenSecret,
 		WeatherDefaultZipCode:    skillsConfig.WeatherDefaultZipCode,
+		TwitchClientID:           skillsConfig.TwitchClientID,
+		TwitchDefaultStreamer:    skillsConfig.TwitchDefaultStreamer,
+		YouTubeAPIKey:            skillsConfig.YouTubeAPIKey,
+		YouTubeDefaultChannel:    skillsConfig.YouTubeDefaultChannel,
 	}
 	
 	data, err := json.MarshalIndent(skillsOnly, "", "  ")
@@ -181,6 +193,18 @@ func LoadNamed(name string) (*Config, error) {
 		}
 		if skillsConfig.WeatherDefaultZipCode != "" {
 			config.WeatherDefaultZipCode = skillsConfig.WeatherDefaultZipCode
+		}
+		if skillsConfig.TwitchClientID != "" {
+			config.TwitchClientID = skillsConfig.TwitchClientID
+		}
+		if skillsConfig.TwitchDefaultStreamer != "" {
+			config.TwitchDefaultStreamer = skillsConfig.TwitchDefaultStreamer
+		}
+		if skillsConfig.YouTubeAPIKey != "" {
+			config.YouTubeAPIKey = skillsConfig.YouTubeAPIKey
+		}
+		if skillsConfig.YouTubeDefaultChannel != "" {
+			config.YouTubeDefaultChannel = skillsConfig.YouTubeDefaultChannel
 		}
 	}
 
@@ -490,6 +514,40 @@ func (l *ConfigLoader) GetVeniceConfig() (skills.VeniceConfig, error) {
 func (l *ConfigLoader) GetWeatherConfig() (skills.WeatherConfig, error) {
 	return skills.WeatherConfig{
 		DefaultZipCode: l.config.WeatherDefaultZipCode,
+	}, nil
+}
+
+// GetTwitchConfig returns Twitch API configuration.
+func (l *ConfigLoader) GetTwitchConfig() (skills.TwitchConfig, error) {
+	if l.config.TwitchClientID == "" {
+		return skills.TwitchConfig{}, fmt.Errorf("Twitch Client ID not configured")
+	}
+
+	defaultStreamer := l.config.TwitchDefaultStreamer
+	if defaultStreamer == "" {
+		defaultStreamer = "whykusanagi"
+	}
+
+	return skills.TwitchConfig{
+		ClientID:       l.config.TwitchClientID,
+		DefaultStreamer: defaultStreamer,
+	}, nil
+}
+
+// GetYouTubeConfig returns YouTube API configuration.
+func (l *ConfigLoader) GetYouTubeConfig() (skills.YouTubeConfig, error) {
+	if l.config.YouTubeAPIKey == "" {
+		return skills.YouTubeConfig{}, fmt.Errorf("YouTube API key not configured")
+	}
+
+	defaultChannel := l.config.YouTubeDefaultChannel
+	if defaultChannel == "" {
+		defaultChannel = "whykusanagi"
+	}
+
+	return skills.YouTubeConfig{
+		APIKey:         l.config.YouTubeAPIKey,
+		DefaultChannel: defaultChannel,
 	}, nil
 }
 

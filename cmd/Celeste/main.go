@@ -387,6 +387,10 @@ func runConfigCommand(args []string) {
 	setVeniceKey := fs.String("set-venice-key", "", "Set Venice.ai API key (saved to skills.json)")
 	setTarotURL := fs.String("set-tarot-url", "", "Set tarot function URL (saved to skills.json)")
 	setWeatherZip := fs.String("set-weather-zip", "", "Set default weather zip code (saved to skills.json)")
+	setTwitchClientID := fs.String("set-twitch-client-id", "", "Set Twitch Client ID (saved to skills.json)")
+	setTwitchStreamer := fs.String("set-twitch-streamer", "", "Set default Twitch streamer (saved to skills.json)")
+	setYouTubeKey := fs.String("set-youtube-key", "", "Set YouTube API key (saved to skills.json)")
+	setYouTubeChannel := fs.String("set-youtube-channel", "", "Set default YouTube channel (saved to skills.json)")
 	
 	fs.Parse(args)
 
@@ -491,6 +495,26 @@ func runConfigCommand(args []string) {
 		skillsChanged = true
 		fmt.Printf("Default weather zip code set to: %s (saved to skills.json)\n", zip)
 	}
+	if *setTwitchClientID != "" {
+		cfg.TwitchClientID = *setTwitchClientID
+		skillsChanged = true
+		fmt.Printf("Twitch Client ID set (saved to skills.json)\n")
+	}
+	if *setTwitchStreamer != "" {
+		cfg.TwitchDefaultStreamer = *setTwitchStreamer
+		skillsChanged = true
+		fmt.Printf("Default Twitch streamer set to: %s (saved to skills.json)\n", *setTwitchStreamer)
+	}
+	if *setYouTubeKey != "" {
+		cfg.YouTubeAPIKey = *setYouTubeKey
+		skillsChanged = true
+		fmt.Printf("YouTube API key set (saved to skills.json)\n")
+	}
+	if *setYouTubeChannel != "" {
+		cfg.YouTubeDefaultChannel = *setYouTubeChannel
+		skillsChanged = true
+		fmt.Printf("Default YouTube channel set to: %s (saved to skills.json)\n", *setYouTubeChannel)
+	}
 
 	if changed {
 		if err := config.Save(cfg); err != nil {
@@ -527,6 +551,26 @@ func runConfigCommand(args []string) {
 			fmt.Printf("  Weather Zip Code:  %s\n", cfg.WeatherDefaultZipCode)
 		} else {
 			fmt.Printf("  Weather Zip Code:  (not set)\n")
+		}
+		if cfg.TwitchClientID != "" {
+			fmt.Printf("  Twitch Client ID:   %s\n", maskKey(cfg.TwitchClientID))
+			if cfg.TwitchDefaultStreamer != "" {
+				fmt.Printf("  Twitch Streamer:   %s\n", cfg.TwitchDefaultStreamer)
+			} else {
+				fmt.Printf("  Twitch Streamer:   whykusanagi (default)\n")
+			}
+		} else {
+			fmt.Printf("  Twitch:            (not configured)\n")
+		}
+		if cfg.YouTubeAPIKey != "" {
+			fmt.Printf("  YouTube API Key:   %s\n", maskKey(cfg.YouTubeAPIKey))
+			if cfg.YouTubeDefaultChannel != "" {
+				fmt.Printf("  YouTube Channel:   %s\n", cfg.YouTubeDefaultChannel)
+			} else {
+				fmt.Printf("  YouTube Channel:   whykusanagi (default)\n")
+			}
+		} else {
+			fmt.Printf("  YouTube:           (not configured)\n")
 		}
 	}
 }
