@@ -213,6 +213,11 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Store tool call ID for sending result back to LLM
 		m.pendingToolCallID = msg.ToolCallID
 		
+		// Add assistant message with tool_calls to conversation (required by OpenAI API)
+		// The assistant message must precede the tool result message
+		// Convert ToolCallInfo to the format needed
+		m.chat = m.chat.AddAssistantMessageWithToolCalls(msg.AssistantContent, msg.ToolCalls)
+		
 		// Execute the skill asynchronously
 		if m.llmClient != nil {
 			cmds = append(cmds, m.llmClient.ExecuteSkill(msg.Call.Name, msg.Call.Arguments, msg.ToolCallID))

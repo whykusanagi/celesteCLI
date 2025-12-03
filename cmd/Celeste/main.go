@@ -261,6 +261,17 @@ func (a *TUIClientAdapter) SendMessage(messages []tui.ChatMessage, tools []tui.S
 		if len(toolCalls) > 0 {
 			tc := toolCalls[0]
 			tui.LogInfo(fmt.Sprintf("LLM requested tool call: %s (ID: %s)", tc.Name, tc.ID))
+			
+			// Convert all tool calls to ToolCallInfo
+			toolCallInfos := make([]tui.ToolCallInfo, len(toolCalls))
+			for i, t := range toolCalls {
+				toolCallInfos[i] = tui.ToolCallInfo{
+					ID:        t.ID,
+					Name:      t.Name,
+					Arguments: t.Arguments,
+				}
+			}
+			
 			return tui.SkillCallMsg{
 				Call: tui.FunctionCall{
 					Name:      tc.Name,
@@ -268,7 +279,9 @@ func (a *TUIClientAdapter) SendMessage(messages []tui.ChatMessage, tools []tui.S
 					Status:    "executing",
 					Timestamp: time.Now(),
 				},
-				ToolCallID: tc.ID, // Store tool call ID for sending result back
+				ToolCallID:      tc.ID, // Store tool call ID for sending result back
+				AssistantContent: fullContent, // Store any assistant content before tool call
+				ToolCalls:        toolCallInfos,
 			}
 		}
 

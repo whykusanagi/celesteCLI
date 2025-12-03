@@ -277,8 +277,26 @@ func (c *Client) convertMessages(messages []tui.ChatMessage) []openai.ChatComple
 				Content:    msg.Content,
 				ToolCallID: msg.ToolCallID,
 			})
+		} else if msg.Role == "assistant" && len(msg.ToolCalls) > 0 {
+			// Assistant messages with tool_calls need to include ToolCalls field
+			toolCalls := make([]openai.ToolCall, len(msg.ToolCalls))
+			for i, tc := range msg.ToolCalls {
+				toolCalls[i] = openai.ToolCall{
+					ID:   tc.ID,
+					Type: "function",
+					Function: openai.FunctionCall{
+						Name:      tc.Name,
+						Arguments: tc.Arguments,
+					},
+				}
+			}
+			result = append(result, openai.ChatCompletionMessage{
+				Role:      msg.Role,
+				Content:   msg.Content,
+				ToolCalls: toolCalls,
+			})
 		} else {
-			// Regular messages (user, assistant, system)
+			// Regular messages (user, assistant without tool_calls, system)
 			result = append(result, openai.ChatCompletionMessage{
 				Role:    msg.Role,
 				Content: msg.Content,

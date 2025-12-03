@@ -124,9 +124,15 @@ func (m ChatModel) AddUserMessage(content string) ChatModel {
 
 // AddAssistantMessage adds an assistant message to the chat.
 func (m ChatModel) AddAssistantMessage(content string) ChatModel {
+	return m.AddAssistantMessageWithToolCalls(content, nil)
+}
+
+// AddAssistantMessageWithToolCalls adds an assistant message with tool calls to the chat.
+func (m ChatModel) AddAssistantMessageWithToolCalls(content string, toolCalls []ToolCallInfo) ChatModel {
 	m.messages = append(m.messages, ChatMessage{
 		Role:      "assistant",
 		Content:   content,
+		ToolCalls: toolCalls,
 		Timestamp: time.Now(),
 	})
 	m.updateContent()

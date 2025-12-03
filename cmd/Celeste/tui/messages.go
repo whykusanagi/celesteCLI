@@ -14,7 +14,15 @@ type ChatMessage struct {
 	Content    string    // Message content
 	ToolCallID string    // For tool messages, the tool call ID
 	Name       string    // For tool messages, the function name
+	ToolCalls  []ToolCallInfo // For assistant messages, the tool calls that were made
 	Timestamp  time.Time // When the message was created
+}
+
+// ToolCallInfo represents a tool call in an assistant message.
+type ToolCallInfo struct {
+	ID        string
+	Name      string
+	Arguments string
 }
 
 // FunctionCall represents a tool/function call from the LLM.
@@ -54,8 +62,10 @@ type StreamErrorMsg struct {
 
 // SkillCallMsg is sent when the LLM wants to call a skill/function.
 type SkillCallMsg struct {
-	Call       FunctionCall
-	ToolCallID string // OpenAI tool call ID for sending result back
+	Call            FunctionCall
+	ToolCallID      string        // OpenAI tool call ID for sending result back
+	AssistantContent string       // The assistant message content (may be empty if only tool calls)
+	ToolCalls       []ToolCallInfo // All tool calls from the assistant message
 }
 
 // SkillResultMsg is sent when a skill execution completes.
