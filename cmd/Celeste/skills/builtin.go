@@ -22,6 +22,7 @@ func RegisterBuiltinSkills(registry *Registry, configLoader ConfigLoader) {
 	registry.RegisterSkill(NSFWSkill())
 	registry.RegisterSkill(ContentSkill())
 	registry.RegisterSkill(ImageSkill())
+	registry.RegisterSkill(WeatherSkill())
 
 	// Register handlers
 	registry.RegisterHandler("tarot_reading", func(args map[string]interface{}) (interface{}, error) {
@@ -36,12 +37,16 @@ func RegisterBuiltinSkills(registry *Registry, configLoader ConfigLoader) {
 	registry.RegisterHandler("generate_image", func(args map[string]interface{}) (interface{}, error) {
 		return ImageHandler(args, configLoader)
 	})
+	registry.RegisterHandler("get_weather", func(args map[string]interface{}) (interface{}, error) {
+		return WeatherHandler(args, configLoader)
+	})
 }
 
 // ConfigLoader provides access to configuration values.
 type ConfigLoader interface {
 	GetTarotConfig() (TarotConfig, error)
 	GetVeniceConfig() (VeniceConfig, error)
+	GetWeatherConfig() (WeatherConfig, error)
 }
 
 // TarotConfig holds tarot function configuration.
@@ -56,6 +61,11 @@ type VeniceConfig struct {
 	BaseURL  string
 	Model    string
 	Upscaler string
+}
+
+// WeatherConfig holds weather skill configuration.
+type WeatherConfig struct {
+	DefaultZipCode string
 }
 
 // --- Skill Definitions ---
@@ -151,6 +161,28 @@ func ImageSkill() Skill {
 				},
 			},
 			"required": []string{"prompt"},
+		},
+	}
+}
+
+// WeatherSkill returns the weather forecast skill definition.
+func WeatherSkill() Skill {
+	return Skill{
+		Name:        "get_weather",
+		Description: "Get current weather and forecast for a location. Uses default zip code if not specified. User can provide zip code in the prompt to override default.",
+		Parameters: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"zip_code": map[string]interface{}{
+					"type":        "string",
+					"description": "Optional zip code (5 digits). If not provided, uses default zip code from configuration. User can specify zip code in their message to override default.",
+				},
+				"days": map[string]interface{}{
+					"type":        "integer",
+					"description": "Number of days for forecast (1-3, default: 1 for current weather)",
+				},
+			},
+			"required": []string{},
 		},
 	}
 }
@@ -399,6 +431,79 @@ func ImageHandler(args map[string]interface{}, configLoader ConfigLoader) (inter
 			}
 		}
 	}
+
+	return result, nil
+}
+
+// WeatherHandler gets weather forecast for a location.
+func WeatherHandler(args map[string]interface{}, configLoader ConfigLoader) (interface{}, error) {
+	config, err := configLoader.GetWeatherConfig()
+	if err != nil {
+		// If config not available, use empty config (will require zip in args)
+		config = WeatherConfig{}
+	}
+
+	// Get zip code from args or use default
+	zipCode := ""
+	if z, ok := args["zip_code"].(string); ok && z != "" {
+		zipCode = z
+	} else if config.DefaultZipCode != "" {
+		zipCode = config.DefaultZipCode
+	}
+
+	if zipCode == "" {
+		return nil, fmt.Errorf("zip code required. Set default with 'celeste config --set-weather-zip <zip>' or provide in your message")
+	}
+
+	// Validate zip code format (5 digits)
+	if len(zipCode) != 5 {
+		return nil, fmt.Errorf("zip code must be 5 digits")
+	}
+	for _, c := range zipCode {
+		if c < '0' || c > '9' {
+			return nil, fmt.Errorf("zip code must contain only digits")
+		}
+	}
+
+	// Get forecast days (default 1 for current weather)
+	days := 1
+	if d, ok := args["days"].(float64); ok {
+		days = int(d)
+		if days < 1 {
+			days = 1
+		}
+		if days > 3 {
+			days = 3
+		}
+	}
+
+	// Use wttr.in API (free, no key required)
+	// Format: https://wttr.in/{zip}?format=j1 for JSON
+	url := fmt.Sprintf("https://wttr.in/%s?format=j1", zipCode)
+	if days > 1 {
+		url = fmt.Sprintf("https://wttr.in/%s?format=j1&days=%d", zipCode, days)
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("weather request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("weather API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to parse weather response: %w", err)
+	}
+
+	// Add zip code to result for reference
+	result["zip_code"] = zipCode
+	result["requested_days"] = days
 
 	return result, nil
 }

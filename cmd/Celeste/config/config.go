@@ -42,6 +42,9 @@ type Config struct {
 	TwitterAPISecret        string `json:"twitter_api_secret,omitempty"`
 	TwitterAccessToken      string `json:"twitter_access_token,omitempty"`
 	TwitterAccessTokenSecret string `json:"twitter_access_token_secret,omitempty"`
+
+	// Weather settings
+	WeatherDefaultZipCode string `json:"weather_default_zip_code,omitempty"`
 }
 
 // DefaultConfig returns a config with default values.
@@ -112,6 +115,7 @@ func SaveSkillsConfig(skillsConfig *Config) error {
 		TwitterAPISecret:          skillsConfig.TwitterAPISecret,
 		TwitterAccessToken:       skillsConfig.TwitterAccessToken,
 		TwitterAccessTokenSecret: skillsConfig.TwitterAccessTokenSecret,
+		WeatherDefaultZipCode:    skillsConfig.WeatherDefaultZipCode,
 	}
 	
 	data, err := json.MarshalIndent(skillsOnly, "", "  ")
@@ -174,6 +178,9 @@ func LoadNamed(name string) (*Config, error) {
 		}
 		if skillsConfig.TwitterAccessTokenSecret != "" {
 			config.TwitterAccessTokenSecret = skillsConfig.TwitterAccessTokenSecret
+		}
+		if skillsConfig.WeatherDefaultZipCode != "" {
+			config.WeatherDefaultZipCode = skillsConfig.WeatherDefaultZipCode
 		}
 	}
 
@@ -254,40 +261,43 @@ func Load() (*Config, error) {
 		}
 	}
 
-	// Load skills.json (shared across all configs)
-	if skillsConfig, err := LoadSkillsConfig(); err == nil {
-		// Merge skill configs
-		if skillsConfig.VeniceAPIKey != "" {
-			config.VeniceAPIKey = skillsConfig.VeniceAPIKey
+		// Load skills.json (shared across all configs)
+		if skillsConfig, err := LoadSkillsConfig(); err == nil {
+			// Merge skill configs
+			if skillsConfig.VeniceAPIKey != "" {
+				config.VeniceAPIKey = skillsConfig.VeniceAPIKey
+			}
+			if skillsConfig.VeniceBaseURL != "" {
+				config.VeniceBaseURL = skillsConfig.VeniceBaseURL
+			}
+			if skillsConfig.VeniceModel != "" {
+				config.VeniceModel = skillsConfig.VeniceModel
+			}
+			if skillsConfig.TarotFunctionURL != "" {
+				config.TarotFunctionURL = skillsConfig.TarotFunctionURL
+			}
+			if skillsConfig.TarotAuthToken != "" {
+				config.TarotAuthToken = skillsConfig.TarotAuthToken
+			}
+			if skillsConfig.TwitterBearerToken != "" {
+				config.TwitterBearerToken = skillsConfig.TwitterBearerToken
+			}
+			if skillsConfig.TwitterAPIKey != "" {
+				config.TwitterAPIKey = skillsConfig.TwitterAPIKey
+			}
+			if skillsConfig.TwitterAPISecret != "" {
+				config.TwitterAPISecret = skillsConfig.TwitterAPISecret
+			}
+			if skillsConfig.TwitterAccessToken != "" {
+				config.TwitterAccessToken = skillsConfig.TwitterAccessToken
+			}
+			if skillsConfig.TwitterAccessTokenSecret != "" {
+				config.TwitterAccessTokenSecret = skillsConfig.TwitterAccessTokenSecret
+			}
+			if skillsConfig.WeatherDefaultZipCode != "" {
+				config.WeatherDefaultZipCode = skillsConfig.WeatherDefaultZipCode
+			}
 		}
-		if skillsConfig.VeniceBaseURL != "" {
-			config.VeniceBaseURL = skillsConfig.VeniceBaseURL
-		}
-		if skillsConfig.VeniceModel != "" {
-			config.VeniceModel = skillsConfig.VeniceModel
-		}
-		if skillsConfig.TarotFunctionURL != "" {
-			config.TarotFunctionURL = skillsConfig.TarotFunctionURL
-		}
-		if skillsConfig.TarotAuthToken != "" {
-			config.TarotAuthToken = skillsConfig.TarotAuthToken
-		}
-		if skillsConfig.TwitterBearerToken != "" {
-			config.TwitterBearerToken = skillsConfig.TwitterBearerToken
-		}
-		if skillsConfig.TwitterAPIKey != "" {
-			config.TwitterAPIKey = skillsConfig.TwitterAPIKey
-		}
-		if skillsConfig.TwitterAPISecret != "" {
-			config.TwitterAPISecret = skillsConfig.TwitterAPISecret
-		}
-		if skillsConfig.TwitterAccessToken != "" {
-			config.TwitterAccessToken = skillsConfig.TwitterAccessToken
-		}
-		if skillsConfig.TwitterAccessTokenSecret != "" {
-			config.TwitterAccessTokenSecret = skillsConfig.TwitterAccessTokenSecret
-		}
-	}
 
 	// Override with environment variables
 	if apiKey := os.Getenv("CELESTE_API_KEY"); apiKey != "" {
@@ -473,6 +483,13 @@ func (l *ConfigLoader) GetVeniceConfig() (skills.VeniceConfig, error) {
 		BaseURL:  baseURL,
 		Model:    model,
 		Upscaler: "upscaler",
+	}, nil
+}
+
+// GetWeatherConfig returns weather skill configuration.
+func (l *ConfigLoader) GetWeatherConfig() (skills.WeatherConfig, error) {
+	return skills.WeatherConfig{
+		DefaultZipCode: l.config.WeatherDefaultZipCode,
 	}, nil
 }
 

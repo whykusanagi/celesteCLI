@@ -386,6 +386,7 @@ func runConfigCommand(args []string) {
 	setTarotToken := fs.String("set-tarot-token", "", "Set tarot auth token (saved to skills.json)")
 	setVeniceKey := fs.String("set-venice-key", "", "Set Venice.ai API key (saved to skills.json)")
 	setTarotURL := fs.String("set-tarot-url", "", "Set tarot function URL (saved to skills.json)")
+	setWeatherZip := fs.String("set-weather-zip", "", "Set default weather zip code (saved to skills.json)")
 	
 	fs.Parse(args)
 
@@ -473,6 +474,23 @@ func runConfigCommand(args []string) {
 		skillsChanged = true
 		fmt.Printf("Tarot function URL set to: %s (saved to skills.json)\n", *setTarotURL)
 	}
+	if *setWeatherZip != "" {
+		// Validate zip code format
+		zip := *setWeatherZip
+		if len(zip) != 5 {
+			fmt.Fprintf(os.Stderr, "Error: zip code must be 5 digits\n")
+			os.Exit(1)
+		}
+		for _, c := range zip {
+			if c < '0' || c > '9' {
+				fmt.Fprintf(os.Stderr, "Error: zip code must contain only digits\n")
+				os.Exit(1)
+			}
+		}
+		cfg.WeatherDefaultZipCode = zip
+		skillsChanged = true
+		fmt.Printf("Default weather zip code set to: %s (saved to skills.json)\n", zip)
+	}
 
 	if changed {
 		if err := config.Save(cfg); err != nil {
@@ -505,6 +523,11 @@ func runConfigCommand(args []string) {
 		fmt.Printf("  Venice API Key:    %s\n", maskKey(cfg.VeniceAPIKey))
 		fmt.Printf("  Tarot Configured:  %v\n", cfg.TarotAuthToken != "")
 		fmt.Printf("  Twitter Configured:%v\n", cfg.TwitterBearerToken != "")
+		if cfg.WeatherDefaultZipCode != "" {
+			fmt.Printf("  Weather Zip Code:  %s\n", cfg.WeatherDefaultZipCode)
+		} else {
+			fmt.Printf("  Weather Zip Code:  (not set)\n")
+		}
 	}
 }
 
