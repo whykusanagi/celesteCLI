@@ -68,6 +68,95 @@ func Paths() (configDir, configFile, secretsFile, oldConfigFile string) {
 	return
 }
 
+// NamedConfigPath returns the path for a named config file.
+// If name is empty, returns the default config path.
+func NamedConfigPath(name string) string {
+	homeDir, _ := os.UserHomeDir()
+	configDir := filepath.Join(homeDir, ".celeste")
+	if name == "" {
+		return filepath.Join(configDir, "config.json")
+	}
+	return filepath.Join(configDir, fmt.Sprintf("config.%s.json", name))
+}
+
+// LoadNamed loads configuration from a named config file.
+// If name is empty, loads the default config.
+func LoadNamed(name string) (*Config, error) {
+	if name == "" {
+		return Load()
+	}
+
+	config := DefaultConfig()
+	configPath := NamedConfigPath(name)
+	configDir, _, secretsFile, _ := Paths()
+
+	// Ensure config directory exists
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create config directory: %w", err)
+	}
+
+	// Load named config file
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("config '%s' not found at %s: %w", name, configPath, err)
+	}
+
+	if err := json.Unmarshal(data, config); err != nil {
+		return nil, fmt.Errorf("failed to parse config '%s': %w", name, err)
+	}
+
+	// Load shared secrets file (for common secrets like Venice, Twitter)
+	if data, err := os.ReadFile(secretsFile); err == nil {
+		var secrets Config
+		if err := json.Unmarshal(data, &secrets); err == nil {
+			// Only merge secrets that aren't already set in the named config
+			if config.VeniceAPIKey == "" && secrets.VeniceAPIKey != "" {
+				config.VeniceAPIKey = secrets.VeniceAPIKey
+			}
+			if config.TarotAuthToken == "" && secrets.TarotAuthToken != "" {
+				config.TarotAuthToken = secrets.TarotAuthToken
+			}
+			if config.TwitterBearerToken == "" && secrets.TwitterBearerToken != "" {
+				config.TwitterBearerToken = secrets.TwitterBearerToken
+			}
+		}
+	}
+
+	// Override with environment variables
+	if apiKey := os.Getenv("CELESTE_API_KEY"); apiKey != "" {
+		config.APIKey = apiKey
+	}
+	if endpoint := os.Getenv("CELESTE_API_ENDPOINT"); endpoint != "" {
+		config.BaseURL = endpoint
+	}
+
+	return config, nil
+}
+
+// ListConfigs returns all available config names.
+func ListConfigs() ([]string, error) {
+	configDir, _, _, _ := Paths()
+	
+	entries, err := os.ReadDir(configDir)
+	if err != nil {
+		return nil, err
+	}
+
+	var configs []string
+	for _, entry := range entries {
+		name := entry.Name()
+		if name == "config.json" {
+			configs = append(configs, "default")
+		} else if len(name) > 12 && name[:7] == "config." && name[len(name)-5:] == ".json" {
+			// Extract name from config.<name>.json
+			configName := name[7 : len(name)-5]
+			configs = append(configs, configName)
+		}
+	}
+
+	return configs, nil
+}
+
 // Load loads configuration from file and environment.
 func Load() (*Config, error) {
 	config := DefaultConfig()

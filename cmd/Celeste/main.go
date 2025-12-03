@@ -26,37 +26,56 @@ const (
 	Build   = "bubbletea-tui"
 )
 
+// Global config name (set by -config flag)
+var configName string
+
 func main() {
+	// Check for -config flag before command
+	args := os.Args[1:]
+	for i := 0; i < len(args); i++ {
+		if args[i] == "-config" && i+1 < len(args) {
+			configName = args[i+1]
+			// Remove -config and its value from args
+			args = append(args[:i], args[i+2:]...)
+			break
+		} else if strings.HasPrefix(args[i], "-config=") {
+			configName = strings.TrimPrefix(args[i], "-config=")
+			args = append(args[:i], args[i+1:]...)
+			break
+		}
+	}
+
 	// Parse command line
-	if len(os.Args) < 2 {
+	if len(args) < 1 {
 		printUsage()
 		os.Exit(0)
 	}
 
-	command := os.Args[1]
+	command := args[0]
+	cmdArgs := args[1:]
 
 	switch command {
 	case "chat":
 		runChatTUI()
 	case "config":
-		runConfigCommand(os.Args[2:])
+		runConfigCommand(cmdArgs)
 	case "message", "msg":
-		if len(os.Args) < 3 {
+		if len(cmdArgs) < 1 {
 			fmt.Fprintln(os.Stderr, "Usage: celeste message <text>")
 			os.Exit(1)
 		}
-		runSingleMessage(strings.Join(os.Args[2:], " "))
+		runSingleMessage(strings.Join(cmdArgs, " "))
 	case "skills":
-		runSkillsCommand(os.Args[2:])
+		runSkillsCommand(cmdArgs)
 	case "session", "sessions":
-		runSessionCommand(os.Args[2:])
+		runSessionCommand(cmdArgs)
 	case "help", "-h", "--help":
 		printUsage()
 	case "version", "-v", "--version":
 		fmt.Printf("Celeste CLI %s (%s)\n", Version, Build)
 	default:
 		// Treat unknown command as a message
-		runSingleMessage(strings.Join(os.Args[1:], " "))
+		runSingleMessage(strings.Join(args, " "))
 	}
 }
 
@@ -66,7 +85,10 @@ func printUsage() {
 ✨ Celeste CLI - Interactive AI Assistant
 
 Usage:
-  celeste <command> [arguments]
+  celeste [-config <name>] <command> [arguments]
+
+Global Flags:
+  -config <name>          Use named config (loads ~/.celeste/config.<name>.json)
 
 Commands:
   chat                    Launch interactive TUI mode
@@ -80,6 +102,8 @@ Commands:
 Interactive Commands (in chat mode):
   help                    Show available commands
   clear                   Clear chat history
+  config                  Show current configuration
+  tools, debug            Show available skills
   exit, quit, q           Exit the application
 
 Keyboard Shortcuts:
@@ -90,11 +114,12 @@ Keyboard Shortcuts:
 
 Configuration:
   celeste config --show                  Show current config
+  celeste config --list                  List all config profiles
+  celeste config --init <name>           Create a new config profile
   celeste config --set-key <key>         Set API key
   celeste config --set-url <url>         Set API URL
   celeste config --set-model <model>     Set model
   celeste config --skip-persona <bool>   Skip persona prompt injection
-  celeste config --simulate-typing <bool> Enable/disable typing simulation
 
 Skills:
   celeste skills --list                  List available skills
@@ -112,26 +137,36 @@ Environment Variables:
   TAROT_AUTH_TOKEN        Tarot function auth token
 
 Examples:
-  celeste chat                           Start interactive mode
-  celeste "What's the weather like?"     Quick message
-  celeste config --set-key sk-xxx        Set API key
-  celeste skills --list                  List skills
+  celeste chat                           Start with default config
+  celeste -config openai chat            Start with OpenAI config
+  celeste -config grok chat              Start with Grok/xAI config
+  celeste config --list                  List available configs
+  celeste config --init openai           Create OpenAI config template
 `)
 }
 
 // runChatTUI launches the interactive Bubble Tea TUI.
 func runChatTUI() {
-	// Load configuration
-	cfg, err := config.Load()
+	// Load configuration (named or default)
+	cfg, err := config.LoadNamed(configName)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
 		os.Exit(1)
 	}
 
+	// Show which config is being used
+	if configName != "" {
+		fmt.Fprintf(os.Stderr, "Using config: %s\n", configName)
+	}
+
 	// Validate API key
 	if cfg.APIKey == "" {
 		fmt.Fprintln(os.Stderr, "No API key configured.")
-		fmt.Fprintln(os.Stderr, "Set CELESTE_API_KEY environment variable or run: celeste config --set-key <key>")
+		if configName != "" {
+			fmt.Fprintf(os.Stderr, "Edit %s or set CELESTE_API_KEY\n", config.NamedConfigPath(configName))
+		} else {
+			fmt.Fprintln(os.Stderr, "Set CELESTE_API_KEY environment variable or run: celeste config --set-key <key>")
+		}
 		os.Exit(1)
 	}
 
@@ -261,6 +296,8 @@ func parseArgs(argsJSON string) map[string]any {
 func runConfigCommand(args []string) {
 	fs := flag.NewFlagSet("config", flag.ExitOnError)
 	showConfig := fs.Bool("show", false, "Show current configuration")
+	listConfigs := fs.Bool("list", false, "List all config profiles")
+	initConfig := fs.String("init", "", "Create a new config profile (openai, grok, elevenlabs, venice)")
 	setKey := fs.String("set-key", "", "Set API key")
 	setURL := fs.String("set-url", "", "Set API URL")
 	setModel := fs.String("set-model", "", "Set model")
@@ -268,6 +305,34 @@ func runConfigCommand(args []string) {
 	simulateTyping := fs.String("simulate-typing", "", "Simulate typing (true/false)")
 	typingSpeed := fs.Int("typing-speed", 0, "Typing speed (chars/sec)")
 	fs.Parse(args)
+
+	// Handle --list
+	if *listConfigs {
+		configs, err := config.ListConfigs()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error listing configs: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("Available config profiles:")
+		for _, c := range configs {
+			path := config.NamedConfigPath(c)
+			if c == "default" {
+				path = config.NamedConfigPath("")
+			}
+			fmt.Printf("  • %s (%s)\n", c, path)
+		}
+		fmt.Println("\nUsage: celeste -config <name> chat")
+		return
+	}
+
+	// Handle --init
+	if *initConfig != "" {
+		if err := createConfigTemplate(*initConfig); err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating config: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -332,6 +397,79 @@ func runConfigCommand(args []string) {
 		fmt.Printf("  Tarot Configured:  %v\n", cfg.TarotAuthToken != "")
 		fmt.Printf("  Twitter Configured:%v\n", cfg.TwitterBearerToken != "")
 	}
+}
+
+// createConfigTemplate creates a config file from a template.
+func createConfigTemplate(name string) error {
+	templates := map[string]*config.Config{
+		"openai": {
+			BaseURL:           "https://api.openai.com/v1",
+			Model:             "gpt-4o-mini",
+			Timeout:           60,
+			SkipPersonaPrompt: false, // OpenAI needs persona injection
+			SimulateTyping:    true,
+			TypingSpeed:       25,
+		},
+		"grok": {
+			BaseURL:           "https://api.x.ai/v1",
+			Model:             "grok-4-latest",
+			Timeout:           60,
+			SkipPersonaPrompt: false, // Grok needs persona injection
+			SimulateTyping:    true,
+			TypingSpeed:       25,
+		},
+		"elevenlabs": {
+			BaseURL:           "https://api.elevenlabs.io/v1",
+			Model:             "eleven_multilingual_v2",
+			Timeout:           60,
+			SkipPersonaPrompt: false,
+			SimulateTyping:    true,
+			TypingSpeed:       25,
+		},
+		"venice": {
+			BaseURL:           "https://api.venice.ai/api/v1",
+			Model:             "venice-uncensored",
+			Timeout:           60,
+			SkipPersonaPrompt: false, // Venice needs persona injection
+			SimulateTyping:    true,
+			TypingSpeed:       25,
+		},
+		"digitalocean": {
+			BaseURL:           "https://your-agent.ondigitalocean.app/api/v1",
+			Model:             "gpt-4o-mini",
+			Timeout:           60,
+			SkipPersonaPrompt: true, // DO agents have built-in persona
+			SimulateTyping:    true,
+			TypingSpeed:       25,
+		},
+	}
+
+	tmpl, ok := templates[strings.ToLower(name)]
+	if !ok {
+		return fmt.Errorf("unknown config template '%s'. Available: openai, grok, elevenlabs, venice, digitalocean", name)
+	}
+
+	configPath := config.NamedConfigPath(name)
+	
+	// Check if file already exists
+	if _, err := os.Stat(configPath); err == nil {
+		return fmt.Errorf("config '%s' already exists at %s", name, configPath)
+	}
+
+	// Write config
+	data, err := json.MarshalIndent(tmpl, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(configPath, data, 0644); err != nil {
+		return err
+	}
+
+	fmt.Printf("Created config '%s' at %s\n", name, configPath)
+	fmt.Printf("\nEdit the file to add your API key, then run:\n")
+	fmt.Printf("  celeste -config %s chat\n", name)
+	return nil
 }
 
 func maskKey(key string) string {
