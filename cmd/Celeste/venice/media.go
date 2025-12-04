@@ -507,7 +507,38 @@ func ParseMediaCommand(message string) (string, string, map[string]interface{}, 
 	message = strings.TrimSpace(message)
 	lowerMsg := strings.ToLower(message)
 
-	// Check for media prefixes (only image and upscale are currently available)
+	// Check for anime model shortcut
+	if strings.HasPrefix(lowerMsg, "anime:") {
+		content := strings.TrimSpace(message[6:])
+		params := map[string]interface{}{
+			"model": "wai-Illustrious", // Anime model
+		}
+		return "image", content, params, true
+	}
+
+	// Check for hidream model shortcut
+	if strings.HasPrefix(lowerMsg, "dream:") {
+		content := strings.TrimSpace(message[6:])
+		params := map[string]interface{}{
+			"model": "hidream", // High quality dream-like images
+		}
+		return "image", content, params, true
+	}
+
+	// Check for custom model syntax: image[model-name]: prompt
+	if strings.HasPrefix(lowerMsg, "image[") {
+		endBracket := strings.Index(lowerMsg, "]:")
+		if endBracket > 6 {
+			modelName := message[6:endBracket]
+			content := strings.TrimSpace(message[endBracket+2:])
+			params := map[string]interface{}{
+				"model": modelName,
+			}
+			return "image", content, params, true
+		}
+	}
+
+	// Check for standard media prefixes
 	prefixes := map[string]string{
 		"image:":   "image",
 		"upscale:": "upscale",

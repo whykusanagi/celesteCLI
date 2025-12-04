@@ -217,10 +217,18 @@ func handleHelp(cmd *Command, ctx *CommandContext) *CommandResult {
 		// NSFW Mode Help
 		helpText = `🔥 NSFW Mode - Venice.ai Uncensored
 
-Media Generation Commands (prefix-based):
-  image: <prompt>              Generate uncensored images
-                               Model: lustify-sdxl (or animewan, hidream, wai-Illustrious)
+Media Generation Commands:
+  image: <prompt>              Generate uncensored images (lustify-sdxl)
                                Example: image: cyberpunk cityscape at night
+
+  anime: <prompt>              Generate anime-style images (wai-Illustrious)
+                               Example: anime: magical girl with sword
+
+  dream: <prompt>              High-quality dream-like images (hidream)
+                               Example: dream: surreal landscape
+
+  image[model]: <prompt>       Use custom model
+                               Example: image[nano-banana-pro]: futuristic city
 
   upscale: <path>              Upscale and enhance existing image
                                Example: upscale: ~/photo.jpg
@@ -232,18 +240,20 @@ Chat Commands:
 
 Current Configuration:
   • Endpoint: Venice.ai (https://api.venice.ai/api/v1)
-  • Chat Model: venice-uncensored
-  • Image Model: lustify-sdxl
-  • Function Calling: Disabled (venice-uncensored doesn't support it)
-  • Skills: 0 available (media commands only)
+  • Chat Model: venice-uncensored (no function calling)
+  • Default Image Model: lustify-sdxl
+  • Downloads: ~/Downloads (configurable in skills.json)
+  • Image Quality: 40 steps, CFG 12.0, PNG format
 
 Available Image Models:
-  • lustify-sdxl - Default NSFW image generation
-  • animewan - Anime-style images
-  • hidream - High-quality dream-like images
-  • wai-Illustrious - Illustrious anime model
+  • lustify-sdxl (default) - NSFW image generation
+  • wai-Illustrious - Anime style (use "anime:" shortcut)
+  • hidream - Dream-like quality (use "dream:" shortcut)
+  • nano-banana-pro - Alternative model
+  • venice-sd35 - Stable Diffusion 3.5
+  • lustify-v7 - Lustify v7
 
-Configure: Edit ~/.celeste/skills.json → venice_image_model
+Configure downloads_dir in ~/.celeste/skills.json to change save location.
 
 Note: Video generation is not available via Venice.ai API at this time.`
 	} else {
