@@ -66,14 +66,14 @@ func GenerateImage(config Config, prompt string, params map[string]interface{}) 
 		height = h
 	}
 
-	// Steps (1-50, default 20)
-	steps := 20
+	// Steps (1-50, default 40 for high quality)
+	steps := 40
 	if s, ok := params["steps"].(int); ok {
 		steps = s
 	}
 
-	// CFG scale (0 < value <= 20, default 7.5)
-	cfgScale := 7.5
+	// CFG scale (0 < value <= 20, default 12 for strong prompt adherence)
+	cfgScale := 12.0
 	if cfg, ok := params["cfg_scale"].(float64); ok {
 		cfgScale = cfg
 	}
@@ -84,22 +84,29 @@ func GenerateImage(config Config, prompt string, params map[string]interface{}) 
 		variants = v
 	}
 
-	// Output format (jpeg, png, webp - default webp)
-	format := "webp"
+	// Output format (png for best quality)
+	format := "png"
 	if f, ok := params["format"].(string); ok {
 		format = f
 	}
 
+	// Safe mode disabled for NSFW content
+	safeMode := false
+	if sm, ok := params["safe_mode"].(bool); ok {
+		safeMode = sm
+	}
+
 	// Build request payload according to Venice /image/generate API
 	payload := map[string]interface{}{
-		"model":     model,
-		"prompt":    prompt,
-		"width":     width,
-		"height":    height,
-		"steps":     steps,
-		"cfg_scale": cfgScale,
-		"variants":  variants,
-		"format":    format,
+		"model":      model,
+		"prompt":     prompt,
+		"width":      width,
+		"height":     height,
+		"steps":      steps,
+		"cfg_scale":  cfgScale,
+		"variants":   variants,
+		"format":     format,
+		"safe_mode":  safeMode,
 	}
 
 	// Optional: negative prompt
@@ -449,19 +456,15 @@ func saveBase64Image(b64 string, prefix string) (string, error) {
 		return "", fmt.Errorf("failed to decode base64: %w", err)
 	}
 
-	// Create output directory
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	outputDir := filepath.Join(homeDir, ".celeste", "media")
+	// Get output directory from config or use default
+	outputDir := getDownloadsDir()
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return "", err
 	}
 
-	// Generate filename
-	timestamp := time.Now().Unix()
-	filename := fmt.Sprintf("%s_%d.png", prefix, timestamp)
+	// Generate filename with timestamp
+	timestamp := time.Now().Format("2006-01-02_15-04-05")
+	filename := fmt.Sprintf("celeste_%s_%s.png", prefix, timestamp)
 	outputPath := filepath.Join(outputDir, filename)
 
 	// Write file
@@ -470,6 +473,32 @@ func saveBase64Image(b64 string, prefix string) (string, error) {
 	}
 
 	return outputPath, nil
+}
+
+// getDownloadsDir returns the downloads directory from config or default ~/Downloads
+func getDownloadsDir() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "."
+	}
+
+	// Try to load from config
+	configPath := filepath.Join(homeDir, ".celeste", "skills.json")
+	if data, err := os.ReadFile(configPath); err == nil {
+		var config map[string]interface{}
+		if json.Unmarshal(data, &config) == nil {
+			if dir, ok := config["downloads_dir"].(string); ok && dir != "" {
+				// Expand ~ to home directory
+				if strings.HasPrefix(dir, "~/") {
+					return filepath.Join(homeDir, dir[2:])
+				}
+				return dir
+			}
+		}
+	}
+
+	// Default to ~/Downloads
+	return filepath.Join(homeDir, "Downloads")
 }
 
 // ParseMediaCommand parses a message for media generation commands.
