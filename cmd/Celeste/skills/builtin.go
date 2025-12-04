@@ -154,6 +154,61 @@ type YouTubeConfig struct {
 	DefaultChannel string
 }
 
+// --- Helper Functions for Error Handling ---
+
+// formatErrorResponse creates a structured error response for LLM interpretation.
+func formatErrorResponse(errorType, message, hint string, context map[string]interface{}) map[string]interface{} {
+	result := map[string]interface{}{
+		"error":      true,
+		"error_type": errorType,
+		"message":    message,
+	}
+	if hint != "" {
+		result["hint"] = hint
+	}
+	// Merge context into result
+	for k, v := range context {
+		result[k] = v
+	}
+	return result
+}
+
+// getUserOrDefault gets a value from args first, then falls back to config default.
+// Returns: (value, found) - found is true if value was found (either from args or config)
+func getUserOrDefault(args map[string]interface{}, key string, configGetter func() string) (string, bool) {
+	// Check user-provided value first
+	if val, ok := args[key].(string); ok && val != "" {
+		return val, true
+	}
+	// Fall back to config default
+	if configGetter != nil {
+		defaultVal := configGetter()
+		if defaultVal != "" {
+			return defaultVal, true
+		}
+	}
+	return "", false
+}
+
+// formatConfigError creates a structured error when both user value and config default are missing.
+func formatConfigError(skillName, fieldName, configCommand string) map[string]interface{} {
+	return formatErrorResponse(
+		"config_error",
+		fmt.Sprintf("%s is required for %s. Please provide %s in your request, or set a default using: %s", fieldName, skillName, fieldName, configCommand),
+		fmt.Sprintf("You can ask the user for their %s or location", fieldName),
+		map[string]interface{}{
+			"skill":         skillName,
+			"field":         fieldName,
+			"config_command": configCommand,
+			"info":          fmt.Sprintf("No default %s configured. User must provide %s in request.", fieldName, fieldName),
+		},
+	)
+}
+
+// getConfigWithFallback safely gets config, returning empty config if error occurs.
+// This allows handlers to check for user-provided values even when config is missing.
+// Note: Go doesn't support generics in this way, so we'll use specific functions for each config type.
+
 // --- Skill Definitions ---
 
 // TarotSkill returns the tarot reading skill definition.
@@ -609,7 +664,15 @@ func ListNotesSkill() Skill {
 func TarotHandler(args map[string]interface{}, configLoader ConfigLoader) (interface{}, error) {
 	config, err := configLoader.GetTarotConfig()
 	if err != nil {
-		return nil, fmt.Errorf("tarot configuration error: %w", err)
+		return formatErrorResponse(
+			"config_error",
+			"Tarot configuration is required. Please configure it using: celeste config --set-tarot-token <token>",
+			"The tarot auth token is needed to access the tarot reading service.",
+			map[string]interface{}{
+				"skill":         "tarot_reading",
+				"config_command": "celeste config --set-tarot-token <token>",
+			},
+		), nil
 	}
 
 	spreadType := "three"
@@ -632,12 +695,28 @@ func TarotHandler(args map[string]interface{}, configLoader ConfigLoader) (inter
 
 	reqBodyBytes, err := json.Marshal(requestBody)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode request: %w", err)
+		return formatErrorResponse(
+			"internal_error",
+			"Failed to encode tarot request",
+			"An internal error occurred. Please try again.",
+			map[string]interface{}{
+				"skill": "tarot_reading",
+				"error": err.Error(),
+			},
+		), nil
 	}
 
 	req, err := http.NewRequest("POST", config.FunctionURL, bytes.NewBuffer(reqBodyBytes))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return formatErrorResponse(
+			"internal_error",
+			"Failed to create tarot request",
+			"An internal error occurred. Please try again.",
+			map[string]interface{}{
+				"skill": "tarot_reading",
+				"error": err.Error(),
+			},
+		), nil
 	}
 
 	// Set Authorization header - token may already include "Basic " prefix
@@ -659,22 +738,59 @@ func TarotHandler(args map[string]interface{}, configLoader ConfigLoader) (inter
 	elapsed := time.Since(startTime)
 	
 	if err != nil {
-		return nil, fmt.Errorf("tarot request failed after %v: %w", elapsed, err)
+		return formatErrorResponse(
+			"network_error",
+			"Failed to connect to tarot API",
+			"Please check your internet connection and try again.",
+			map[string]interface{}{
+				"skill": "tarot_reading",
+				"error": err.Error(),
+				"elapsed": elapsed.String(),
+			},
+		), nil
 	}
 	defer resp.Body.Close()
 
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response after %v: %w", elapsed, err)
+		return formatErrorResponse(
+			"api_error",
+			"Failed to read tarot API response",
+			"The tarot service may have returned invalid data. Please try again.",
+			map[string]interface{}{
+				"skill": "tarot_reading",
+				"error": err.Error(),
+				"elapsed": elapsed.String(),
+			},
+		), nil
 	}
 
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("tarot API error (status %d) after %v: %s", resp.StatusCode, elapsed, string(responseBody))
+		return formatErrorResponse(
+			"api_error",
+			fmt.Sprintf("Tarot API returned error (status %d)", resp.StatusCode),
+			"The tarot reading service may be temporarily unavailable. Please try again later.",
+			map[string]interface{}{
+				"skill": "tarot_reading",
+				"status_code": resp.StatusCode,
+				"response": string(responseBody),
+				"elapsed": elapsed.String(),
+			},
+		), nil
 	}
 
 	var result map[string]interface{}
 	if err := json.Unmarshal(responseBody, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse response after %v: %w", elapsed, err)
+		return formatErrorResponse(
+			"api_error",
+			"Failed to parse tarot API response",
+			"The tarot service returned invalid data. Please try again.",
+			map[string]interface{}{
+				"skill": "tarot_reading",
+				"error": err.Error(),
+				"elapsed": elapsed.String(),
+			},
+		), nil
 	}
 
 	return result, nil
@@ -684,7 +800,15 @@ func TarotHandler(args map[string]interface{}, configLoader ConfigLoader) (inter
 func NSFWHandler(args map[string]interface{}, configLoader ConfigLoader) (interface{}, error) {
 	enable, ok := args["enable"].(bool)
 	if !ok {
-		return nil, fmt.Errorf("enable must be a boolean")
+		return formatErrorResponse(
+			"validation_error",
+			"The 'enable' parameter must be a boolean (true or false)",
+			"Please provide true to enable NSFW mode or false to disable it.",
+			map[string]interface{}{
+				"skill": "nsfw_mode",
+				"field": "enable",
+			},
+		), nil
 	}
 
 	if enable {
@@ -758,12 +882,28 @@ Format: %s length`, platform, platform, topic, tone, format)
 func ImageHandler(args map[string]interface{}, configLoader ConfigLoader) (interface{}, error) {
 	config, err := configLoader.GetVeniceConfig()
 	if err != nil {
-		return nil, fmt.Errorf("Venice.ai configuration error: %w", err)
+		return formatErrorResponse(
+			"config_error",
+			"Venice.ai configuration is required. Please configure it using: celeste config --set-venice-key <api-key>",
+			"The Venice.ai API key is needed to generate images. This is used for NSFW content generation.",
+			map[string]interface{}{
+				"skill":         "generate_image",
+				"config_command": "celeste config --set-venice-key <api-key>",
+			},
+		), nil
 	}
 
 	prompt, ok := args["prompt"].(string)
 	if !ok || prompt == "" {
-		return nil, fmt.Errorf("prompt is required")
+		return formatErrorResponse(
+			"validation_error",
+			"The 'prompt' parameter is required",
+			"Please provide a text description of the image you want to generate.",
+			map[string]interface{}{
+				"skill": "generate_image",
+				"field": "prompt",
+			},
+		), nil
 	}
 
 	style := ""
@@ -783,12 +923,28 @@ func ImageHandler(args map[string]interface{}, configLoader ConfigLoader) (inter
 
 	reqBodyBytes, err := json.Marshal(requestBody)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode request: %w", err)
+		return formatErrorResponse(
+			"internal_error",
+			"Failed to encode image generation request",
+			"An internal error occurred. Please try again.",
+			map[string]interface{}{
+				"skill": "generate_image",
+				"error": err.Error(),
+			},
+		), nil
 	}
 
 	req, err := http.NewRequest("POST", config.BaseURL+"/images/generations", bytes.NewBuffer(reqBodyBytes))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return formatErrorResponse(
+			"internal_error",
+			"Failed to create image generation request",
+			"An internal error occurred. Please try again.",
+			map[string]interface{}{
+				"skill": "generate_image",
+				"error": err.Error(),
+			},
+		), nil
 	}
 
 	req.Header.Set("Authorization", "Bearer "+config.APIKey)
@@ -797,22 +953,55 @@ func ImageHandler(args map[string]interface{}, configLoader ConfigLoader) (inter
 	client := &http.Client{Timeout: 120 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("image request failed: %w", err)
+		return formatErrorResponse(
+			"network_error",
+			"Failed to connect to Venice.ai API",
+			"Please check your internet connection and try again.",
+			map[string]interface{}{
+				"skill": "generate_image",
+				"error": err.Error(),
+			},
+		), nil
 	}
 	defer resp.Body.Close()
 
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
+		return formatErrorResponse(
+			"api_error",
+			"Failed to read Venice.ai API response",
+			"The image generation service may have returned invalid data. Please try again.",
+			map[string]interface{}{
+				"skill": "generate_image",
+				"error": err.Error(),
+			},
+		), nil
 	}
 
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("Venice.ai API error (status %d): %s", resp.StatusCode, string(responseBody))
+		return formatErrorResponse(
+			"api_error",
+			fmt.Sprintf("Venice.ai API returned error (status %d)", resp.StatusCode),
+			"The Venice.ai image generation service may be temporarily unavailable. Please try again later.",
+			map[string]interface{}{
+				"skill": "generate_image",
+				"status_code": resp.StatusCode,
+				"response": string(responseBody),
+			},
+		), nil
 	}
 
 	var result map[string]interface{}
 	if err := json.Unmarshal(responseBody, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+		return formatErrorResponse(
+			"api_error",
+			"Failed to parse Venice.ai API response",
+			"The image generation service returned invalid data. Please try again.",
+			map[string]interface{}{
+				"skill": "generate_image",
+				"error": err.Error(),
+			},
+		), nil
 	}
 
 	// Extract image URL or base64 data
@@ -860,34 +1049,41 @@ func WeatherHandler(args map[string]interface{}, configLoader ConfigLoader) (int
 		config = WeatherConfig{}
 	}
 
-	// Get zip code from args first (user-provided takes precedence)
-	zipCode := ""
-	if z, ok := args["zip_code"].(string); ok && z != "" {
-		// User provided zip code - use it
-		zipCode = z
-	} else if config.DefaultZipCode != "" {
-		// Fall back to default if user didn't provide one
-		zipCode = config.DefaultZipCode
-	}
+	// Get zip code using unified helper: user-provided first, then default
+	zipCode, found := getUserOrDefault(args, "zip_code", func() string {
+		return config.DefaultZipCode
+	})
 
 	// Only return error/info if BOTH user-provided zip AND default are missing
-	if zipCode == "" {
-		// No zip code provided and no default configured
-		return map[string]interface{}{
-			"error":   "zip_code_required",
-			"message": "A zip code is required for weather lookup. Please provide a 5-digit zip code in your request, or set a default using: celeste config --set-weather-zip <zip>",
-			"hint":    "You can ask the user for their zip code or location",
-			"info":    "No default zip code configured. User must provide zip code in request.",
-		}, nil
+	if !found {
+		return formatConfigError("get_weather", "zip_code", "celeste config --set-weather-zip <zip>"), nil
 	}
 
 	// Validate zip code format (5 digits)
 	if len(zipCode) != 5 {
-		return nil, fmt.Errorf("zip code must be 5 digits")
+		return formatErrorResponse(
+			"validation_error",
+			"Zip code must be exactly 5 digits",
+			"Please provide a valid 5-digit US zip code",
+			map[string]interface{}{
+				"skill": "get_weather",
+				"field": "zip_code",
+				"provided": zipCode,
+			},
+		), nil
 	}
 	for _, c := range zipCode {
 		if c < '0' || c > '9' {
-			return nil, fmt.Errorf("zip code must contain only digits")
+			return formatErrorResponse(
+				"validation_error",
+				"Zip code must contain only digits",
+				"Please provide a valid 5-digit US zip code",
+				map[string]interface{}{
+					"skill": "get_weather",
+					"field": "zip_code",
+					"provided": zipCode,
+				},
+			), nil
 		}
 	}
 
@@ -913,18 +1109,43 @@ func WeatherHandler(args map[string]interface{}, configLoader ConfigLoader) (int
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("weather request failed: %w", err)
+		return formatErrorResponse(
+			"network_error",
+			"Failed to connect to weather service",
+			"Please check your internet connection and try again.",
+			map[string]interface{}{
+				"skill": "get_weather",
+				"error": err.Error(),
+			},
+		), nil
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("weather API error (status %d): %s", resp.StatusCode, string(body))
+		return formatErrorResponse(
+			"api_error",
+			fmt.Sprintf("Weather API returned error (status %d)", resp.StatusCode),
+			"The weather service may be temporarily unavailable. Please try again later.",
+			map[string]interface{}{
+				"skill": "get_weather",
+				"status_code": resp.StatusCode,
+				"response": string(body),
+			},
+		), nil
 	}
 
 	var result map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to parse weather response: %w", err)
+		return formatErrorResponse(
+			"api_error",
+			"Failed to parse weather API response",
+			"The weather service returned invalid data. Please try again.",
+			map[string]interface{}{
+				"skill": "get_weather",
+				"error": err.Error(),
+			},
+		), nil
 	}
 
 	// Add zip code to result for reference
@@ -938,17 +1159,41 @@ func WeatherHandler(args map[string]interface{}, configLoader ConfigLoader) (int
 func UnitConverterHandler(args map[string]interface{}) (interface{}, error) {
 	value, ok := args["value"].(float64)
 	if !ok {
-		return nil, fmt.Errorf("value must be a number")
+		return formatErrorResponse(
+			"validation_error",
+			"The 'value' parameter must be a number",
+			"Please provide a numeric value to convert.",
+			map[string]interface{}{
+				"skill": "convert_units",
+				"field": "value",
+			},
+		), nil
 	}
 
 	fromUnit, ok := args["from_unit"].(string)
 	if !ok || fromUnit == "" {
-		return nil, fmt.Errorf("from_unit is required")
+		return formatErrorResponse(
+			"validation_error",
+			"The 'from_unit' parameter is required",
+			"Please specify the source unit (e.g., 'm', 'km', 'ft', 'kg', 'lb', 'celsius', 'fahrenheit').",
+			map[string]interface{}{
+				"skill": "convert_units",
+				"field": "from_unit",
+			},
+		), nil
 	}
 
 	toUnit, ok := args["to_unit"].(string)
 	if !ok || toUnit == "" {
-		return nil, fmt.Errorf("to_unit is required")
+		return formatErrorResponse(
+			"validation_error",
+			"The 'to_unit' parameter is required",
+			"Please specify the target unit (e.g., 'm', 'km', 'ft', 'kg', 'lb', 'celsius', 'fahrenheit').",
+			map[string]interface{}{
+				"skill": "convert_units",
+				"field": "to_unit",
+			},
+		), nil
 	}
 
 	// Convert to lowercase for comparison
@@ -997,7 +1242,17 @@ func UnitConverterHandler(args map[string]interface{}) (interface{}, error) {
 			result = (value * fromVal) / toVal
 			category = "length"
 		} else {
-			return nil, fmt.Errorf("invalid to_unit for length conversion")
+			return formatErrorResponse(
+				"validation_error",
+				fmt.Sprintf("Invalid target unit '%s' for length conversion", toUnit),
+				"Valid length units: m, km, cm, mm, ft, in, yd, mi",
+				map[string]interface{}{
+					"skill": "convert_units",
+					"field": "to_unit",
+					"provided": toUnit,
+					"category": "length",
+				},
+			), nil
 		}
 	} else if fromVal, fromOk := weightConversions[fromUnit]; fromOk {
 		// Check if it's a weight conversion
@@ -1005,7 +1260,17 @@ func UnitConverterHandler(args map[string]interface{}) (interface{}, error) {
 			result = (value * fromVal) / toVal
 			category = "weight"
 		} else {
-			return nil, fmt.Errorf("invalid to_unit for weight conversion")
+			return formatErrorResponse(
+				"validation_error",
+				fmt.Sprintf("Invalid target unit '%s' for weight conversion", toUnit),
+				"Valid weight units: kg, g, mg, lb, oz",
+				map[string]interface{}{
+					"skill": "convert_units",
+					"field": "to_unit",
+					"provided": toUnit,
+					"category": "weight",
+				},
+			), nil
 		}
 	} else if fromVal, fromOk := volumeConversions[fromUnit]; fromOk {
 		// Check if it's a volume conversion
@@ -1013,7 +1278,17 @@ func UnitConverterHandler(args map[string]interface{}) (interface{}, error) {
 			result = (value * fromVal) / toVal
 			category = "volume"
 		} else {
-			return nil, fmt.Errorf("invalid to_unit for volume conversion")
+			return formatErrorResponse(
+				"validation_error",
+				fmt.Sprintf("Invalid target unit '%s' for volume conversion", toUnit),
+				"Valid volume units: l, liter, ml, gallon, quart, pint, cup, fl oz",
+				map[string]interface{}{
+					"skill": "convert_units",
+					"field": "to_unit",
+					"provided": toUnit,
+					"category": "volume",
+				},
+			), nil
 		}
 	} else if strings.Contains(fromUnit, "celsius") || strings.Contains(fromUnit, "fahrenheit") {
 		// Temperature conversion
@@ -1032,7 +1307,16 @@ func UnitConverterHandler(args map[string]interface{}) (interface{}, error) {
 			result = celsius
 		}
 	} else {
-		return nil, fmt.Errorf("unsupported unit conversion from %s to %s", fromUnit, toUnit)
+		return formatErrorResponse(
+			"validation_error",
+			fmt.Sprintf("Unsupported unit conversion from '%s' to '%s'", fromUnit, toUnit),
+			"Please ensure both units are of the same type (length, weight, temperature, or volume).",
+			map[string]interface{}{
+				"skill": "convert_units",
+				"from_unit": fromUnit,
+				"to_unit": toUnit,
+			},
+		), nil
 	}
 
 	return map[string]interface{}{
@@ -1048,23 +1332,59 @@ func UnitConverterHandler(args map[string]interface{}) (interface{}, error) {
 func TimezoneConverterHandler(args map[string]interface{}) (interface{}, error) {
 	fromTZ, ok := args["from_timezone"].(string)
 	if !ok || fromTZ == "" {
-		return nil, fmt.Errorf("from_timezone is required")
+		return formatErrorResponse(
+			"validation_error",
+			"The 'from_timezone' parameter is required",
+			"Please specify the source timezone (e.g., 'America/New_York', 'UTC', 'Asia/Tokyo').",
+			map[string]interface{}{
+				"skill": "convert_timezone",
+				"field": "from_timezone",
+			},
+		), nil
 	}
 
 	toTZ, ok := args["to_timezone"].(string)
 	if !ok || toTZ == "" {
-		return nil, fmt.Errorf("to_timezone is required")
+		return formatErrorResponse(
+			"validation_error",
+			"The 'to_timezone' parameter is required",
+			"Please specify the target timezone (e.g., 'America/New_York', 'UTC', 'Asia/Tokyo').",
+			map[string]interface{}{
+				"skill": "convert_timezone",
+				"field": "to_timezone",
+			},
+		), nil
 	}
 
 	// Load timezone locations
 	fromLoc, err := time.LoadLocation(fromTZ)
 	if err != nil {
-		return nil, fmt.Errorf("invalid from_timezone: %w", err)
+		return formatErrorResponse(
+			"validation_error",
+			fmt.Sprintf("Invalid timezone '%s'", fromTZ),
+			"Please use a valid IANA timezone identifier (e.g., 'America/New_York', 'UTC', 'Asia/Tokyo').",
+			map[string]interface{}{
+				"skill": "convert_timezone",
+				"field": "from_timezone",
+				"provided": fromTZ,
+				"error": err.Error(),
+			},
+		), nil
 	}
 
 	toLoc, err := time.LoadLocation(toTZ)
 	if err != nil {
-		return nil, fmt.Errorf("invalid to_timezone: %w", err)
+		return formatErrorResponse(
+			"validation_error",
+			fmt.Sprintf("Invalid timezone '%s'", toTZ),
+			"Please use a valid IANA timezone identifier (e.g., 'America/New_York', 'UTC', 'Asia/Tokyo').",
+			map[string]interface{}{
+				"skill": "convert_timezone",
+				"field": "to_timezone",
+				"provided": toTZ,
+				"error": err.Error(),
+			},
+		), nil
 	}
 
 	// Parse time if provided, otherwise use current time
@@ -1080,7 +1400,16 @@ func TimezoneConverterHandler(args map[string]interface{}) (interface{}, error) 
 
 		timeLayout := "2006-01-02 15:04:05"
 		if !strings.Contains(timeStr, ":") {
-			return nil, fmt.Errorf("invalid time format, expected HH:MM or HH:MM:SS")
+			return formatErrorResponse(
+				"validation_error",
+				"Invalid time format",
+				"Please use format 'HH:MM' or 'HH:MM:SS' (e.g., '14:30' or '14:30:00').",
+				map[string]interface{}{
+					"skill": "convert_timezone",
+					"field": "time",
+					"provided": timeStr,
+				},
+			), nil
 		}
 		if len(strings.Split(timeStr, ":")[0]) == 1 {
 			timeStr = "0" + timeStr
@@ -1092,7 +1421,17 @@ func TimezoneConverterHandler(args map[string]interface{}) (interface{}, error) 
 		fullTimeStr := dateStr + " " + timeStr
 		t, err = time.ParseInLocation(timeLayout, fullTimeStr, fromLoc)
 		if err != nil {
-			return nil, fmt.Errorf("invalid time format: %w", err)
+			return formatErrorResponse(
+				"validation_error",
+				"Invalid time format",
+				"Please use format 'YYYY-MM-DD HH:MM' or 'HH:MM' for today.",
+				map[string]interface{}{
+					"skill": "convert_timezone",
+					"field": "time",
+					"provided": timeStr,
+					"error": err.Error(),
+				},
+			), nil
 		}
 	} else {
 		// Use current time in source timezone
@@ -1101,7 +1440,17 @@ func TimezoneConverterHandler(args map[string]interface{}) (interface{}, error) 
 			timeLayout := "2006-01-02 15:04:05"
 			t, err = time.ParseInLocation(timeLayout, dateStr, fromLoc)
 			if err != nil {
-				return nil, fmt.Errorf("invalid date format: %w", err)
+				return formatErrorResponse(
+					"validation_error",
+					"Invalid date format",
+					"Please use format 'YYYY-MM-DD' (e.g., '2024-12-03').",
+					map[string]interface{}{
+						"skill": "convert_timezone",
+						"field": "date",
+						"provided": date,
+						"error": err.Error(),
+					},
+				), nil
 			}
 		} else {
 			t = time.Now().In(fromLoc)
@@ -1126,12 +1475,28 @@ func TimezoneConverterHandler(args map[string]interface{}) (interface{}, error) 
 func HashGeneratorHandler(args map[string]interface{}) (interface{}, error) {
 	text, ok := args["text"].(string)
 	if !ok || text == "" {
-		return nil, fmt.Errorf("text is required")
+		return formatErrorResponse(
+			"validation_error",
+			"The 'text' parameter is required",
+			"Please provide the text you want to hash.",
+			map[string]interface{}{
+				"skill": "generate_hash",
+				"field": "text",
+			},
+		), nil
 	}
 
 	algorithm, ok := args["algorithm"].(string)
 	if !ok || algorithm == "" {
-		return nil, fmt.Errorf("algorithm is required (md5, sha256, sha512)")
+		return formatErrorResponse(
+			"validation_error",
+			"The 'algorithm' parameter is required",
+			"Please specify a hash algorithm: 'md5', 'sha256', or 'sha512'.",
+			map[string]interface{}{
+				"skill": "generate_hash",
+				"field": "algorithm",
+			},
+		), nil
 	}
 
 	algorithm = strings.ToLower(algorithm)
@@ -1148,7 +1513,17 @@ func HashGeneratorHandler(args map[string]interface{}) (interface{}, error) {
 		h := sha512.Sum512([]byte(text))
 		hash = hex.EncodeToString(h[:])
 	default:
-		return nil, fmt.Errorf("unsupported algorithm: %s (supported: md5, sha256, sha512)", algorithm)
+		return formatErrorResponse(
+			"validation_error",
+			fmt.Sprintf("Unsupported algorithm '%s'", algorithm),
+			"Please use one of: 'md5', 'sha256', or 'sha512'.",
+			map[string]interface{}{
+				"skill": "generate_hash",
+				"field": "algorithm",
+				"provided": algorithm,
+				"supported": []string{"md5", "sha256", "sha512"},
+			},
+		), nil
 	}
 
 	return map[string]interface{}{
@@ -1162,7 +1537,15 @@ func HashGeneratorHandler(args map[string]interface{}) (interface{}, error) {
 func Base64EncodeHandler(args map[string]interface{}) (interface{}, error) {
 	text, ok := args["text"].(string)
 	if !ok || text == "" {
-		return nil, fmt.Errorf("text is required")
+		return formatErrorResponse(
+			"validation_error",
+			"The 'text' parameter is required",
+			"Please provide the text you want to encode.",
+			map[string]interface{}{
+				"skill": "base64_encode",
+				"field": "text",
+			},
+		), nil
 	}
 
 	encoded := base64.StdEncoding.EncodeToString([]byte(text))
@@ -1177,12 +1560,29 @@ func Base64EncodeHandler(args map[string]interface{}) (interface{}, error) {
 func Base64DecodeHandler(args map[string]interface{}) (interface{}, error) {
 	encoded, ok := args["encoded"].(string)
 	if !ok || encoded == "" {
-		return nil, fmt.Errorf("encoded is required")
+		return formatErrorResponse(
+			"validation_error",
+			"The 'encoded' parameter is required",
+			"Please provide the base64 encoded string you want to decode.",
+			map[string]interface{}{
+				"skill": "base64_decode",
+				"field": "encoded",
+			},
+		), nil
 	}
 
 	decoded, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil {
-		return nil, fmt.Errorf("invalid base64 string: %w", err)
+		return formatErrorResponse(
+			"validation_error",
+			"Invalid base64 string",
+			"The provided string is not valid base64 encoded data.",
+			map[string]interface{}{
+				"skill": "base64_decode",
+				"field": "encoded",
+				"error": err.Error(),
+			},
+		), nil
 	}
 
 	return map[string]interface{}{
@@ -1256,17 +1656,41 @@ func PasswordGeneratorHandler(args map[string]interface{}) (interface{}, error) 
 func CurrencyConverterHandler(args map[string]interface{}) (interface{}, error) {
 	amount, ok := args["amount"].(float64)
 	if !ok {
-		return nil, fmt.Errorf("amount must be a number")
+		return formatErrorResponse(
+			"validation_error",
+			"The 'amount' parameter must be a number",
+			"Please provide a numeric amount to convert.",
+			map[string]interface{}{
+				"skill": "convert_currency",
+				"field": "amount",
+			},
+		), nil
 	}
 
 	fromCurrency, ok := args["from_currency"].(string)
 	if !ok || fromCurrency == "" {
-		return nil, fmt.Errorf("from_currency is required")
+		return formatErrorResponse(
+			"validation_error",
+			"The 'from_currency' parameter is required",
+			"Please specify the source currency code (e.g., 'USD', 'EUR', 'JPY', 'GBP').",
+			map[string]interface{}{
+				"skill": "convert_currency",
+				"field": "from_currency",
+			},
+		), nil
 	}
 
 	toCurrency, ok := args["to_currency"].(string)
 	if !ok || toCurrency == "" {
-		return nil, fmt.Errorf("to_currency is required")
+		return formatErrorResponse(
+			"validation_error",
+			"The 'to_currency' parameter is required",
+			"Please specify the target currency code (e.g., 'USD', 'EUR', 'JPY', 'GBP').",
+			map[string]interface{}{
+				"skill": "convert_currency",
+				"field": "to_currency",
+			},
+		), nil
 	}
 
 	// Normalize currency codes to uppercase
@@ -1290,13 +1714,30 @@ func CurrencyConverterHandler(args map[string]interface{}) (interface{}, error) 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("currency API request failed: %w", err)
+		return formatErrorResponse(
+			"network_error",
+			"Failed to connect to currency API",
+			"Please check your internet connection and try again.",
+			map[string]interface{}{
+				"skill": "convert_currency",
+				"error": err.Error(),
+			},
+		), nil
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("currency API error (status %d): %s", resp.StatusCode, string(body))
+		return formatErrorResponse(
+			"api_error",
+			fmt.Sprintf("Currency API returned error (status %d)", resp.StatusCode),
+			"The currency exchange service may be temporarily unavailable. Please try again later.",
+			map[string]interface{}{
+				"skill": "convert_currency",
+				"status_code": resp.StatusCode,
+				"response": string(body),
+			},
+		), nil
 	}
 
 	var result struct {
@@ -1306,12 +1747,29 @@ func CurrencyConverterHandler(args map[string]interface{}) (interface{}, error) 
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to parse currency response: %w", err)
+		return formatErrorResponse(
+			"api_error",
+			"Failed to parse currency API response",
+			"The currency service returned invalid data. Please try again.",
+			map[string]interface{}{
+				"skill": "convert_currency",
+				"error": err.Error(),
+			},
+		), nil
 	}
 
 	rate, ok := result.Rates[toCurrency]
 	if !ok {
-		return nil, fmt.Errorf("currency %s not found in exchange rates", toCurrency)
+		return formatErrorResponse(
+			"validation_error",
+			fmt.Sprintf("Currency %s not found in exchange rates", toCurrency),
+			"Please use a valid 3-letter currency code (e.g., USD, EUR, JPY, GBP)",
+			map[string]interface{}{
+				"skill": "convert_currency",
+				"field": "to_currency",
+				"provided": toCurrency,
+			},
+		), nil
 	}
 
 	converted := amount * rate
@@ -1330,7 +1788,15 @@ func CurrencyConverterHandler(args map[string]interface{}) (interface{}, error) 
 func QRCodeGeneratorHandler(args map[string]interface{}) (interface{}, error) {
 	text, ok := args["text"].(string)
 	if !ok || text == "" {
-		return nil, fmt.Errorf("text is required")
+		return formatErrorResponse(
+			"validation_error",
+			"The 'text' parameter is required",
+			"Please provide the text or URL you want to encode in the QR code.",
+			map[string]interface{}{
+				"skill": "generate_qr_code",
+				"field": "text",
+			},
+		), nil
 	}
 
 	size := 256
@@ -1347,13 +1813,29 @@ func QRCodeGeneratorHandler(args map[string]interface{}) (interface{}, error) {
 	// Generate QR code
 	qr, err := qrcode.New(text, qrcode.Medium)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate QR code: %w", err)
+		return formatErrorResponse(
+			"internal_error",
+			"Failed to generate QR code",
+			"An internal error occurred while generating the QR code. Please try again.",
+			map[string]interface{}{
+				"skill": "generate_qr_code",
+				"error": err.Error(),
+			},
+		), nil
 	}
 
 	// Get QR code as PNG bytes
 	pngData, err := qr.PNG(size)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode QR code as PNG: %w", err)
+		return formatErrorResponse(
+			"internal_error",
+			"Failed to encode QR code as PNG",
+			"An internal error occurred while encoding the QR code. Please try again.",
+			map[string]interface{}{
+				"skill": "generate_qr_code",
+				"error": err.Error(),
+			},
+		), nil
 	}
 
 	// Save to file
@@ -1365,7 +1847,16 @@ func QRCodeGeneratorHandler(args map[string]interface{}) (interface{}, error) {
 	filepath := filepath.Join(qrDir, filename)
 
 	if err := os.WriteFile(filepath, pngData, 0644); err != nil {
-		return nil, fmt.Errorf("failed to save QR code: %w", err)
+		return formatErrorResponse(
+			"internal_error",
+			"Failed to save QR code file",
+			"An internal error occurred while saving the QR code. Please try again.",
+			map[string]interface{}{
+				"skill": "generate_qr_code",
+				"error": err.Error(),
+				"filepath": filepath,
+			},
+		), nil
 	}
 
 	return map[string]interface{}{
@@ -1378,21 +1869,34 @@ func QRCodeGeneratorHandler(args map[string]interface{}) (interface{}, error) {
 
 // TwitchLiveCheckHandler checks if a Twitch streamer is live.
 func TwitchLiveCheckHandler(args map[string]interface{}, configLoader ConfigLoader) (interface{}, error) {
+	// Try to get config, but don't fail if it's not configured
 	config, err := configLoader.GetTwitchConfig()
 	if err != nil {
-		return nil, fmt.Errorf("Twitch configuration error: %w", err)
+		// If config not available, use empty config (will require streamer in args)
+		config = TwitchConfig{}
 	}
 
-	// Get streamer from args or use default
-	streamer := ""
-	if s, ok := args["streamer"].(string); ok && s != "" {
-		streamer = s
-	} else {
-		streamer = config.DefaultStreamer
+	// Get streamer using unified helper: user-provided first, then default
+	streamer, found := getUserOrDefault(args, "streamer", func() string {
+		return config.DefaultStreamer
+	})
+
+	// Only return error if BOTH user-provided streamer AND default are missing
+	if !found {
+		return formatConfigError("check_twitch_live", "streamer", "celeste config --set-twitch-streamer <name>"), nil
 	}
 
-	if streamer == "" {
-		return nil, fmt.Errorf("streamer required. Set default with 'celeste config --set-twitch-streamer <name>' or provide in your message")
+	// Check if Client ID is configured (required for API call)
+	if config.ClientID == "" {
+		return formatErrorResponse(
+			"config_error",
+			"Twitch Client ID is required. Please configure it using: celeste config --set-twitch-client-id <client-id>",
+			"The Twitch Client ID is needed to access the Twitch API. You can get one from the Twitch Developer Console.",
+			map[string]interface{}{
+				"skill":         "check_twitch_live",
+				"config_command": "celeste config --set-twitch-client-id <client-id>",
+			},
+		), nil
 	}
 
 	// Use Twitch Helix API
@@ -1401,20 +1905,45 @@ func TwitchLiveCheckHandler(args map[string]interface{}, configLoader ConfigLoad
 	client := &http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return formatErrorResponse(
+			"internal_error",
+			"Failed to create Twitch API request",
+			"An internal error occurred. Please try again.",
+			map[string]interface{}{
+				"skill": "check_twitch_live",
+				"error": err.Error(),
+			},
+		), nil
 	}
 
 	req.Header.Set("Client-ID", config.ClientID)
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("Twitch API request failed: %w", err)
+		return formatErrorResponse(
+			"network_error",
+			"Failed to connect to Twitch API",
+			"Please check your internet connection and try again.",
+			map[string]interface{}{
+				"skill": "check_twitch_live",
+				"error": err.Error(),
+			},
+		), nil
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Twitch API error (status %d): %s", resp.StatusCode, string(body))
+		return formatErrorResponse(
+			"api_error",
+			fmt.Sprintf("Twitch API returned error (status %d)", resp.StatusCode),
+			"The Twitch API may be temporarily unavailable or the streamer may not exist.",
+			map[string]interface{}{
+				"skill": "check_twitch_live",
+				"status_code": resp.StatusCode,
+				"response": string(body),
+			},
+		), nil
 	}
 
 	var result struct {
@@ -1435,7 +1964,15 @@ func TwitchLiveCheckHandler(args map[string]interface{}, configLoader ConfigLoad
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to parse Twitch response: %w", err)
+		return formatErrorResponse(
+			"api_error",
+			"Failed to parse Twitch API response",
+			"The Twitch API returned invalid data. Please try again.",
+			map[string]interface{}{
+				"skill": "check_twitch_live",
+				"error": err.Error(),
+			},
+		), nil
 	}
 
 	isLive := len(result.Data) > 0
@@ -1461,21 +1998,34 @@ func TwitchLiveCheckHandler(args map[string]interface{}, configLoader ConfigLoad
 
 // YouTubeVideosHandler gets recent videos from a YouTube channel.
 func YouTubeVideosHandler(args map[string]interface{}, configLoader ConfigLoader) (interface{}, error) {
+	// Try to get config, but don't fail if it's not configured
 	config, err := configLoader.GetYouTubeConfig()
 	if err != nil {
-		return nil, fmt.Errorf("YouTube configuration error: %w", err)
+		// If config not available, use empty config (will require channel in args)
+		config = YouTubeConfig{}
 	}
 
-	// Get channel from args or use default
-	channel := ""
-	if c, ok := args["channel"].(string); ok && c != "" {
-		channel = c
-	} else {
-		channel = config.DefaultChannel
+	// Get channel using unified helper: user-provided first, then default
+	channel, found := getUserOrDefault(args, "channel", func() string {
+		return config.DefaultChannel
+	})
+
+	// Only return error if BOTH user-provided channel AND default are missing
+	if !found {
+		return formatConfigError("get_youtube_videos", "channel", "celeste config --set-youtube-channel <name>"), nil
 	}
 
-	if channel == "" {
-		return nil, fmt.Errorf("channel required. Set default with 'celeste config --set-youtube-channel <name>' or provide in your message")
+	// Check if API key is configured (required for API call)
+	if config.APIKey == "" {
+		return formatErrorResponse(
+			"config_error",
+			"YouTube API key is required. Please configure it using: celeste config --set-youtube-key <api-key>",
+			"The YouTube API key is needed to access the YouTube Data API. You can get one from the Google Cloud Console.",
+			map[string]interface{}{
+				"skill":         "get_youtube_videos",
+				"config_command": "celeste config --set-youtube-key <api-key>",
+			},
+		), nil
 	}
 
 	maxResults := 5
@@ -1522,13 +2072,30 @@ func YouTubeVideosHandler(args map[string]interface{}, configLoader ConfigLoader
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("YouTube API request failed: %w", err)
+		return formatErrorResponse(
+			"network_error",
+			"Failed to connect to YouTube API",
+			"Please check your internet connection and try again.",
+			map[string]interface{}{
+				"skill": "get_youtube_videos",
+				"error": err.Error(),
+			},
+		), nil
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("YouTube API error (status %d): %s", resp.StatusCode, string(body))
+		return formatErrorResponse(
+			"api_error",
+			fmt.Sprintf("YouTube API returned error (status %d)", resp.StatusCode),
+			"The YouTube API may be temporarily unavailable or the channel may not exist.",
+			map[string]interface{}{
+				"skill": "get_youtube_videos",
+				"status_code": resp.StatusCode,
+				"response": string(body),
+			},
+		), nil
 	}
 
 	var result struct {
@@ -1551,7 +2118,15 @@ func YouTubeVideosHandler(args map[string]interface{}, configLoader ConfigLoader
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to parse YouTube response: %w", err)
+		return formatErrorResponse(
+			"api_error",
+			"Failed to parse YouTube API response",
+			"The YouTube API returned invalid data. Please try again.",
+			map[string]interface{}{
+				"skill": "get_youtube_videos",
+				"error": err.Error(),
+			},
+		), nil
 	}
 
 	videos := make([]map[string]interface{}, 0, len(result.Items))
@@ -1607,24 +2182,49 @@ func getNotesPath() string {
 func SetReminderHandler(args map[string]interface{}) (interface{}, error) {
 	message, ok := args["message"].(string)
 	if !ok || message == "" {
-		return nil, fmt.Errorf("message is required")
+		return formatErrorResponse(
+			"validation_error",
+			"The 'message' parameter is required",
+			"Please provide a reminder message.",
+			map[string]interface{}{
+				"skill": "set_reminder",
+				"field": "message",
+			},
+		), nil
 	}
 
 	timeStr, ok := args["time"].(string)
 	if !ok || timeStr == "" {
-		return nil, fmt.Errorf("time is required")
+		return formatErrorResponse(
+			"validation_error",
+			"The 'time' parameter is required",
+			"Please provide a time for the reminder (format: 'YYYY-MM-DD HH:MM' or 'HH:MM' for today).",
+			map[string]interface{}{
+				"skill": "set_reminder",
+				"field": "time",
+			},
+		), nil
 	}
 
 	// Parse time string
 	var reminderTime time.Time
 	var err error
 
-	// Try relative time first (e.g., "in 1 hour", "tomorrow at 3pm")
-	now := time.Now()
-	if strings.HasPrefix(timeStr, "in ") {
-		// Simple relative parsing - could be enhanced
-		return nil, fmt.Errorf("relative time parsing not yet implemented, please use format 'YYYY-MM-DD HH:MM' or 'HH:MM'")
-	}
+		// Try relative time first (e.g., "in 1 hour", "tomorrow at 3pm")
+		now := time.Now()
+		if strings.HasPrefix(timeStr, "in ") {
+			// Simple relative parsing - could be enhanced
+			return formatErrorResponse(
+				"validation_error",
+				"Relative time parsing not yet implemented",
+				"Please use format 'YYYY-MM-DD HH:MM' or 'HH:MM' for today.",
+				map[string]interface{}{
+					"skill": "convert_timezone",
+					"field": "time",
+					"provided": timeStr,
+				},
+			), nil
+		}
 
 	// Try full datetime format
 	if len(timeStr) > 10 {
@@ -1649,9 +2249,19 @@ func SetReminderHandler(args map[string]interface{}) (interface{}, error) {
 		}
 	}
 
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse time: %w", err)
-	}
+		if err != nil {
+			return formatErrorResponse(
+				"validation_error",
+				"Failed to parse time",
+				"Please use format 'YYYY-MM-DD HH:MM' or 'HH:MM' for today.",
+				map[string]interface{}{
+					"skill": "set_reminder",
+					"field": "time",
+					"provided": timeStr,
+					"error": err.Error(),
+				},
+			), nil
+		}
 
 	// Load existing reminders
 	remindersPath := getRemindersPath()
@@ -1673,10 +2283,26 @@ func SetReminderHandler(args map[string]interface{}) (interface{}, error) {
 	os.MkdirAll(filepath.Dir(remindersPath), 0755)
 	data, err := json.MarshalIndent(reminders, "", "  ")
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal reminders: %w", err)
+		return formatErrorResponse(
+			"internal_error",
+			"Failed to save reminder",
+			"An internal error occurred while saving the reminder. Please try again.",
+			map[string]interface{}{
+				"skill": "set_reminder",
+				"error": err.Error(),
+			},
+		), nil
 	}
 	if err := os.WriteFile(remindersPath, data, 0644); err != nil {
-		return nil, fmt.Errorf("failed to save reminders: %w", err)
+		return formatErrorResponse(
+			"internal_error",
+			"Failed to save reminder file",
+			"An internal error occurred while saving the reminder. Please try again.",
+			map[string]interface{}{
+				"skill": "set_reminder",
+				"error": err.Error(),
+			},
+		), nil
 	}
 
 	return map[string]interface{}{
@@ -1719,7 +2345,15 @@ func ListRemindersHandler(args map[string]interface{}) (interface{}, error) {
 func SaveNoteHandler(args map[string]interface{}) (interface{}, error) {
 	content, ok := args["content"].(string)
 	if !ok || content == "" {
-		return nil, fmt.Errorf("content is required")
+		return formatErrorResponse(
+			"validation_error",
+			"The 'content' parameter is required",
+			"Please provide the note content you want to save.",
+			map[string]interface{}{
+				"skill": "save_note",
+				"field": "content",
+			},
+		), nil
 	}
 
 	title := ""
@@ -1762,10 +2396,26 @@ func SaveNoteHandler(args map[string]interface{}) (interface{}, error) {
 	os.MkdirAll(filepath.Dir(notesPath), 0755)
 	data, err := json.MarshalIndent(notes, "", "  ")
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal notes: %w", err)
+		return formatErrorResponse(
+			"internal_error",
+			"Failed to save note",
+			"An internal error occurred while saving the note. Please try again.",
+			map[string]interface{}{
+				"skill": "save_note",
+				"error": err.Error(),
+			},
+		), nil
 	}
 	if err := os.WriteFile(notesPath, data, 0644); err != nil {
-		return nil, fmt.Errorf("failed to save notes: %w", err)
+		return formatErrorResponse(
+			"internal_error",
+			"Failed to save note file",
+			"An internal error occurred while saving the note. Please try again.",
+			map[string]interface{}{
+				"skill": "save_note",
+				"error": err.Error(),
+			},
+		), nil
 	}
 
 	return map[string]interface{}{
@@ -1778,23 +2428,55 @@ func SaveNoteHandler(args map[string]interface{}) (interface{}, error) {
 func GetNoteHandler(args map[string]interface{}) (interface{}, error) {
 	title, ok := args["title"].(string)
 	if !ok || title == "" {
-		return nil, fmt.Errorf("title is required")
+		return formatErrorResponse(
+			"validation_error",
+			"The 'title' parameter is required",
+			"Please provide the title of the note you want to retrieve.",
+			map[string]interface{}{
+				"skill": "get_note",
+				"field": "title",
+			},
+		), nil
 	}
 
 	// Load notes
 	notesPath := getNotesPath()
 	var notes map[string]Note
 	if data, err := os.ReadFile(notesPath); err != nil {
-		return nil, fmt.Errorf("note not found: %s", title)
+		return formatErrorResponse(
+			"not_found",
+			fmt.Sprintf("Note '%s' not found", title),
+			"The note file does not exist or the note with this title was not found.",
+			map[string]interface{}{
+				"skill": "get_note",
+				"title": title,
+			},
+		), nil
 	} else {
 		if err := json.Unmarshal(data, &notes); err != nil {
-			return nil, fmt.Errorf("failed to parse notes: %w", err)
+			return formatErrorResponse(
+				"internal_error",
+				"Failed to parse notes file",
+				"The notes file may be corrupted. Please try again.",
+				map[string]interface{}{
+					"skill": "get_note",
+					"error": err.Error(),
+				},
+			), nil
 		}
 	}
 
 	note, exists := notes[title]
 	if !exists {
-		return nil, fmt.Errorf("note not found: %s", title)
+		return formatErrorResponse(
+			"not_found",
+			fmt.Sprintf("Note '%s' not found", title),
+			"No note exists with this title. Use 'list_notes' to see available notes.",
+			map[string]interface{}{
+				"skill": "get_note",
+				"title": title,
+			},
+		), nil
 	}
 
 	return map[string]interface{}{
