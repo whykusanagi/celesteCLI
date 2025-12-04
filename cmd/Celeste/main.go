@@ -249,7 +249,9 @@ func (a *TUIClientAdapter) SendMessage(messages []tui.ChatMessage, tools []tui.S
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
 
-		// Log the request
+		// Log the request with current endpoint info
+		currentConfig := a.client.GetConfig()
+		tui.LogInfo(fmt.Sprintf("→ Sending request to: %s (model: %s)", currentConfig.BaseURL, currentConfig.Model))
 		tui.LogLLMRequest(len(messages), len(tools))
 
 		var fullContent string
@@ -380,23 +382,42 @@ func (a *TUIClientAdapter) SwitchEndpoint(endpoint string) error {
 	if err != nil {
 		// If named config doesn't exist, use base config with modified base URL
 		cfg = a.baseConfig
-		// Map endpoint names to base URLs
+
+		// Map endpoint names to base URLs (with environment variable overrides)
 		endpointURLs := map[string]string{
 			"openai":     "https://api.openai.com/v1",
-			"venice":     os.Getenv("VENICE_API_BASE_URL"), // From environment
+			"venice":     "https://api.venice.ai/api/v1", // Venice.ai default
 			"grok":       "https://api.x.ai/v1",
 			"elevenlabs": "https://api.elevenlabs.io/v1",
 			"google":     "https://generativelanguage.googleapis.com/v1",
 		}
-		if url, ok := endpointURLs[endpoint]; ok && url != "" {
+
+		// Check for environment variable overrides
+		if endpoint == "venice" {
+			if envURL := os.Getenv("VENICE_API_BASE_URL"); envURL != "" {
+				endpointURLs["venice"] = envURL
+			}
+		}
+
+		// Apply the endpoint URL
+		if url, ok := endpointURLs[endpoint]; ok {
 			cfg.BaseURL = url
+			tui.LogInfo(fmt.Sprintf("Using fallback URL for %s: %s", endpoint, url))
+
 			// Use endpoint-specific API key if available
 			if endpoint == "venice" {
 				if veniceKey := os.Getenv("VENICE_API_KEY"); veniceKey != "" {
 					cfg.APIKey = veniceKey
+					tui.LogInfo("Using VENICE_API_KEY from environment")
+				} else {
+					tui.LogInfo("Warning: No VENICE_API_KEY found, using default API key")
 				}
 			}
+		} else {
+			tui.LogInfo(fmt.Sprintf("Warning: Unknown endpoint '%s', keeping current URL", endpoint))
 		}
+	} else {
+		tui.LogInfo(fmt.Sprintf("Loaded named config for endpoint: %s", endpoint))
 	}
 
 	// Update LLM client configuration
@@ -411,7 +432,18 @@ func (a *TUIClientAdapter) SwitchEndpoint(endpoint string) error {
 	}
 
 	a.client.UpdateConfig(llmConfig)
-	tui.LogInfo(fmt.Sprintf("Switched endpoint to: %s (URL: %s, Model: %s)", endpoint, cfg.BaseURL, cfg.Model))
+
+	// Log the switch with masked API key
+	maskedKey := "none"
+	if len(cfg.APIKey) > 8 {
+		maskedKey = cfg.APIKey[:4] + "..." + cfg.APIKey[len(cfg.APIKey)-4:]
+	} else if cfg.APIKey != "" {
+		maskedKey = "***"
+	}
+	tui.LogInfo(fmt.Sprintf("✓ Switched endpoint to: %s", endpoint))
+	tui.LogInfo(fmt.Sprintf("  URL: %s", cfg.BaseURL))
+	tui.LogInfo(fmt.Sprintf("  Model: %s", cfg.Model))
+	tui.LogInfo(fmt.Sprintf("  API Key: %s", maskedKey))
 	return nil
 }
 
