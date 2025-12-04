@@ -322,7 +322,13 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Send to LLM and start animation
 		if m.llmClient != nil {
-			cmds = append(cmds, m.llmClient.SendMessage(m.chat.GetMessages(), m.skills.GetDefinitions()))
+			// In NSFW mode, don't send skills (Venice uncensored doesn't support function calling)
+			var toolsToSend []SkillDefinition
+			if !m.nsfwMode {
+				toolsToSend = m.skills.GetDefinitions()
+			}
+
+			cmds = append(cmds, m.llmClient.SendMessage(m.chat.GetMessages(), toolsToSend))
 			// Start animation tick for waiting state
 			cmds = append(cmds, tea.Tick(typingTickInterval*2, func(t time.Time) tea.Msg {
 				return TickMsg{Time: t}
@@ -514,7 +520,14 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.streaming = true
 				m.status = m.status.SetStreaming(true)
 				m.status = m.status.SetText(StreamingSpinner(0) + " " + ThinkingAnimation(0))
-				cmds = append(cmds, m.llmClient.SendMessage(m.chat.GetMessages(), m.skills.GetDefinitions()))
+
+				// In NSFW mode, don't send skills
+				var toolsToSend []SkillDefinition
+				if !m.nsfwMode {
+					toolsToSend = m.skills.GetDefinitions()
+				}
+				cmds = append(cmds, m.llmClient.SendMessage(m.chat.GetMessages(), toolsToSend))
+
 				// Start animation tick
 				cmds = append(cmds, tea.Tick(typingTickInterval*2, func(t time.Time) tea.Msg {
 					return TickMsg{Time: t}
@@ -546,7 +559,14 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.streaming = true
 				m.status = m.status.SetStreaming(true)
 				m.status = m.status.SetText(StreamingSpinner(0) + " " + ThinkingAnimation(0))
-				cmds = append(cmds, m.llmClient.SendMessage(m.chat.GetMessages(), m.skills.GetDefinitions()))
+
+				// In NSFW mode, don't send skills
+				var toolsToSend []SkillDefinition
+				if !m.nsfwMode {
+					toolsToSend = m.skills.GetDefinitions()
+				}
+				cmds = append(cmds, m.llmClient.SendMessage(m.chat.GetMessages(), toolsToSend))
+
 				// Start animation tick
 				cmds = append(cmds, tea.Tick(typingTickInterval*2, func(t time.Time) tea.Msg {
 					return TickMsg{Time: t}
