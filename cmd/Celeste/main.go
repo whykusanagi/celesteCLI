@@ -254,6 +254,12 @@ func (a *TUIClientAdapter) SendMessage(messages []tui.ChatMessage, tools []tui.S
 		tui.LogInfo(fmt.Sprintf("→ Sending request to: %s (model: %s)", currentConfig.BaseURL, currentConfig.Model))
 		tui.LogLLMRequest(len(messages), len(tools))
 
+		// Log message details for debugging
+		for i, msg := range messages {
+			tui.LogInfo(fmt.Sprintf("  Message[%d]: role=%s, content_len=%d, tool_calls=%d",
+				i, msg.Role, len(msg.Content), len(msg.ToolCalls)))
+		}
+
 		var fullContent string
 		var toolCalls []llm.ToolCallResult
 
@@ -265,7 +271,15 @@ func (a *TUIClientAdapter) SendMessage(messages []tui.ChatMessage, tools []tui.S
 		})
 
 		if err != nil {
-			tui.LogInfo(fmt.Sprintf("LLM error: %v", err))
+			// Extract detailed error information
+			errorMsg := err.Error()
+			tui.LogInfo(fmt.Sprintf("LLM error: %s", errorMsg))
+
+			// Log additional context
+			tui.LogInfo(fmt.Sprintf("  Endpoint: %s", currentConfig.BaseURL))
+			tui.LogInfo(fmt.Sprintf("  Model: %s", currentConfig.Model))
+			tui.LogInfo(fmt.Sprintf("  Message count: %d", len(messages)))
+
 			return tui.StreamErrorMsg{Err: err}
 		}
 
