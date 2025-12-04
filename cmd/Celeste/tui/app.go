@@ -18,11 +18,11 @@ const typingTickInterval = 80 * time.Millisecond
 // AppModel is the root model for the Celeste TUI application.
 type AppModel struct {
 	// Sub-components
-	header   HeaderModel
-	chat     ChatModel
-	input    InputModel
-	skills   SkillsModel
-	status   StatusModel
+	header HeaderModel
+	chat   ChatModel
+	input  InputModel
+	skills SkillsModel
+	status StatusModel
 
 	// Application state
 	width     int
@@ -209,15 +209,15 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.skills = m.skills.SetExecuting(msg.Call.Name)
 		m.chat = m.chat.AddFunctionCall(msg.Call)
 		m.status = m.status.SetText(fmt.Sprintf("⚡ Executing: %s", msg.Call.Name))
-		
+
 		// Store tool call ID for sending result back to LLM
 		m.pendingToolCallID = msg.ToolCallID
-		
+
 		// Add assistant message with tool_calls to conversation (required by OpenAI API)
 		// The assistant message must precede the tool result message
 		// Convert ToolCallInfo to the format needed
 		m.chat = m.chat.AddAssistantMessageWithToolCalls(msg.AssistantContent, msg.ToolCalls)
-		
+
 		// Execute the skill asynchronously
 		if m.llmClient != nil {
 			cmds = append(cmds, m.llmClient.ExecuteSkill(msg.Call.Name, msg.Call.Arguments, msg.ToolCallID))
@@ -229,7 +229,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Err != nil {
 			m.skills = m.skills.SetError(msg.Name, msg.Err)
 			m.chat = m.chat.UpdateFunctionResult(msg.Name, fmt.Sprintf("Error: %v", msg.Err))
-			
+
 			// IMPORTANT: Send error result back to LLM so conversation can continue
 			// The LLM needs to receive a tool result message even for errors
 			if m.llmClient != nil && msg.ToolCallID != "" {
@@ -238,10 +238,10 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				errorMsg := strings.ReplaceAll(msg.Err.Error(), `"`, `\"`)
 				errorMsg = strings.ReplaceAll(errorMsg, "\n", "\\n")
 				errorResult := fmt.Sprintf(`{"error": true, "message": "%s", "skill": "%s"}`, errorMsg, msg.Name)
-				
+
 				// Add tool result as a "tool" message to chat (even for errors)
 				m.chat = m.chat.AddToolResult(msg.ToolCallID, msg.Name, errorResult)
-				
+
 				// Send updated conversation back to LLM for interpretation
 				m.streaming = true
 				m.status = m.status.SetStreaming(true)
@@ -251,7 +251,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmds = append(cmds, tea.Tick(typingTickInterval*2, func(t time.Time) tea.Msg {
 					return TickMsg{Time: t}
 				}))
-				
+
 				// Clear pending tool call ID
 				m.pendingToolCallID = ""
 			}
@@ -273,7 +273,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.llmClient != nil && msg.ToolCallID != "" {
 				// Add tool result as a "tool" message to chat
 				m.chat = m.chat.AddToolResult(msg.ToolCallID, msg.Name, msg.Result)
-				
+
 				// Send updated conversation back to LLM for interpretation
 				m.streaming = true
 				m.status = m.status.SetStreaming(true)
@@ -283,7 +283,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmds = append(cmds, tea.Tick(typingTickInterval*2, func(t time.Time) tea.Msg {
 					return TickMsg{Time: t}
 				}))
-				
+
 				// Clear pending tool call ID
 				m.pendingToolCallID = ""
 			}
@@ -303,7 +303,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case TickMsg:
 		m.animFrame++
-		
+
 		// Handle simulated typing
 		if m.typingContent != "" && m.typingPos < len(m.typingContent) {
 			// Advance typing position
@@ -311,7 +311,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.typingPos > len(m.typingContent) {
 				m.typingPos = len(m.typingContent)
 			}
-			
+
 			// Update chat with current typed content + corruption at cursor
 			displayed := m.typingContent[:m.typingPos]
 			if m.typingPos < len(m.typingContent) {
@@ -319,10 +319,10 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				displayed += GetRandomCorruption()
 			}
 			m.chat = m.chat.SetLastAssistantContent(displayed)
-			
+
 			// Update status with corrupted animation
 			m.status = m.status.SetText(StreamingSpinner(m.animFrame) + " " + ThinkingAnimation(m.animFrame))
-			
+
 			if m.typingPos < len(m.typingContent) {
 				// Schedule next typing tick
 				cmds = append(cmds, tea.Tick(typingTickInterval, func(t time.Time) tea.Msg {
@@ -420,7 +420,7 @@ func (m HeaderModel) SetNSFWMode(enabled bool) HeaderModel {
 // View renders the header.
 func (m HeaderModel) View() string {
 	title := HeaderTitleStyle.Render("✨ Celeste CLI")
-	
+
 	info := HeaderInfoStyle.Render("Press Ctrl+C to exit")
 	if m.nsfwMode {
 		info = NSFWStyle.Render("[NSFW] ") + info
@@ -526,4 +526,3 @@ func Run(llmClient LLMClient) error {
 
 // Typing delay for simulated streaming (40 chars/sec = 25ms per char)
 const typingDelay = 25 * 1000000 // 25ms in nanoseconds
-

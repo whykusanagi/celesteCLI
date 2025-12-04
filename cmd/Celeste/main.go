@@ -92,7 +92,7 @@ func hasDefaultConfig() bool {
 
 // printUsage prints the CLI usage information.
 func printUsage() {
-	fmt.Println(`
+	fmt.Print(`
 ✨ Celeste CLI - Interactive AI Assistant
 
 Usage:
@@ -272,7 +272,7 @@ func (a *TUIClientAdapter) SendMessage(messages []tui.ChatMessage, tools []tui.S
 		if len(toolCalls) > 0 {
 			tc := toolCalls[0]
 			tui.LogInfo(fmt.Sprintf("LLM requested tool call: %s (ID: %s)", tc.Name, tc.ID))
-			
+
 			// Convert all tool calls to ToolCallInfo
 			toolCallInfos := make([]tui.ToolCallInfo, len(toolCalls))
 			for i, t := range toolCalls {
@@ -282,7 +282,7 @@ func (a *TUIClientAdapter) SendMessage(messages []tui.ChatMessage, tools []tui.S
 					Arguments: t.Arguments,
 				}
 			}
-			
+
 			return tui.SkillCallMsg{
 				Call: tui.FunctionCall{
 					Name:      tc.Name,
@@ -290,7 +290,7 @@ func (a *TUIClientAdapter) SendMessage(messages []tui.ChatMessage, tools []tui.S
 					Status:    "executing",
 					Timestamp: time.Now(),
 				},
-				ToolCallID:      tc.ID, // Store tool call ID for sending result back
+				ToolCallID:       tc.ID,       // Store tool call ID for sending result back
 				AssistantContent: fullContent, // Store any assistant content before tool call
 				ToolCalls:        toolCallInfos,
 			}
@@ -331,7 +331,7 @@ func (a *TUIClientAdapter) ExecuteSkill(name string, args map[string]any, toolCa
 
 		// Execute the skill
 		result, err := a.client.ExecuteSkill(ctx, name, string(argsJSON))
-		
+
 		elapsed := time.Since(startTime)
 		if err != nil {
 			tui.LogInfo(fmt.Sprintf("Skill '%s' failed after %v: %v", name, elapsed, err))
@@ -392,7 +392,7 @@ func runConfigCommand(args []string) {
 	skipPersona := fs.String("skip-persona", "", "Skip persona prompt (true/false)")
 	simulateTyping := fs.String("simulate-typing", "", "Simulate typing (true/false)")
 	typingSpeed := fs.Int("typing-speed", 0, "Typing speed (chars/sec)")
-	
+
 	// Skill configuration flags
 	setTarotToken := fs.String("set-tarot-token", "", "Set tarot auth token (saved to skills.json)")
 	setVeniceKey := fs.String("set-venice-key", "", "Set Venice.ai API key (saved to skills.json)")
@@ -402,7 +402,7 @@ func runConfigCommand(args []string) {
 	setTwitchStreamer := fs.String("set-twitch-streamer", "", "Set default Twitch streamer (saved to skills.json)")
 	setYouTubeKey := fs.String("set-youtube-key", "", "Set YouTube API key (saved to skills.json)")
 	setYouTubeChannel := fs.String("set-youtube-channel", "", "Set default YouTube channel (saved to skills.json)")
-	
+
 	fs.Parse(args)
 
 	// Handle --list
@@ -637,7 +637,7 @@ func createConfigTemplate(name string) error {
 	}
 
 	configPath := config.NamedConfigPath(name)
-	
+
 	// Check if file already exists
 	if _, err := os.Stat(configPath); err == nil {
 		return fmt.Errorf("config '%s' already exists at %s", name, configPath)
@@ -806,4 +806,3 @@ func runSingleMessage(message string) {
 
 	fmt.Println(result.Content)
 }
-

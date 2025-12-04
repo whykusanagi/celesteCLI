@@ -877,19 +877,19 @@ func setTheme(theme string) {
 
 // clearScreen clears the terminal screen
 func clearScreen() {
-	fmt.Fprint(os.Stderr, "\033[2J")    // Clear screen
-	fmt.Fprint(os.Stderr, "\033[H")     // Move cursor to home
+	fmt.Fprint(os.Stderr, "\033[2J") // Clear screen
+	fmt.Fprint(os.Stderr, "\033[H")  // Move cursor to home
 	displayCelesteHeader()
 }
 
 // displayStatus shows current status and configuration
 func displayStatus() {
 	status := map[string]string{
-		"Mode":      "Interactive Chat",
-		"Theme":     "Corrupted Abyss",
-		"Assets":    "2 embedded",
-		"Status":    "Ready",
-		"Time":      time.Now().Format("15:04:05"),
+		"Mode":   "Interactive Chat",
+		"Theme":  "Corrupted Abyss",
+		"Assets": "2 embedded",
+		"Status": "Ready",
+		"Time":   time.Now().Format("15:04:05"),
 	}
 
 	fmt.Fprintf(os.Stderr, "\n")

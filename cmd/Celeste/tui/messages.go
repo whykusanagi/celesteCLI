@@ -10,12 +10,12 @@ import (
 
 // ChatMessage represents a message in the conversation.
 type ChatMessage struct {
-	Role       string    // "user", "assistant", "system", "tool"
-	Content    string    // Message content
-	ToolCallID string    // For tool messages, the tool call ID
-	Name       string    // For tool messages, the function name
+	Role       string         // "user", "assistant", "system", "tool"
+	Content    string         // Message content
+	ToolCallID string         // For tool messages, the tool call ID
+	Name       string         // For tool messages, the function name
 	ToolCalls  []ToolCallInfo // For assistant messages, the tool calls that were made
-	Timestamp  time.Time // When the message was created
+	Timestamp  time.Time      // When the message was created
 }
 
 // ToolCallInfo represents a tool call in an assistant message.
@@ -27,11 +27,11 @@ type ToolCallInfo struct {
 
 // FunctionCall represents a tool/function call from the LLM.
 type FunctionCall struct {
-	Name      string            // Function name
-	Arguments map[string]any    // Arguments passed to the function
-	Result    string            // Result of the function call
-	Status    string            // "executing", "completed", "error"
-	Timestamp time.Time         // When the call was initiated
+	Name      string         // Function name
+	Arguments map[string]any // Arguments passed to the function
+	Result    string         // Result of the function call
+	Status    string         // "executing", "completed", "error"
+	Timestamp time.Time      // When the call was initiated
 }
 
 // StreamChunk represents a piece of streamed response.
@@ -62,10 +62,10 @@ type StreamErrorMsg struct {
 
 // SkillCallMsg is sent when the LLM wants to call a skill/function.
 type SkillCallMsg struct {
-	Call            FunctionCall
-	ToolCallID      string        // OpenAI tool call ID for sending result back
-	AssistantContent string       // The assistant message content (may be empty if only tool calls)
-	ToolCalls       []ToolCallInfo // All tool calls from the assistant message
+	Call             FunctionCall
+	ToolCallID       string         // OpenAI tool call ID for sending result back
+	AssistantContent string         // The assistant message content (may be empty if only tool calls)
+	ToolCalls        []ToolCallInfo // All tool calls from the assistant message
 }
 
 // SkillResultMsg is sent when a skill execution completes.
@@ -154,4 +154,3 @@ func Exit() tea.Cmd {
 		return ExitMsg{}
 	}
 }
-

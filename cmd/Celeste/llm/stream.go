@@ -68,7 +68,7 @@ func (s *StreamState) detectDump() {
 	// Calculate first chunk ratio
 	firstChunkSize := len(s.chunks[0])
 	totalSize := len(s.content)
-	
+
 	if totalSize == 0 {
 		return
 	}
@@ -105,21 +105,21 @@ func (s *StreamState) GetChunkCount() int {
 func (s *StreamState) GetDuration() time.Duration {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	if len(s.chunkTimes) == 0 {
 		return 0
 	}
-	
+
 	lastTime := s.chunkTimes[len(s.chunkTimes)-1]
 	return lastTime.Sub(s.startTime)
 }
 
 // SimulatedStreamConfig holds configuration for simulated streaming.
 type SimulatedStreamConfig struct {
-	TypingSpeed   int     // Characters per second
-	GlitchChance  float64 // Chance of corruption effect (0-1)
-	MinDelay      time.Duration
-	MaxDelay      time.Duration
+	TypingSpeed  int     // Characters per second
+	GlitchChance float64 // Chance of corruption effect (0-1)
+	MinDelay     time.Duration
+	MaxDelay     time.Duration
 }
 
 // DefaultSimulatedConfig returns default simulated streaming config.
@@ -134,11 +134,11 @@ func DefaultSimulatedConfig() SimulatedStreamConfig {
 
 // SimulatedStream simulates streaming for dump responses.
 type SimulatedStream struct {
-	content      string
-	currentPos   int
-	config       SimulatedStreamConfig
-	mu           sync.Mutex
-	done         bool
+	content    string
+	currentPos int
+	config     SimulatedStreamConfig
+	mu         sync.Mutex
+	done       bool
 }
 
 // NewSimulatedStream creates a new simulated stream.
@@ -177,7 +177,7 @@ func (s *SimulatedStream) Next() (chunk string, delay time.Duration, done bool) 
 
 	// Calculate delay based on typing speed
 	delay = time.Duration(float64(time.Second) / float64(s.config.TypingSpeed) * float64(charsToSend))
-	
+
 	// Clamp to min/max
 	if delay < s.config.MinDelay {
 		delay = s.config.MinDelay
@@ -194,7 +194,7 @@ func (s *SimulatedStream) Next() (chunk string, delay time.Duration, done bool) 
 func (s *SimulatedStream) GetProgress() float64 {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	if len(s.content) == 0 {
 		return 1.0
 	}
@@ -208,4 +208,3 @@ func (s *SimulatedStream) Reset() {
 	s.currentPos = 0
 	s.done = false
 }
-

@@ -8,16 +8,16 @@ import (
 
 // SkillsModel represents the skills panel.
 type SkillsModel struct {
-	skills        []SkillDefinition
+	skills          []SkillDefinition
 	executingSkills map[string]string // name -> status
-	width         int
-	height        int
+	width           int
+	height          int
 }
 
 // NewSkillsModel creates a new skills model.
 func NewSkillsModel(skills []SkillDefinition) SkillsModel {
 	return SkillsModel{
-		skills:        skills,
+		skills:          skills,
 		executingSkills: make(map[string]string),
 	}
 }
@@ -91,7 +91,7 @@ func (m SkillsModel) View() string {
 
 	// Title + skills on same line
 	title := AccentStyle.Render("Skills:") + " "
-	
+
 	// Join skill names with separator
 	var joined string
 	for i, name := range skillNames {
@@ -100,7 +100,7 @@ func (m SkillsModel) View() string {
 		}
 		joined += name
 	}
-	
+
 	content := title + TextMutedStyle.Render("[") + joined + TextMutedStyle.Render("]")
 
 	return SkillsPanelStyle.
@@ -187,4 +187,3 @@ func (m SkillsModel) GetSkillByName(name string) (SkillDefinition, bool) {
 	}
 	return SkillDefinition{}, false
 }
-

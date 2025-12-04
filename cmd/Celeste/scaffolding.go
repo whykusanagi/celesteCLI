@@ -9,11 +9,11 @@ import (
 
 // ScaffoldingConfig holds the scaffolding configuration
 type ScaffoldingConfig struct {
-	Formats          map[string]Format          `json:"formats"`
-	ToneExamples     map[string]string          `json:"tone_examples"`
-	Platforms        map[string]Platform         `json:"platforms"`
-	Personas         map[string]Persona          `json:"personas"`
-	ScaffoldTemplates map[string]string         `json:"scaffold_templates"`
+	Formats           map[string]Format   `json:"formats"`
+	ToneExamples      map[string]string   `json:"tone_examples"`
+	Platforms         map[string]Platform `json:"platforms"`
+	Personas          map[string]Persona  `json:"personas"`
+	ScaffoldTemplates map[string]string   `json:"scaffold_templates"`
 }
 
 // Format defines a format configuration

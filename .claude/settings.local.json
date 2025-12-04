@@ -58,7 +58,15 @@
       "Bash(make clean:*)",
       "Bash(timeout 3 Celeste:*)",
       "Bash(make help:*)",
-      "Bash(make install:*)"
+      "Bash(make install:*)",
+      "Bash(go mod graph:*)",
+      "Bash(find:*)",
+      "Bash(go vet:*)",
+      "Bash(gofmt:*)",
+      "Bash(go mod tidy:*)",
+      "Bash(go get:*)",
+      "Bash(go version:*)",
+      "Bash(go test:*)"
     ],
     "deny": [],
     "ask": []

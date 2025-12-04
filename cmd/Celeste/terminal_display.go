@@ -107,7 +107,7 @@ func displayFrameAsITerm2Image(frame *image.Paletted) error {
 	fmt.Fprintf(os.Stderr,
 		"\x1b]1337;File=name=celeste.png;size=%d;width=%dchar;height=%dchar;inline=1:%s\x07",
 		pngBuf.Len(),
-		width/32, // Approximate character width (32 pixels per char)
+		width/32,  // Approximate character width (32 pixels per char)
 		height/32, // Approximate character height
 		b64,
 	)

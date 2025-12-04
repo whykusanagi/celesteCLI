@@ -18,9 +18,9 @@ type ExecutionResult struct {
 
 // ExecutionContext provides context for skill execution.
 type ExecutionContext struct {
-	Ctx       context.Context
-	Registry  *Registry
-	OnStatus  func(status string) // Callback for status updates
+	Ctx      context.Context
+	Registry *Registry
+	OnStatus func(status string) // Callback for status updates
 }
 
 // Executor handles skill execution with context and callbacks.
@@ -163,4 +163,3 @@ func getString(m map[string]interface{}, key string) string {
 	}
 	return ""
 }
-

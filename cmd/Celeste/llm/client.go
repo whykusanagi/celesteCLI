@@ -31,7 +31,7 @@ type Config struct {
 	Timeout           time.Duration
 	SkipPersonaPrompt bool
 	SimulateTyping    bool
-	TypingSpeed       int  // chars per second
+	TypingSpeed       int // chars per second
 }
 
 // NewClient creates a new LLM client.
@@ -313,7 +313,7 @@ func (c *Client) convertTools(tools []tui.SkillDefinition) []openai.Tool {
 
 	for _, tool := range tools {
 		params, _ := json.Marshal(tool.Parameters)
-		
+
 		result = append(result, openai.Tool{
 			Type: "function",
 			Function: &openai.FunctionDefinition{

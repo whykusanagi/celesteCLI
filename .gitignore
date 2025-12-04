@@ -37,11 +37,6 @@ Celeste
 *.so
 *.dylib
 
-# Test files
-*_test.go
-test_*.go
-*_test.json
-
 # Documentation with sensitive info
 *_CONFIGURATION.md
 *_SECRETS.md

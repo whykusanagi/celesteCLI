@@ -63,19 +63,19 @@ var corruptionSymbols = []rune{'♟', '☣', '☭', '☾', '⚔', '✡', '☯', 
 // Demonic eye animation frames
 var eyeFrames = []string{
 	"👁️  ", // Normal eye
-	"👀 ", // Wide eyes looking
-	"◉◉", // Dark eyes
-	"●●", // Fully dilated
+	"👀 ",   // Wide eyes looking
+	"◉◉",   // Dark eyes
+	"●●",   // Fully dilated
 	"👁️  ", // Back to normal
 }
 
 // Eye looking directions
 var eyeDirections = []string{
 	"👁️  ", // Center
-	"▀▁", // Up-down blink
-	"◉  ", // Left
-	"  ◉", // Right
-	"●●", // Both
+	"▀▁",   // Up-down blink
+	"◉  ",  // Left
+	"  ◉",  // Right
+	"●●",   // Both
 }
 
 var corruptionMap = map[rune]rune{
@@ -102,27 +102,27 @@ func corruptText(text string, corruptionLevel float64) string {
 	if corruptionLevel <= 0 {
 		return text
 	}
-	
+
 	runes := []rune(text)
 	corrupted := make([]rune, len(runes))
 	copy(corrupted, runes)
-	
+
 	corruptCount := int(float64(len(runes)) * corruptionLevel)
 	if corruptCount > len(runes) {
 		corruptCount = len(runes)
 	}
-	
+
 	rand.Seed(time.Now().UnixNano())
 	indices := rand.Perm(len(runes))[:corruptCount]
-	
+
 	for _, idx := range indices {
 		r := runes[idx]
-		
+
 		// Skip spaces and punctuation
 		if unicode.IsSpace(r) || unicode.IsPunct(r) {
 			continue
 		}
-		
+
 		// Apply corruption based on character type
 		if replacement, ok := corruptionMap[r]; ok && rand.Float64() < 0.7 {
 			corrupted[idx] = replacement
@@ -137,7 +137,7 @@ func corruptText(text string, corruptionLevel float64) string {
 			}
 		}
 	}
-	
+
 	return string(corrupted)
 }
 
@@ -147,7 +147,7 @@ func getCorruptedPhrase() string {
 	if len(allPhrases) == 0 {
 		return "..."
 	}
-	
+
 	phrase := allPhrases[rand.Intn(len(allPhrases))]
 	// Apply corruption to the phrase
 	corruptionLevel := 0.15 + rand.Float64()*0.15 // 15-30% corruption
@@ -159,7 +159,7 @@ func getCorruptedPrefix() string {
 	if len(prefixes) == 0 {
 		return "Celeste is thinking..."
 	}
-	
+
 	prefix := prefixes[rand.Intn(len(prefixes))]
 	corruptionLevel := 0.1 + rand.Float64()*0.1 // 10-20% corruption
 	return corruptText(prefix, corruptionLevel)
@@ -171,15 +171,15 @@ func startCorruptionAnimation(ctx context.Context, done chan bool, output *os.Fi
 		close(done)
 		return
 	}
-	
+
 	rand.Seed(time.Now().UnixNano())
-	
+
 	go func() {
 		defer close(done)
-		
+
 		ticker := time.NewTicker(time.Duration(150+rand.Intn(150)) * time.Millisecond)
 		defer ticker.Stop()
-		
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -189,7 +189,7 @@ func startCorruptionAnimation(ctx context.Context, done chan bool, output *os.Fi
 			case <-ticker.C:
 				prefix := getCorruptedPrefix()
 				phrase := getCorruptedPhrase()
-				
+
 				// Use ANSI escape codes for color and formatting
 				display := fmt.Sprintf("\r\033[35m%s\033[0m \033[31m%s\033[0m", prefix, phrase)
 				fmt.Fprint(output, display)
@@ -278,5 +278,3 @@ func startProcessingIndicator(ctx context.Context, done chan bool, output *os.Fi
 		}
 	}()
 }
-
-

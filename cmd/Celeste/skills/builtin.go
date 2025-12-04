@@ -144,7 +144,7 @@ type WeatherConfig struct {
 
 // TwitchConfig holds Twitch API configuration.
 type TwitchConfig struct {
-	ClientID       string
+	ClientID        string
 	DefaultStreamer string
 }
 
@@ -197,10 +197,10 @@ func formatConfigError(skillName, fieldName, configCommand string) map[string]in
 		fmt.Sprintf("%s is required for %s. Please provide %s in your request, or set a default using: %s", fieldName, skillName, fieldName, configCommand),
 		fmt.Sprintf("You can ask the user for their %s or location", fieldName),
 		map[string]interface{}{
-			"skill":         skillName,
-			"field":         fieldName,
+			"skill":          skillName,
+			"field":          fieldName,
 			"config_command": configCommand,
-			"info":          fmt.Sprintf("No default %s configured. User must provide %s in request.", fieldName, fieldName),
+			"info":           fmt.Sprintf("No default %s configured. User must provide %s in request.", fieldName, fieldName),
 		},
 	)
 }
@@ -669,7 +669,7 @@ func TarotHandler(args map[string]interface{}, configLoader ConfigLoader) (inter
 			"Tarot configuration is required. Please configure it using: celeste config --set-tarot-token <token>",
 			"The tarot auth token is needed to access the tarot reading service.",
 			map[string]interface{}{
-				"skill":         "tarot_reading",
+				"skill":          "tarot_reading",
 				"config_command": "celeste config --set-tarot-token <token>",
 			},
 		), nil
@@ -736,15 +736,15 @@ func TarotHandler(args map[string]interface{}, configLoader ConfigLoader) (inter
 	startTime := time.Now()
 	resp, err := client.Do(req)
 	elapsed := time.Since(startTime)
-	
+
 	if err != nil {
 		return formatErrorResponse(
 			"network_error",
 			"Failed to connect to tarot API",
 			"Please check your internet connection and try again.",
 			map[string]interface{}{
-				"skill": "tarot_reading",
-				"error": err.Error(),
+				"skill":   "tarot_reading",
+				"error":   err.Error(),
 				"elapsed": elapsed.String(),
 			},
 		), nil
@@ -758,8 +758,8 @@ func TarotHandler(args map[string]interface{}, configLoader ConfigLoader) (inter
 			"Failed to read tarot API response",
 			"The tarot service may have returned invalid data. Please try again.",
 			map[string]interface{}{
-				"skill": "tarot_reading",
-				"error": err.Error(),
+				"skill":   "tarot_reading",
+				"error":   err.Error(),
 				"elapsed": elapsed.String(),
 			},
 		), nil
@@ -771,10 +771,10 @@ func TarotHandler(args map[string]interface{}, configLoader ConfigLoader) (inter
 			fmt.Sprintf("Tarot API returned error (status %d)", resp.StatusCode),
 			"The tarot reading service may be temporarily unavailable. Please try again later.",
 			map[string]interface{}{
-				"skill": "tarot_reading",
+				"skill":       "tarot_reading",
 				"status_code": resp.StatusCode,
-				"response": string(responseBody),
-				"elapsed": elapsed.String(),
+				"response":    string(responseBody),
+				"elapsed":     elapsed.String(),
 			},
 		), nil
 	}
@@ -786,8 +786,8 @@ func TarotHandler(args map[string]interface{}, configLoader ConfigLoader) (inter
 			"Failed to parse tarot API response",
 			"The tarot service returned invalid data. Please try again.",
 			map[string]interface{}{
-				"skill": "tarot_reading",
-				"error": err.Error(),
+				"skill":   "tarot_reading",
+				"error":   err.Error(),
 				"elapsed": elapsed.String(),
 			},
 		), nil
@@ -815,8 +815,8 @@ func NSFWHandler(args map[string]interface{}, configLoader ConfigLoader) (interf
 		config, err := configLoader.GetVeniceConfig()
 		if err != nil {
 			return map[string]interface{}{
-				"success":       false,
-				"error":         "NSFW mode requires Venice.ai API key",
+				"success":        false,
+				"error":          "NSFW mode requires Venice.ai API key",
 				"requires_setup": true,
 			}, nil
 		}
@@ -887,7 +887,7 @@ func ImageHandler(args map[string]interface{}, configLoader ConfigLoader) (inter
 			"Venice.ai configuration is required. Please configure it using: celeste config --set-venice-key <api-key>",
 			"The Venice.ai API key is needed to generate images. This is used for NSFW content generation.",
 			map[string]interface{}{
-				"skill":         "generate_image",
+				"skill":          "generate_image",
 				"config_command": "celeste config --set-venice-key <api-key>",
 			},
 		), nil
@@ -984,9 +984,9 @@ func ImageHandler(args map[string]interface{}, configLoader ConfigLoader) (inter
 			fmt.Sprintf("Venice.ai API returned error (status %d)", resp.StatusCode),
 			"The Venice.ai image generation service may be temporarily unavailable. Please try again later.",
 			map[string]interface{}{
-				"skill": "generate_image",
+				"skill":       "generate_image",
 				"status_code": resp.StatusCode,
-				"response": string(responseBody),
+				"response":    string(responseBody),
 			},
 		), nil
 	}
@@ -1066,8 +1066,8 @@ func WeatherHandler(args map[string]interface{}, configLoader ConfigLoader) (int
 			"Zip code must be exactly 5 digits",
 			"Please provide a valid 5-digit US zip code",
 			map[string]interface{}{
-				"skill": "get_weather",
-				"field": "zip_code",
+				"skill":    "get_weather",
+				"field":    "zip_code",
 				"provided": zipCode,
 			},
 		), nil
@@ -1079,8 +1079,8 @@ func WeatherHandler(args map[string]interface{}, configLoader ConfigLoader) (int
 				"Zip code must contain only digits",
 				"Please provide a valid 5-digit US zip code",
 				map[string]interface{}{
-					"skill": "get_weather",
-					"field": "zip_code",
+					"skill":    "get_weather",
+					"field":    "zip_code",
 					"provided": zipCode,
 				},
 			), nil
@@ -1128,9 +1128,9 @@ func WeatherHandler(args map[string]interface{}, configLoader ConfigLoader) (int
 			fmt.Sprintf("Weather API returned error (status %d)", resp.StatusCode),
 			"The weather service may be temporarily unavailable. Please try again later.",
 			map[string]interface{}{
-				"skill": "get_weather",
+				"skill":       "get_weather",
 				"status_code": resp.StatusCode,
-				"response": string(body),
+				"response":    string(body),
 			},
 		), nil
 	}
@@ -1247,8 +1247,8 @@ func UnitConverterHandler(args map[string]interface{}) (interface{}, error) {
 				fmt.Sprintf("Invalid target unit '%s' for length conversion", toUnit),
 				"Valid length units: m, km, cm, mm, ft, in, yd, mi",
 				map[string]interface{}{
-					"skill": "convert_units",
-					"field": "to_unit",
+					"skill":    "convert_units",
+					"field":    "to_unit",
 					"provided": toUnit,
 					"category": "length",
 				},
@@ -1265,8 +1265,8 @@ func UnitConverterHandler(args map[string]interface{}) (interface{}, error) {
 				fmt.Sprintf("Invalid target unit '%s' for weight conversion", toUnit),
 				"Valid weight units: kg, g, mg, lb, oz",
 				map[string]interface{}{
-					"skill": "convert_units",
-					"field": "to_unit",
+					"skill":    "convert_units",
+					"field":    "to_unit",
 					"provided": toUnit,
 					"category": "weight",
 				},
@@ -1283,8 +1283,8 @@ func UnitConverterHandler(args map[string]interface{}) (interface{}, error) {
 				fmt.Sprintf("Invalid target unit '%s' for volume conversion", toUnit),
 				"Valid volume units: l, liter, ml, gallon, quart, pint, cup, fl oz",
 				map[string]interface{}{
-					"skill": "convert_units",
-					"field": "to_unit",
+					"skill":    "convert_units",
+					"field":    "to_unit",
 					"provided": toUnit,
 					"category": "volume",
 				},
@@ -1312,9 +1312,9 @@ func UnitConverterHandler(args map[string]interface{}) (interface{}, error) {
 			fmt.Sprintf("Unsupported unit conversion from '%s' to '%s'", fromUnit, toUnit),
 			"Please ensure both units are of the same type (length, weight, temperature, or volume).",
 			map[string]interface{}{
-				"skill": "convert_units",
+				"skill":     "convert_units",
 				"from_unit": fromUnit,
-				"to_unit": toUnit,
+				"to_unit":   toUnit,
 			},
 		), nil
 	}
@@ -1364,10 +1364,10 @@ func TimezoneConverterHandler(args map[string]interface{}) (interface{}, error) 
 			fmt.Sprintf("Invalid timezone '%s'", fromTZ),
 			"Please use a valid IANA timezone identifier (e.g., 'America/New_York', 'UTC', 'Asia/Tokyo').",
 			map[string]interface{}{
-				"skill": "convert_timezone",
-				"field": "from_timezone",
+				"skill":    "convert_timezone",
+				"field":    "from_timezone",
 				"provided": fromTZ,
-				"error": err.Error(),
+				"error":    err.Error(),
 			},
 		), nil
 	}
@@ -1379,10 +1379,10 @@ func TimezoneConverterHandler(args map[string]interface{}) (interface{}, error) 
 			fmt.Sprintf("Invalid timezone '%s'", toTZ),
 			"Please use a valid IANA timezone identifier (e.g., 'America/New_York', 'UTC', 'Asia/Tokyo').",
 			map[string]interface{}{
-				"skill": "convert_timezone",
-				"field": "to_timezone",
+				"skill":    "convert_timezone",
+				"field":    "to_timezone",
 				"provided": toTZ,
-				"error": err.Error(),
+				"error":    err.Error(),
 			},
 		), nil
 	}
@@ -1405,8 +1405,8 @@ func TimezoneConverterHandler(args map[string]interface{}) (interface{}, error) 
 				"Invalid time format",
 				"Please use format 'HH:MM' or 'HH:MM:SS' (e.g., '14:30' or '14:30:00').",
 				map[string]interface{}{
-					"skill": "convert_timezone",
-					"field": "time",
+					"skill":    "convert_timezone",
+					"field":    "time",
 					"provided": timeStr,
 				},
 			), nil
@@ -1426,10 +1426,10 @@ func TimezoneConverterHandler(args map[string]interface{}) (interface{}, error) 
 				"Invalid time format",
 				"Please use format 'YYYY-MM-DD HH:MM' or 'HH:MM' for today.",
 				map[string]interface{}{
-					"skill": "convert_timezone",
-					"field": "time",
+					"skill":    "convert_timezone",
+					"field":    "time",
 					"provided": timeStr,
-					"error": err.Error(),
+					"error":    err.Error(),
 				},
 			), nil
 		}
@@ -1445,10 +1445,10 @@ func TimezoneConverterHandler(args map[string]interface{}) (interface{}, error) 
 					"Invalid date format",
 					"Please use format 'YYYY-MM-DD' (e.g., '2024-12-03').",
 					map[string]interface{}{
-						"skill": "convert_timezone",
-						"field": "date",
+						"skill":    "convert_timezone",
+						"field":    "date",
 						"provided": date,
-						"error": err.Error(),
+						"error":    err.Error(),
 					},
 				), nil
 			}
@@ -1461,13 +1461,13 @@ func TimezoneConverterHandler(args map[string]interface{}) (interface{}, error) 
 	converted := t.In(toLoc)
 
 	return map[string]interface{}{
-		"original_time":    t.Format("2006-01-02 15:04:05 MST"),
-		"converted_time":   converted.Format("2006-01-02 15:04:05 MST"),
-		"from_timezone":    fromTZ,
-		"to_timezone":      toTZ,
-		"original_utc":     t.UTC().Format("2006-01-02 15:04:05 UTC"),
-		"converted_utc":     converted.UTC().Format("2006-01-02 15:04:05 UTC"),
-		"timezone_offset":  converted.Format("-07:00"),
+		"original_time":   t.Format("2006-01-02 15:04:05 MST"),
+		"converted_time":  converted.Format("2006-01-02 15:04:05 MST"),
+		"from_timezone":   fromTZ,
+		"to_timezone":     toTZ,
+		"original_utc":    t.UTC().Format("2006-01-02 15:04:05 UTC"),
+		"converted_utc":   converted.UTC().Format("2006-01-02 15:04:05 UTC"),
+		"timezone_offset": converted.Format("-07:00"),
 	}, nil
 }
 
@@ -1518,9 +1518,9 @@ func HashGeneratorHandler(args map[string]interface{}) (interface{}, error) {
 			fmt.Sprintf("Unsupported algorithm '%s'", algorithm),
 			"Please use one of: 'md5', 'sha256', or 'sha512'.",
 			map[string]interface{}{
-				"skill": "generate_hash",
-				"field": "algorithm",
-				"provided": algorithm,
+				"skill":     "generate_hash",
+				"field":     "algorithm",
+				"provided":  algorithm,
 				"supported": []string{"md5", "sha256", "sha512"},
 			},
 		), nil
@@ -1586,8 +1586,8 @@ func Base64DecodeHandler(args map[string]interface{}) (interface{}, error) {
 	}
 
 	return map[string]interface{}{
-		"encoded":  encoded,
-		"decoded":  string(decoded),
+		"encoded": encoded,
+		"decoded": string(decoded),
 	}, nil
 }
 
@@ -1646,7 +1646,7 @@ func PasswordGeneratorHandler(args map[string]interface{}) (interface{}, error) 
 
 	return map[string]interface{}{
 		"password":        string(password),
-		"length":         length,
+		"length":          length,
 		"include_symbols": includeSymbols,
 		"include_numbers": includeNumbers,
 	}, nil
@@ -1733,9 +1733,9 @@ func CurrencyConverterHandler(args map[string]interface{}) (interface{}, error) 
 			fmt.Sprintf("Currency API returned error (status %d)", resp.StatusCode),
 			"The currency exchange service may be temporarily unavailable. Please try again later.",
 			map[string]interface{}{
-				"skill": "convert_currency",
+				"skill":       "convert_currency",
 				"status_code": resp.StatusCode,
-				"response": string(body),
+				"response":    string(body),
 			},
 		), nil
 	}
@@ -1765,8 +1765,8 @@ func CurrencyConverterHandler(args map[string]interface{}) (interface{}, error) 
 			fmt.Sprintf("Currency %s not found in exchange rates", toCurrency),
 			"Please use a valid 3-letter currency code (e.g., USD, EUR, JPY, GBP)",
 			map[string]interface{}{
-				"skill": "convert_currency",
-				"field": "to_currency",
+				"skill":    "convert_currency",
+				"field":    "to_currency",
 				"provided": toCurrency,
 			},
 		), nil
@@ -1852,8 +1852,8 @@ func QRCodeGeneratorHandler(args map[string]interface{}) (interface{}, error) {
 			"Failed to save QR code file",
 			"An internal error occurred while saving the QR code. Please try again.",
 			map[string]interface{}{
-				"skill": "generate_qr_code",
-				"error": err.Error(),
+				"skill":    "generate_qr_code",
+				"error":    err.Error(),
 				"filepath": filepath,
 			},
 		), nil
@@ -1893,7 +1893,7 @@ func TwitchLiveCheckHandler(args map[string]interface{}, configLoader ConfigLoad
 			"Twitch Client ID is required. Please configure it using: celeste config --set-twitch-client-id <client-id>",
 			"The Twitch Client ID is needed to access the Twitch API. You can get one from the Twitch Developer Console.",
 			map[string]interface{}{
-				"skill":         "check_twitch_live",
+				"skill":          "check_twitch_live",
 				"config_command": "celeste config --set-twitch-client-id <client-id>",
 			},
 		), nil
@@ -1939,9 +1939,9 @@ func TwitchLiveCheckHandler(args map[string]interface{}, configLoader ConfigLoad
 			fmt.Sprintf("Twitch API returned error (status %d)", resp.StatusCode),
 			"The Twitch API may be temporarily unavailable or the streamer may not exist.",
 			map[string]interface{}{
-				"skill": "check_twitch_live",
+				"skill":       "check_twitch_live",
 				"status_code": resp.StatusCode,
-				"response": string(body),
+				"response":    string(body),
 			},
 		), nil
 	}
@@ -2022,7 +2022,7 @@ func YouTubeVideosHandler(args map[string]interface{}, configLoader ConfigLoader
 			"YouTube API key is required. Please configure it using: celeste config --set-youtube-key <api-key>",
 			"The YouTube API key is needed to access the YouTube Data API. You can get one from the Google Cloud Console.",
 			map[string]interface{}{
-				"skill":         "get_youtube_videos",
+				"skill":          "get_youtube_videos",
 				"config_command": "celeste config --set-youtube-key <api-key>",
 			},
 		), nil
@@ -2048,7 +2048,7 @@ func YouTubeVideosHandler(args map[string]interface{}, configLoader ConfigLoader
 	if !strings.HasPrefix(channel, "UC") && len(channel) != 24 {
 		// Try to get channel ID from username
 		searchURL := fmt.Sprintf("https://www.googleapis.com/youtube/v3/search?part=snippet&q=%s&type=channel&maxResults=1&key=%s", channel, config.APIKey)
-		
+
 		client := &http.Client{Timeout: 10 * time.Second}
 		resp, err := client.Get(searchURL)
 		if err == nil && resp.StatusCode == 200 {
@@ -2091,9 +2091,9 @@ func YouTubeVideosHandler(args map[string]interface{}, configLoader ConfigLoader
 			fmt.Sprintf("YouTube API returned error (status %d)", resp.StatusCode),
 			"The YouTube API may be temporarily unavailable or the channel may not exist.",
 			map[string]interface{}{
-				"skill": "get_youtube_videos",
+				"skill":       "get_youtube_videos",
 				"status_code": resp.StatusCode,
-				"response": string(body),
+				"response":    string(body),
 			},
 		), nil
 	}
@@ -2132,13 +2132,13 @@ func YouTubeVideosHandler(args map[string]interface{}, configLoader ConfigLoader
 	videos := make([]map[string]interface{}, 0, len(result.Items))
 	for _, item := range result.Items {
 		videos = append(videos, map[string]interface{}{
-			"video_id":    item.ID.VideoID,
-			"title":       item.Snippet.Title,
-			"description": item.Snippet.Description,
-			"published_at": item.Snippet.PublishedAt.Format(time.RFC3339),
+			"video_id":      item.ID.VideoID,
+			"title":         item.Snippet.Title,
+			"description":   item.Snippet.Description,
+			"published_at":  item.Snippet.PublishedAt.Format(time.RFC3339),
 			"thumbnail_url": item.Snippet.Thumbnails.Default.URL,
 			"channel_title": item.Snippet.ChannelTitle,
-			"url": fmt.Sprintf("https://www.youtube.com/watch?v=%s", item.ID.VideoID),
+			"url":           fmt.Sprintf("https://www.youtube.com/watch?v=%s", item.ID.VideoID),
 		})
 	}
 
@@ -2160,10 +2160,10 @@ type Reminder struct {
 
 // Note represents a note entry.
 type Note struct {
-	Title     string    `json:"title"`
-	Content   string    `json:"content"`
-	Created   time.Time `json:"created"`
-	Updated   time.Time `json:"updated"`
+	Title   string    `json:"title"`
+	Content string    `json:"content"`
+	Created time.Time `json:"created"`
+	Updated time.Time `json:"updated"`
 }
 
 // getRemindersPath returns the path to reminders.json.
@@ -2210,21 +2210,21 @@ func SetReminderHandler(args map[string]interface{}) (interface{}, error) {
 	var reminderTime time.Time
 	var err error
 
-		// Try relative time first (e.g., "in 1 hour", "tomorrow at 3pm")
-		now := time.Now()
-		if strings.HasPrefix(timeStr, "in ") {
-			// Simple relative parsing - could be enhanced
-			return formatErrorResponse(
-				"validation_error",
-				"Relative time parsing not yet implemented",
-				"Please use format 'YYYY-MM-DD HH:MM' or 'HH:MM' for today.",
-				map[string]interface{}{
-					"skill": "convert_timezone",
-					"field": "time",
-					"provided": timeStr,
-				},
-			), nil
-		}
+	// Try relative time first (e.g., "in 1 hour", "tomorrow at 3pm")
+	now := time.Now()
+	if strings.HasPrefix(timeStr, "in ") {
+		// Simple relative parsing - could be enhanced
+		return formatErrorResponse(
+			"validation_error",
+			"Relative time parsing not yet implemented",
+			"Please use format 'YYYY-MM-DD HH:MM' or 'HH:MM' for today.",
+			map[string]interface{}{
+				"skill":    "convert_timezone",
+				"field":    "time",
+				"provided": timeStr,
+			},
+		), nil
+	}
 
 	// Try full datetime format
 	if len(timeStr) > 10 {
@@ -2249,19 +2249,19 @@ func SetReminderHandler(args map[string]interface{}) (interface{}, error) {
 		}
 	}
 
-		if err != nil {
-			return formatErrorResponse(
-				"validation_error",
-				"Failed to parse time",
-				"Please use format 'YYYY-MM-DD HH:MM' or 'HH:MM' for today.",
-				map[string]interface{}{
-					"skill": "set_reminder",
-					"field": "time",
-					"provided": timeStr,
-					"error": err.Error(),
-				},
-			), nil
-		}
+	if err != nil {
+		return formatErrorResponse(
+			"validation_error",
+			"Failed to parse time",
+			"Please use format 'YYYY-MM-DD HH:MM' or 'HH:MM' for today.",
+			map[string]interface{}{
+				"skill":    "set_reminder",
+				"field":    "time",
+				"provided": timeStr,
+				"error":    err.Error(),
+			},
+		), nil
+	}
 
 	// Load existing reminders
 	remindersPath := getRemindersPath()
@@ -2545,4 +2545,3 @@ func CreateDefaultSkillFiles() error {
 
 	return nil
 }
-

@@ -20,12 +20,12 @@ var (
 
 // SimulatedTyping handles simulated typing effect for non-streaming responses.
 type SimulatedTyping struct {
-	content       string
-	displayedLen  int
-	typingSpeed   int  // characters per second
-	glitchChance  float64
-	enabled       bool
-	done          bool
+	content      string
+	displayedLen int
+	typingSpeed  int // characters per second
+	glitchChance float64
+	enabled      bool
+	done         bool
 }
 
 // Corrupted text elements - full phrases from Node CLI
@@ -259,11 +259,11 @@ func ThinkingAnimation(frame int) string {
 		"Celeste is sinking deeper",
 	}
 	prefix := prefixes[(frame/4)%len(prefixes)]
-	
+
 	// Add corrupted dots with varying intensity
 	intensity := 0.3 + float64(frame%4)*0.15
 	dots := CorruptText("...", intensity)
-	
+
 	// Occasionally add a Japanese/lewd phrase
 	suffix := ""
 	if rand.Float64() < 0.15 {
@@ -271,7 +271,7 @@ func ThinkingAnimation(frame int) string {
 		phrase := phrases[rand.Intn(len(phrases))]
 		suffix = " " + corruptPurple.Render(phrase)
 	}
-	
+
 	return corruptMagenta.Render(prefix) + dots + suffix
 }
 
@@ -317,4 +317,3 @@ func max(a, b int) int {
 	}
 	return b
 }
-

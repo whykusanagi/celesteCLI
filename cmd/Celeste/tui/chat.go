@@ -375,4 +375,3 @@ func formatArgs(args map[string]any) string {
 	}
 	return "(" + strings.Join(parts, ", ") + ")"
 }
-

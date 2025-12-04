@@ -19,9 +19,9 @@ type Skill struct {
 
 // Registry manages skill definitions and execution.
 type Registry struct {
-	skills       map[string]Skill
-	handlers     map[string]SkillHandler
-	skillsDir    string
+	skills    map[string]Skill
+	handlers  map[string]SkillHandler
+	skillsDir string
 }
 
 // SkillHandler is a function that executes a skill.
@@ -202,4 +202,3 @@ func (r *Registry) DeleteSkill(name string) error {
 func (r *Registry) Count() int {
 	return len(r.skills)
 }
-

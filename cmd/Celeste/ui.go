@@ -33,32 +33,32 @@ const (
 type SeparatorStyle string
 
 const (
-	HEAVY    SeparatorStyle = "HEAVY"    // ═══ (double line)
-	LIGHT    SeparatorStyle = "LIGHT"    // ─── (single line)
-	DASHED   SeparatorStyle = "DASHED"   // ╌╌╌ (dashed)
+	HEAVY     SeparatorStyle = "HEAVY"     // ═══ (double line)
+	LIGHT     SeparatorStyle = "LIGHT"     // ─── (single line)
+	DASHED    SeparatorStyle = "DASHED"    // ╌╌╌ (dashed)
 	CORRUPTED SeparatorStyle = "CORRUPTED" // ≈≈≈ (wavy/corrupted)
 )
 
 // ANSI Color codes
 const (
 	// Text colors
-	ColorDefault   = "\033[0m"
-	ColorBlack     = "\033[30m"
-	ColorRed       = "\033[31m"
-	ColorGreen     = "\033[32m"
-	ColorYellow    = "\033[33m"
-	ColorBlue      = "\033[34m"
-	ColorMagenta   = "\033[35m"
-	ColorCyan      = "\033[36m"
-	ColorWhite     = "\033[37m"
+	ColorDefault = "\033[0m"
+	ColorBlack   = "\033[30m"
+	ColorRed     = "\033[31m"
+	ColorGreen   = "\033[32m"
+	ColorYellow  = "\033[33m"
+	ColorBlue    = "\033[34m"
+	ColorMagenta = "\033[35m"
+	ColorCyan    = "\033[36m"
+	ColorWhite   = "\033[37m"
 
 	// Bright colors
-	ColorBrightRed    = "\033[91m"
-	ColorBrightGreen  = "\033[92m"
-	ColorBrightYellow = "\033[93m"
-	ColorBrightBlue   = "\033[94m"
+	ColorBrightRed     = "\033[91m"
+	ColorBrightGreen   = "\033[92m"
+	ColorBrightYellow  = "\033[93m"
+	ColorBrightBlue    = "\033[94m"
 	ColorBrightMagenta = "\033[95m"
-	ColorBrightCyan   = "\033[96m"
+	ColorBrightCyan    = "\033[96m"
 
 	// Text styles
 	Bold      = "\033[1m"

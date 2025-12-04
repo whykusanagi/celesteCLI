@@ -13,9 +13,9 @@ var (
 	ColorAccentDark  = lipgloss.Color("#b61b70") // Dark pink
 
 	// Purple gradient
-	ColorPurple     = lipgloss.Color("#8b5cf6") // Primary purple
+	ColorPurple      = lipgloss.Color("#8b5cf6") // Primary purple
 	ColorPurpleLight = lipgloss.Color("#a78bfa") // Light purple
-	ColorPurpleDark = lipgloss.Color("#7c3aed") // Dark purple
+	ColorPurpleDark  = lipgloss.Color("#7c3aed") // Dark purple
 
 	// Background colors
 	ColorBg          = lipgloss.Color("#0a0a0a") // Main background
@@ -217,15 +217,14 @@ func RenderBox(content string, width int) string {
 func RenderHeader(title, info string, width int) string {
 	titleRendered := HeaderTitleStyle.Render(title)
 	infoRendered := HeaderInfoStyle.Render(info)
-	
+
 	// Calculate spacing
 	gap := width - lipgloss.Width(titleRendered) - lipgloss.Width(infoRendered) - 4
 	if gap < 1 {
 		gap = 1
 	}
-	
+
 	return HeaderStyle.Width(width).Render(
 		titleRendered + lipgloss.NewStyle().Width(gap).Render("") + infoRendered,
 	)
 }
-

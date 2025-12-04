@@ -9,11 +9,11 @@ import (
 
 // InputModel represents the text input component.
 type InputModel struct {
-	textInput textinput.Model
-	width     int
-	history   []string
+	textInput    textinput.Model
+	width        int
+	history      []string
 	historyIndex int
-	tempInput string // Stores current input when browsing history
+	tempInput    string // Stores current input when browsing history
 }
 
 // NewInputModel creates a new input model.
@@ -61,10 +61,10 @@ func (m InputModel) Update(msg tea.Msg) (InputModel, tea.Cmd) {
 				m.history = append(m.history, value)
 				m.historyIndex = len(m.history) // Reset index past end
 				m.tempInput = ""
-				
+
 				// Clear input
 				m.textInput.Reset()
-				
+
 				// Send message
 				return m, SendMessage(value)
 			}
@@ -180,4 +180,3 @@ func (m InputModel) SetHistory(history []string) InputModel {
 	m.historyIndex = len(history)
 	return m
 }
-

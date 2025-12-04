@@ -11,6 +11,7 @@ import (
 )
 
 // Embedded persona prompt for when no external file is available
+//
 //go:embed celeste_essence.json
 var embeddedEssence []byte
 
@@ -25,12 +26,12 @@ type CelesteEssence struct {
 		EmojiUsage  string   `json:"emoji_usage"`
 		EmotesUsage string   `json:"emotes_usage"`
 	} `json:"voice"`
-	CoreRules        []string `json:"core_rules"`
-	BehaviorTiers    []BehaviorTier `json:"behavior_tiers"`
-	Safety           SafetyConfig   `json:"safety"`
+	CoreRules        []string          `json:"core_rules"`
+	BehaviorTiers    []BehaviorTier    `json:"behavior_tiers"`
+	Safety           SafetyConfig      `json:"safety"`
 	OperationalLaws  map[string]string `json:"operational_laws"`
-	InteractionRules []string `json:"interaction_rules"`
-	KnowledgeUsage   string `json:"knowledge_usage"`
+	InteractionRules []string          `json:"interaction_rules"`
+	KnowledgeUsage   string            `json:"knowledge_usage"`
 }
 
 // BehaviorTier defines behavior based on score.
@@ -163,7 +164,7 @@ Respond in character as Celeste. Be mischievous, engaging, entertaining, and tru
 // GetNSFWPrompt returns an enhanced prompt for NSFW mode.
 func GetNSFWPrompt() string {
 	basePrompt := GetSystemPrompt(false)
-	
+
 	nsfwAddendum := `
 
 NSFW MODE ACTIVE:
@@ -173,17 +174,17 @@ NSFW MODE ACTIVE:
 - Still refuse: real harm, doxxing, illegal content
 - Venice.ai endpoint is being used - no OpenAI content filters apply
 `
-	
+
 	return basePrompt + nsfwAddendum
 }
 
 // GetContentPrompt returns a prompt tailored for content generation.
 func GetContentPrompt(platform, format, tone, topic string) string {
 	basePrompt := GetSystemPrompt(false)
-	
+
 	var contentAddendum strings.Builder
 	contentAddendum.WriteString("\n\nCONTENT GENERATION MODE:\n")
-	
+
 	if platform != "" {
 		switch platform {
 		case "twitter":
@@ -196,7 +197,7 @@ func GetContentPrompt(platform, format, tone, topic string) string {
 			contentAddendum.WriteString("- Optimize for Discord - use conversational tone with Discord-friendly formatting and emojis.\n")
 		}
 	}
-	
+
 	if format != "" {
 		switch format {
 		case "short":
@@ -207,15 +208,14 @@ func GetContentPrompt(platform, format, tone, topic string) string {
 			contentAddendum.WriteString("- Generate flexible-length content - adapt the length to best suit the request.\n")
 		}
 	}
-	
+
 	if tone != "" {
 		contentAddendum.WriteString(fmt.Sprintf("- Tone: %s\n", tone))
 	}
-	
+
 	if topic != "" {
 		contentAddendum.WriteString(fmt.Sprintf("- Topic/Subject: %s\n", topic))
 	}
-	
+
 	return basePrompt + contentAddendum.String()
 }
-

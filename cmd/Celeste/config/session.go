@@ -215,4 +215,3 @@ func (s *Session) Summarize() SessionSummary {
 
 	return summary
 }
-
