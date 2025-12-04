@@ -383,38 +383,47 @@ func (a *TUIClientAdapter) SwitchEndpoint(endpoint string) error {
 		// If named config doesn't exist, use base config with modified base URL
 		cfg = a.baseConfig
 
-		// Map endpoint names to base URLs (with environment variable overrides)
-		endpointURLs := map[string]string{
-			"openai":     "https://api.openai.com/v1",
-			"venice":     "https://api.venice.ai/api/v1", // Venice.ai default
-			"grok":       "https://api.x.ai/v1",
-			"elevenlabs": "https://api.elevenlabs.io/v1",
-			"google":     "https://generativelanguage.googleapis.com/v1",
-		}
-
-		// Check for environment variable overrides
+		// For Venice, try to load from skills.json first
 		if endpoint == "venice" {
-			if envURL := os.Getenv("VENICE_API_BASE_URL"); envURL != "" {
-				endpointURLs["venice"] = envURL
-			}
-		}
-
-		// Apply the endpoint URL
-		if url, ok := endpointURLs[endpoint]; ok {
-			cfg.BaseURL = url
-			tui.LogInfo(fmt.Sprintf("Using fallback URL for %s: %s", endpoint, url))
-
-			// Use endpoint-specific API key if available
-			if endpoint == "venice" {
+			skillsConfig, err := config.LoadSkillsConfig()
+			if err == nil && skillsConfig.VeniceAPIKey != "" {
+				cfg.APIKey = skillsConfig.VeniceAPIKey
+				cfg.BaseURL = skillsConfig.VeniceBaseURL
+				if skillsConfig.VeniceModel != "" {
+					cfg.Model = skillsConfig.VeniceModel
+				}
+				tui.LogInfo("Loaded Venice configuration from skills.json")
+			} else {
+				// Fall back to environment variables
 				if veniceKey := os.Getenv("VENICE_API_KEY"); veniceKey != "" {
 					cfg.APIKey = veniceKey
 					tui.LogInfo("Using VENICE_API_KEY from environment")
 				} else {
-					tui.LogInfo("Warning: No VENICE_API_KEY found, using default API key")
+					tui.LogInfo("Warning: No VENICE_API_KEY found, using default API key (will likely fail)")
+				}
+
+				// Check for custom base URL
+				if envURL := os.Getenv("VENICE_API_BASE_URL"); envURL != "" {
+					cfg.BaseURL = envURL
+				} else {
+					cfg.BaseURL = "https://api.venice.ai/api/v1"
 				}
 			}
 		} else {
-			tui.LogInfo(fmt.Sprintf("Warning: Unknown endpoint '%s', keeping current URL", endpoint))
+			// Map endpoint names to base URLs
+			endpointURLs := map[string]string{
+				"openai":     "https://api.openai.com/v1",
+				"grok":       "https://api.x.ai/v1",
+				"elevenlabs": "https://api.elevenlabs.io/v1",
+				"google":     "https://generativelanguage.googleapis.com/v1",
+			}
+
+			if url, ok := endpointURLs[endpoint]; ok {
+				cfg.BaseURL = url
+				tui.LogInfo(fmt.Sprintf("Using fallback URL for %s: %s", endpoint, url))
+			} else {
+				tui.LogInfo(fmt.Sprintf("Warning: Unknown endpoint '%s', keeping current URL", endpoint))
+			}
 		}
 	} else {
 		tui.LogInfo(fmt.Sprintf("Loaded named config for endpoint: %s", endpoint))
