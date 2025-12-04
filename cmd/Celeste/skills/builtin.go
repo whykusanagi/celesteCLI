@@ -27,9 +27,7 @@ import (
 func RegisterBuiltinSkills(registry *Registry, configLoader ConfigLoader) {
 	// Register skill definitions
 	registry.RegisterSkill(TarotSkill())
-	registry.RegisterSkill(NSFWSkill())
 	registry.RegisterSkill(ContentSkill())
-	registry.RegisterSkill(ImageSkill())
 	registry.RegisterSkill(WeatherSkill())
 	registry.RegisterSkill(UnitConverterSkill())
 	registry.RegisterSkill(TimezoneConverterSkill())
@@ -52,14 +50,8 @@ func RegisterBuiltinSkills(registry *Registry, configLoader ConfigLoader) {
 	registry.RegisterHandler("tarot_reading", func(args map[string]interface{}) (interface{}, error) {
 		return TarotHandler(args, configLoader)
 	})
-	registry.RegisterHandler("nsfw_mode", func(args map[string]interface{}) (interface{}, error) {
-		return NSFWHandler(args, configLoader)
-	})
 	registry.RegisterHandler("generate_content", func(args map[string]interface{}) (interface{}, error) {
 		return ContentHandler(args)
-	})
-	registry.RegisterHandler("generate_image", func(args map[string]interface{}) (interface{}, error) {
-		return ImageHandler(args, configLoader)
 	})
 	registry.RegisterHandler("get_weather", func(args map[string]interface{}) (interface{}, error) {
 		return WeatherHandler(args, configLoader)
@@ -234,23 +226,6 @@ func TarotSkill() Skill {
 	}
 }
 
-// NSFWSkill returns the NSFW mode skill definition.
-func NSFWSkill() Skill {
-	return Skill{
-		Name:        "nsfw_mode",
-		Description: "Enable NSFW mode using Venice.ai for uncensored content generation. Changes UI theme and uses Venice.ai endpoint.",
-		Parameters: map[string]interface{}{
-			"type": "object",
-			"properties": map[string]interface{}{
-				"enable": map[string]interface{}{
-					"type":        "boolean",
-					"description": "Enable (true) or disable (false) NSFW mode",
-				},
-			},
-			"required": []string{"enable"},
-		},
-	}
-}
 
 // ContentSkill returns the content generation skill definition.
 func ContentSkill() Skill {
@@ -284,27 +259,6 @@ func ContentSkill() Skill {
 	}
 }
 
-// ImageSkill returns the image generation skill definition.
-func ImageSkill() Skill {
-	return Skill{
-		Name:        "generate_image",
-		Description: "Generate an image using Venice.ai based on a text prompt",
-		Parameters: map[string]interface{}{
-			"type": "object",
-			"properties": map[string]interface{}{
-				"prompt": map[string]interface{}{
-					"type":        "string",
-					"description": "Text description of the image to generate",
-				},
-				"style": map[string]interface{}{
-					"type":        "string",
-					"description": "Optional style modifier (e.g., anime, realistic, painting)",
-				},
-			},
-			"required": []string{"prompt"},
-		},
-	}
-}
 
 // WeatherSkill returns the weather forecast skill definition.
 func WeatherSkill() Skill {
@@ -796,48 +750,6 @@ func TarotHandler(args map[string]interface{}, configLoader ConfigLoader) (inter
 	return result, nil
 }
 
-// NSFWHandler toggles NSFW mode.
-func NSFWHandler(args map[string]interface{}, configLoader ConfigLoader) (interface{}, error) {
-	enable, ok := args["enable"].(bool)
-	if !ok {
-		return formatErrorResponse(
-			"validation_error",
-			"The 'enable' parameter must be a boolean (true or false)",
-			"Please provide true to enable NSFW mode or false to disable it.",
-			map[string]interface{}{
-				"skill": "nsfw_mode",
-				"field": "enable",
-			},
-		), nil
-	}
-
-	if enable {
-		config, err := configLoader.GetVeniceConfig()
-		if err != nil {
-			return map[string]interface{}{
-				"success":        false,
-				"error":          "NSFW mode requires Venice.ai API key",
-				"requires_setup": true,
-			}, nil
-		}
-
-		return map[string]interface{}{
-			"success": true,
-			"enabled": true,
-			"message": "NSFW mode enabled",
-			"config": map[string]interface{}{
-				"baseUrl": config.BaseURL,
-				"model":   config.Model,
-			},
-		}, nil
-	}
-
-	return map[string]interface{}{
-		"success": true,
-		"enabled": false,
-		"message": "NSFW mode disabled",
-	}, nil
-}
 
 // ContentHandler generates content for platforms.
 func ContentHandler(args map[string]interface{}) (interface{}, error) {
@@ -878,167 +790,6 @@ Format: %s length`, platform, platform, topic, tone, format)
 	}, nil
 }
 
-// ImageHandler generates an image using Venice.ai.
-func ImageHandler(args map[string]interface{}, configLoader ConfigLoader) (interface{}, error) {
-	config, err := configLoader.GetVeniceConfig()
-	if err != nil {
-		return formatErrorResponse(
-			"config_error",
-			"Venice.ai configuration is required. Please configure it using: celeste config --set-venice-key <api-key>",
-			"The Venice.ai API key is needed to generate images. This is used for NSFW content generation.",
-			map[string]interface{}{
-				"skill":          "generate_image",
-				"config_command": "celeste config --set-venice-key <api-key>",
-			},
-		), nil
-	}
-
-	prompt, ok := args["prompt"].(string)
-	if !ok || prompt == "" {
-		return formatErrorResponse(
-			"validation_error",
-			"The 'prompt' parameter is required",
-			"Please provide a text description of the image you want to generate.",
-			map[string]interface{}{
-				"skill": "generate_image",
-				"field": "prompt",
-			},
-		), nil
-	}
-
-	style := ""
-	if s, ok := args["style"].(string); ok {
-		style = s
-		prompt = fmt.Sprintf("%s, %s style", prompt, style)
-	}
-
-	// Make request to Venice.ai
-	requestBody := map[string]interface{}{
-		"model":  "fluently-xl",
-		"prompt": prompt,
-		"width":  1024,
-		"height": 1024,
-		"steps":  30,
-	}
-
-	reqBodyBytes, err := json.Marshal(requestBody)
-	if err != nil {
-		return formatErrorResponse(
-			"internal_error",
-			"Failed to encode image generation request",
-			"An internal error occurred. Please try again.",
-			map[string]interface{}{
-				"skill": "generate_image",
-				"error": err.Error(),
-			},
-		), nil
-	}
-
-	req, err := http.NewRequest("POST", config.BaseURL+"/images/generations", bytes.NewBuffer(reqBodyBytes))
-	if err != nil {
-		return formatErrorResponse(
-			"internal_error",
-			"Failed to create image generation request",
-			"An internal error occurred. Please try again.",
-			map[string]interface{}{
-				"skill": "generate_image",
-				"error": err.Error(),
-			},
-		), nil
-	}
-
-	req.Header.Set("Authorization", "Bearer "+config.APIKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{Timeout: 120 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return formatErrorResponse(
-			"network_error",
-			"Failed to connect to Venice.ai API",
-			"Please check your internet connection and try again.",
-			map[string]interface{}{
-				"skill": "generate_image",
-				"error": err.Error(),
-			},
-		), nil
-	}
-	defer resp.Body.Close()
-
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return formatErrorResponse(
-			"api_error",
-			"Failed to read Venice.ai API response",
-			"The image generation service may have returned invalid data. Please try again.",
-			map[string]interface{}{
-				"skill": "generate_image",
-				"error": err.Error(),
-			},
-		), nil
-	}
-
-	if resp.StatusCode != 200 {
-		return formatErrorResponse(
-			"api_error",
-			fmt.Sprintf("Venice.ai API returned error (status %d)", resp.StatusCode),
-			"The Venice.ai image generation service may be temporarily unavailable. Please try again later.",
-			map[string]interface{}{
-				"skill":       "generate_image",
-				"status_code": resp.StatusCode,
-				"response":    string(responseBody),
-			},
-		), nil
-	}
-
-	var result map[string]interface{}
-	if err := json.Unmarshal(responseBody, &result); err != nil {
-		return formatErrorResponse(
-			"api_error",
-			"Failed to parse Venice.ai API response",
-			"The image generation service returned invalid data. Please try again.",
-			map[string]interface{}{
-				"skill": "generate_image",
-				"error": err.Error(),
-			},
-		), nil
-	}
-
-	// Extract image URL or base64 data
-	if data, ok := result["data"].([]interface{}); ok && len(data) > 0 {
-		if img, ok := data[0].(map[string]interface{}); ok {
-			if url, ok := img["url"].(string); ok {
-				return map[string]interface{}{
-					"success":   true,
-					"image_url": url,
-					"prompt":    prompt,
-				}, nil
-			}
-			if b64, ok := img["b64_json"].(string); ok {
-				// Save base64 image to file
-				filename := fmt.Sprintf("celeste_image_%d.png", time.Now().Unix())
-				homeDir, _ := os.UserHomeDir()
-				filepath := filepath.Join(homeDir, ".celeste", "images", filename)
-
-				// Ensure directory exists
-				os.MkdirAll(filepath[:len(filepath)-len(filename)-1], 0755)
-
-				// Decode and save
-				imgData, err := base64.StdEncoding.DecodeString(b64)
-				if err == nil {
-					os.WriteFile(filepath, imgData, 0644)
-					return map[string]interface{}{
-						"success":    true,
-						"image_path": filepath,
-						"prompt":     prompt,
-					}, nil
-				}
-			}
-		}
-	}
-
-	return result, nil
-}
 
 // WeatherHandler gets weather forecast for a location.
 func WeatherHandler(args map[string]interface{}, configLoader ConfigLoader) (interface{}, error) {
@@ -2526,9 +2277,7 @@ func CreateDefaultSkillFiles() error {
 
 	skills := []Skill{
 		TarotSkill(),
-		NSFWSkill(),
 		ContentSkill(),
-		ImageSkill(),
 	}
 
 	for _, skill := range skills {
