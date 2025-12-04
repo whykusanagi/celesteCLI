@@ -181,7 +181,11 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Check if it's a slash command first
 		if cmd := commands.Parse(content); cmd != nil {
-			result := commands.Execute(cmd)
+			// Create context with current state
+			ctx := &commands.CommandContext{
+				NSFWMode: m.nsfwMode,
+			}
+			result := commands.Execute(cmd, ctx)
 
 			// Show command result message if needed
 			if result.ShouldRender {

@@ -14,6 +14,11 @@ type Command struct {
 	Raw  string
 }
 
+// CommandContext provides context for command execution.
+type CommandContext struct {
+	NSFWMode bool
+}
+
 // CommandResult represents the result of executing a command.
 type CommandResult struct {
 	Success      bool
@@ -58,7 +63,11 @@ func Parse(input string) *Command {
 }
 
 // Execute executes a command and returns the result.
-func Execute(cmd *Command) *CommandResult {
+func Execute(cmd *Command, ctx *CommandContext) *CommandResult {
+	if ctx == nil {
+		ctx = &CommandContext{}
+	}
+
 	switch strings.ToLower(cmd.Name) {
 	case "nsfw":
 		return handleNSFW(cmd)
@@ -73,7 +82,7 @@ func Execute(cmd *Command) *CommandResult {
 	case "clear":
 		return handleClear(cmd)
 	case "help":
-		return handleHelp(cmd)
+		return handleHelp(cmd, ctx)
 	default:
 		return &CommandResult{
 			Success:      false,
@@ -201,8 +210,50 @@ func handleClear(cmd *Command) *CommandResult {
 }
 
 // handleHelp handles the /help command.
-func handleHelp(cmd *Command) *CommandResult {
-	helpText := `Available Commands:
+func handleHelp(cmd *Command, ctx *CommandContext) *CommandResult {
+	var helpText string
+
+	if ctx.NSFWMode {
+		// NSFW Mode Help
+		helpText = `🔥 NSFW Mode - Venice.ai Uncensored
+
+Media Generation Commands (prefix-based):
+  image: <prompt>              Generate uncensored images
+                               Model: lustify-sdxl (or animewan, hidream, wai-Illustrious)
+                               Example: image: cyberpunk cityscape at night
+
+  video: <prompt>              Generate videos from text
+                               Example: video: camera flying through neon city
+
+  upscale: <path>              Upscale existing image 2x
+                               Example: upscale: ~/photo.jpg
+
+  image-to-video: <path> <prompt>   Animate an image
+  i2v: <path> <prompt>               (shorthand)
+                               Example: i2v: ~/art.png add motion blur
+
+Chat Commands:
+  /safe                        Return to safe mode (OpenAI)
+  /clear                       Clear conversation history
+  /help                        Show this help message
+
+Current Configuration:
+  • Endpoint: Venice.ai (https://api.venice.ai/api/v1)
+  • Chat Model: venice-uncensored
+  • Image Model: lustify-sdxl
+  • Function Calling: Disabled (venice-uncensored doesn't support it)
+  • Skills: 0 available (media commands only)
+
+Available Image Models:
+  • lustify-sdxl - Default NSFW image generation
+  • animewan - Anime-style images
+  • hidream - High-quality dream-like images
+  • wai-Illustrious - Illustrious anime model
+
+Configure: Edit ~/.celeste/skills.json → venice_image_model`
+	} else {
+		// Safe Mode Help
+		helpText = `Available Commands:
 
 Mode Control:
   /nsfw              Switch to NSFW mode (Venice.ai, uncensored)
@@ -219,13 +270,21 @@ Session Control:
   /help              Show this help message
 
 Examples:
-  /nsfw              → Enable uncensored mode
+  /nsfw              → Enable uncensored mode with media generation
   /endpoint google   → Switch to Google Vertex AI
   /model gpt-4o      → Use GPT-4o model
   /safe              → Return to safe mode
 
+Skills Available: 19 function-calling tools
+  • Weather, currency, timezone conversion
+  • Hashing, encoding, UUID generation
+  • Twitch live checks, YouTube videos
+  • Reminders, notes, content generation
+  • Tarot readings
+
 Tip: You can also add keywords like "nsfw" or "uncensored" at the end
 of your message for automatic routing while staying in control.`
+	}
 
 	return &CommandResult{
 		Success:      true,
