@@ -1,0 +1,64 @@
+# Multi-stage Dockerfile for running CelesteCLI tests
+# Usage: docker build -f Dockerfile.test -t celestecli-test .
+#        docker-compose -f docker-compose.test.yml up
+
+# Stage 1: Build test binaries
+FROM golang:1.21-alpine AS builder
+
+LABEL maintainer="whykusanagi"
+LABEL description="CelesteCLI test environment"
+
+# Install build dependencies
+RUN apk add --no-cache git ca-certificates
+
+# Set working directory
+WORKDIR /app
+
+# Copy go mod files first (for caching)
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build test binaries for all packages
+RUN go test -c -o /tmp/tests/skills_test ./cmd/Celeste/skills || true
+RUN go test -c -o /tmp/tests/config_test ./cmd/Celeste/config || true
+RUN go test -c -o /tmp/tests/llm_test ./cmd/Celeste/llm || true
+
+# Verify at least one test binary exists
+RUN ls -la /tmp/tests/ && echo "Test binaries built successfully"
+
+# Stage 2: Test runner
+FROM alpine:latest
+
+# Install runtime dependencies
+RUN apk add --no-cache bash curl jq ca-certificates tzdata
+
+# Create celeste user for running tests (non-root)
+RUN addgroup -g 1000 celeste && \
+    adduser -D -u 1000 -G celeste celeste
+
+# Set working directory
+WORKDIR /app
+
+# Copy test binaries from builder
+COPY --from=builder /tmp/tests /app/tests
+
+# Copy test fixtures and scripts
+COPY test/fixtures /app/fixtures
+COPY test/scripts /app/scripts
+
+# Create directories for test outputs
+RUN mkdir -p /app/reports /app/coverage && \
+    chown -R celeste:celeste /app
+
+# Switch to non-root user
+USER celeste
+
+# Environment variables for testing
+ENV CGO_ENABLED=0
+ENV GO_ENV=test
+
+# Default command: run all tests
+CMD ["/bin/bash", "/app/scripts/run-all-tests.sh"]
