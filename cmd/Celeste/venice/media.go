@@ -44,7 +44,12 @@ func GenerateImage(config Config, prompt string, params map[string]interface{}) 
 	url := config.BaseURL + "/images/generations"
 
 	// Default parameters
-	model := "fluently-xl" // Default NSFW-capable model
+	// Use image generation model from config, or default to lustify-sdxl
+	model := config.Model
+	if model == "" || model == "venice-uncensored" {
+		// If no model specified or using chat model, default to image generation model
+		model = "lustify-sdxl"
+	}
 	if m, ok := params["model"].(string); ok {
 		model = m
 	}

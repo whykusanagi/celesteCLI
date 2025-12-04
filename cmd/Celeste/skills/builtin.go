@@ -123,10 +123,11 @@ type TarotConfig struct {
 
 // VeniceConfig holds Venice.ai configuration.
 type VeniceConfig struct {
-	APIKey   string
-	BaseURL  string
-	Model    string
-	Upscaler string
+	APIKey     string
+	BaseURL    string
+	Model      string // Chat model (venice-uncensored)
+	ImageModel string // Image generation model (lustify-sdxl, animewan, hidream, wai-Illustrious)
+	Upscaler   string
 }
 
 // WeatherConfig holds weather skill configuration.

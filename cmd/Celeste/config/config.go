@@ -27,9 +27,10 @@ type Config struct {
 	TypingSpeed    int  `json:"typing_speed"` // chars per second
 
 	// Venice.ai settings (for NSFW mode)
-	VeniceAPIKey  string `json:"venice_api_key,omitempty"`
-	VeniceBaseURL string `json:"venice_base_url,omitempty"`
-	VeniceModel   string `json:"venice_model,omitempty"`
+	VeniceAPIKey   string `json:"venice_api_key,omitempty"`
+	VeniceBaseURL  string `json:"venice_base_url,omitempty"`
+	VeniceModel    string `json:"venice_model,omitempty"`     // Chat model (venice-uncensored)
+	VeniceImageModel string `json:"venice_image_model,omitempty"` // Image model (lustify-sdxl)
 
 	// Tarot settings
 	TarotFunctionURL string `json:"tarot_function_url,omitempty"`
@@ -400,11 +401,17 @@ func (l *ConfigLoader) GetVeniceConfig() (skills.VeniceConfig, error) {
 		model = "venice-uncensored"
 	}
 
+	imageModel := l.config.VeniceImageModel
+	if imageModel == "" {
+		imageModel = "lustify-sdxl" // Default NSFW image generation model
+	}
+
 	return skills.VeniceConfig{
-		APIKey:   l.config.VeniceAPIKey,
-		BaseURL:  baseURL,
-		Model:    model,
-		Upscaler: "upscaler",
+		APIKey:     l.config.VeniceAPIKey,
+		BaseURL:    baseURL,
+		Model:      model,
+		ImageModel: imageModel,
+		Upscaler:   "upscaler",
 	}, nil
 }
 

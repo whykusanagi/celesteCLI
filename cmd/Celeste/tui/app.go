@@ -74,9 +74,10 @@ type SkillDefinition struct {
 
 // VeniceConfigData holds Venice.ai configuration from skills.json.
 type VeniceConfigData struct {
-	APIKey  string
-	BaseURL string
-	Model   string
+	APIKey     string
+	BaseURL    string
+	Model      string // Chat model
+	ImageModel string // Image generation model
 }
 
 // loadVeniceConfig loads Venice configuration from ~/.celeste/skills.json.
@@ -97,9 +98,10 @@ func loadVeniceConfig() (VeniceConfigData, error) {
 	}
 
 	return VeniceConfigData{
-		APIKey:  veniceConfig.APIKey,
-		BaseURL: veniceConfig.BaseURL,
-		Model:   veniceConfig.Model,
+		APIKey:     veniceConfig.APIKey,
+		BaseURL:    veniceConfig.BaseURL,
+		Model:      veniceConfig.Model,
+		ImageModel: veniceConfig.ImageModel,
 	}, nil
 }
 
@@ -348,10 +350,16 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 
+			// Create config with appropriate model for the media type
+			modelToUse := veniceConfig.Model // Default to chat model
+			if msg.MediaType == "image" {
+				modelToUse = veniceConfig.ImageModel // Use image generation model
+			}
+
 			config := venice.Config{
 				APIKey:  veniceConfig.APIKey,
 				BaseURL: veniceConfig.BaseURL,
-				Model:   veniceConfig.Model,
+				Model:   modelToUse,
 			}
 
 			var response *venice.MediaResponse
