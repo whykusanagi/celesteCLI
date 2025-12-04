@@ -44,6 +44,10 @@ type AppModel struct {
 
 	// LLM client (injected)
 	llmClient LLMClient
+
+	// Session persistence (optional)
+	sessionManager SessionManager
+	currentSession Session
 }
 
 // LLMClient interface for sending messages to the LLM.
@@ -51,6 +55,12 @@ type LLMClient interface {
 	SendMessage(messages []ChatMessage, tools []SkillDefinition) tea.Cmd
 	GetSkills() []SkillDefinition
 	ExecuteSkill(name string, args map[string]any, toolCallID string) tea.Cmd
+}
+
+// EndpointSwitcher interface for clients that support dynamic endpoint switching.
+type EndpointSwitcher interface {
+	SwitchEndpoint(endpoint string) error
+	ChangeModel(model string) error
 }
 
 // SkillDefinition represents a skill/function that can be called.
@@ -149,6 +159,16 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.endpoint = *result.StateChange.EndpointChange
 					m.header = m.header.SetEndpoint(m.endpoint)
 					m.status = m.status.SetText(fmt.Sprintf("Switched to %s", m.endpoint))
+
+					// Actually switch the LLM client endpoint
+					if switcher, ok := m.llmClient.(EndpointSwitcher); ok {
+						if err := switcher.SwitchEndpoint(m.endpoint); err != nil {
+							m.status = m.status.SetText(fmt.Sprintf("Error switching endpoint: %v", err))
+						}
+					}
+
+					// Persist session state
+					m.persistSession()
 				}
 				if result.StateChange.NSFWMode != nil {
 					m.nsfwMode = *result.StateChange.NSFWMode
@@ -157,12 +177,32 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if m.nsfwMode {
 						m.endpoint = "venice"
 						m.header = m.header.SetEndpoint(m.endpoint)
+
+						// Actually switch the LLM client to Venice
+						if switcher, ok := m.llmClient.(EndpointSwitcher); ok {
+							if err := switcher.SwitchEndpoint(m.endpoint); err != nil {
+								m.status = m.status.SetText(fmt.Sprintf("Error switching to Venice: %v", err))
+							}
+						}
 					}
+
+					// Persist session state
+					m.persistSession()
 				}
 				if result.StateChange.Model != nil {
 					m.model = *result.StateChange.Model
 					m.header = m.header.SetModel(m.model)
 					m.status = m.status.SetText(fmt.Sprintf("Model changed to %s", m.model))
+
+					// Actually change the model
+					if switcher, ok := m.llmClient.(EndpointSwitcher); ok {
+						if err := switcher.ChangeModel(m.model); err != nil {
+							m.status = m.status.SetText(fmt.Sprintf("Error changing model: %v", err))
+						}
+					}
+
+					// Persist session state
+					m.persistSession()
 				}
 				if result.StateChange.ClearHistory {
 					m.chat = m.chat.Clear()
@@ -206,6 +246,16 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.header = m.header.SetEndpoint(m.endpoint)
 			m.header = m.header.SetAutoRouted(true)
 			m.status = m.status.SetText(fmt.Sprintf("🔀 Auto-routed to %s", suggestedEndpoint))
+
+			// Actually switch the LLM client endpoint
+			if switcher, ok := m.llmClient.(EndpointSwitcher); ok {
+				if err := switcher.SwitchEndpoint(m.endpoint); err != nil {
+					m.status = m.status.SetText(fmt.Sprintf("Error auto-routing: %v", err))
+				}
+			}
+
+			// Persist session state
+			m.persistSession()
 		} else {
 			m.header = m.header.SetAutoRouted(false)
 		}
@@ -464,6 +514,59 @@ func (m AppModel) SetLLMClient(client LLMClient) AppModel {
 		m.skills = NewSkillsModel(client.GetSkills())
 	}
 	return m
+}
+
+// SessionManager interface for session persistence (avoid circular import).
+type SessionManager interface {
+	NewSession() Session
+	Save(session Session) error
+	Load(id string) (Session, error)
+}
+
+// Session interface for session data (avoid circular import).
+type Session interface {
+	SetEndpoint(endpoint string)
+	GetEndpoint() string
+	SetModel(model string)
+	GetModel() string
+	SetNSFWMode(enabled bool)
+	GetNSFWMode() bool
+}
+
+// SetSessionManager sets the session manager for persistence.
+func (m AppModel) SetSessionManager(sm SessionManager, session Session) AppModel {
+	m.sessionManager = sm
+	m.currentSession = session
+
+	// Restore endpoint/model from session if available
+	if session != nil {
+		if endpoint := session.GetEndpoint(); endpoint != "" {
+			m.endpoint = endpoint
+			m.header = m.header.SetEndpoint(endpoint)
+		}
+		if model := session.GetModel(); model != "" {
+			m.model = model
+			m.header = m.header.SetModel(model)
+		}
+		m.nsfwMode = session.GetNSFWMode()
+		m.header = m.header.SetNSFWMode(m.nsfwMode)
+	}
+
+	return m
+}
+
+// persistSession saves the current session state.
+func (m *AppModel) persistSession() {
+	if m.sessionManager == nil || m.currentSession == nil {
+		return
+	}
+
+	m.currentSession.SetEndpoint(m.endpoint)
+	m.currentSession.SetModel(m.model)
+	m.currentSession.SetNSFWMode(m.nsfwMode)
+
+	// Save asynchronously (ignore errors for now)
+	go m.sessionManager.Save(m.currentSession)
 }
 
 // --- Header Model ---

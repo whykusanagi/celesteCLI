@@ -53,6 +53,24 @@ func (c *Client) SetSystemPrompt(prompt string) {
 	c.systemPrompt = prompt
 }
 
+// UpdateConfig updates the client configuration and recreates the OpenAI client.
+// This allows dynamic endpoint/model switching during runtime.
+func (c *Client) UpdateConfig(config *Config) {
+	c.config = config
+
+	// Recreate OpenAI client with new config
+	clientConfig := openai.DefaultConfig(config.APIKey)
+	if config.BaseURL != "" {
+		clientConfig.BaseURL = config.BaseURL
+	}
+	c.client = openai.NewClientWithConfig(clientConfig)
+}
+
+// GetConfig returns the current configuration.
+func (c *Client) GetConfig() *Config {
+	return c.config
+}
+
 // ChatCompletionResult holds the result of a chat completion.
 type ChatCompletionResult struct {
 	Content      string

@@ -210,8 +210,9 @@ func runChatTUI() {
 
 	// Create TUI client adapter
 	tuiClient := &TUIClientAdapter{
-		client:   client,
-		registry: registry,
+		client:     client,
+		registry:   registry,
+		baseConfig: cfg,
 	}
 
 	// Initialize logging for skill calls
@@ -237,8 +238,9 @@ func runChatTUI() {
 
 // TUIClientAdapter adapts the LLM client for the TUI.
 type TUIClientAdapter struct {
-	client   *llm.Client
-	registry *skills.Registry
+	client     *llm.Client
+	registry   *skills.Registry
+	baseConfig *config.Config // Store base config for loading named configs
 }
 
 // SendMessage implements tui.LLMClient.
@@ -369,6 +371,66 @@ func (a *TUIClientAdapter) ExecuteSkill(name string, args map[string]any, toolCa
 			ToolCallID: toolCallID,
 		}
 	}
+}
+
+// SwitchEndpoint switches to a different endpoint by loading its named config.
+func (a *TUIClientAdapter) SwitchEndpoint(endpoint string) error {
+	// Try to load named config for the endpoint
+	cfg, err := config.LoadNamed(endpoint)
+	if err != nil {
+		// If named config doesn't exist, use base config with modified base URL
+		cfg = a.baseConfig
+		// Map endpoint names to base URLs
+		endpointURLs := map[string]string{
+			"openai":     "https://api.openai.com/v1",
+			"venice":     os.Getenv("VENICE_API_BASE_URL"), // From environment
+			"grok":       "https://api.x.ai/v1",
+			"elevenlabs": "https://api.elevenlabs.io/v1",
+			"google":     "https://generativelanguage.googleapis.com/v1",
+		}
+		if url, ok := endpointURLs[endpoint]; ok && url != "" {
+			cfg.BaseURL = url
+			// Use endpoint-specific API key if available
+			if endpoint == "venice" {
+				if veniceKey := os.Getenv("VENICE_API_KEY"); veniceKey != "" {
+					cfg.APIKey = veniceKey
+				}
+			}
+		}
+	}
+
+	// Update LLM client configuration
+	llmConfig := &llm.Config{
+		APIKey:            cfg.APIKey,
+		BaseURL:           cfg.BaseURL,
+		Model:             cfg.Model,
+		Timeout:           cfg.GetTimeout(),
+		SkipPersonaPrompt: cfg.SkipPersonaPrompt,
+		SimulateTyping:    cfg.SimulateTyping,
+		TypingSpeed:       cfg.TypingSpeed,
+	}
+
+	a.client.UpdateConfig(llmConfig)
+	tui.LogInfo(fmt.Sprintf("Switched endpoint to: %s (URL: %s, Model: %s)", endpoint, cfg.BaseURL, cfg.Model))
+	return nil
+}
+
+// ChangeModel changes the model for the current endpoint.
+func (a *TUIClientAdapter) ChangeModel(model string) error {
+	currentConfig := a.client.GetConfig()
+	newConfig := &llm.Config{
+		APIKey:            currentConfig.APIKey,
+		BaseURL:           currentConfig.BaseURL,
+		Model:             model,
+		Timeout:           currentConfig.Timeout,
+		SkipPersonaPrompt: currentConfig.SkipPersonaPrompt,
+		SimulateTyping:    currentConfig.SimulateTyping,
+		TypingSpeed:       currentConfig.TypingSpeed,
+	}
+
+	a.client.UpdateConfig(newConfig)
+	tui.LogInfo(fmt.Sprintf("Changed model to: %s", model))
+	return nil
 }
 
 func parseArgs(argsJSON string) map[string]any {

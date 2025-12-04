@@ -169,6 +169,54 @@ func (m *SessionManager) AddMessage(session *Session, role, content string) {
 	session.UpdatedAt = time.Now()
 }
 
+// SetEndpoint stores the current endpoint in session metadata.
+func (s *Session) SetEndpoint(endpoint string) {
+	if s.Metadata == nil {
+		s.Metadata = make(map[string]any)
+	}
+	s.Metadata["endpoint"] = endpoint
+}
+
+// GetEndpoint retrieves the endpoint from session metadata.
+func (s *Session) GetEndpoint() string {
+	if s.Metadata == nil {
+		return ""
+	}
+	if endpoint, ok := s.Metadata["endpoint"].(string); ok {
+		return endpoint
+	}
+	return ""
+}
+
+// SetModel stores the current model in session metadata.
+func (s *Session) SetModel(model string) {
+	if s.Metadata == nil {
+		s.Metadata = make(map[string]any)
+	}
+	s.Metadata["model"] = model
+}
+
+// GetModel retrieves the model from session metadata.
+func (s *Session) GetModel() string {
+	if s.Metadata == nil {
+		return ""
+	}
+	if model, ok := s.Metadata["model"].(string); ok {
+		return model
+	}
+	return ""
+}
+
+// SetNSFWMode stores the NSFW mode in session.
+func (s *Session) SetNSFWMode(enabled bool) {
+	s.NSFWMode = enabled
+}
+
+// GetNSFWMode retrieves the NSFW mode from session.
+func (s *Session) GetNSFWMode() bool {
+	return s.NSFWMode
+}
+
 // GetMessagesForLLM converts session messages to a format suitable for LLM.
 func GetMessagesForLLM(session *Session) []map[string]string {
 	var result []map[string]string
