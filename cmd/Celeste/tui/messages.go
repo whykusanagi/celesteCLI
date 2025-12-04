@@ -118,6 +118,22 @@ type ClearChatMsg struct{}
 // ExitMsg is sent to exit the application.
 type ExitMsg struct{}
 
+// GenerateMediaMsg is sent to generate media (image/video/etc) via Venice.ai.
+type GenerateMediaMsg struct {
+	MediaType string
+	Prompt    string
+	Params    map[string]interface{}
+}
+
+// MediaResultMsg is sent when media generation completes.
+type MediaResultMsg struct {
+	Success   bool
+	URL       string
+	Path      string
+	Error     string
+	MediaType string
+}
+
 // --- Commands ---
 
 // Tick returns a command that sends a tick message after a delay.

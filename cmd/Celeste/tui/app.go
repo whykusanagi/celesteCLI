@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/whykusanagi/celesteCLI/cmd/Celeste/commands"
+	"github.com/whykusanagi/celesteCLI/cmd/Celeste/config"
+	"github.com/whykusanagi/celesteCLI/cmd/Celeste/venice"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -68,6 +70,37 @@ type SkillDefinition struct {
 	Name        string         `json:"name"`
 	Description string         `json:"description"`
 	Parameters  map[string]any `json:"parameters"`
+}
+
+// VeniceConfigData holds Venice.ai configuration from skills.json.
+type VeniceConfigData struct {
+	APIKey  string
+	BaseURL string
+	Model   string
+}
+
+// loadVeniceConfig loads Venice configuration from ~/.celeste/skills.json.
+func loadVeniceConfig() (VeniceConfigData, error) {
+	// Load skills config
+	skillsConfig, err := config.LoadSkillsConfig()
+	if err != nil {
+		return VeniceConfigData{}, fmt.Errorf("failed to load skills config: %w", err)
+	}
+
+	// Create config loader
+	loader := config.NewConfigLoader(skillsConfig)
+
+	// Get Venice config via loader
+	veniceConfig, err := loader.GetVeniceConfig()
+	if err != nil {
+		return VeniceConfigData{}, err
+	}
+
+	return VeniceConfigData{
+		APIKey:  veniceConfig.APIKey,
+		BaseURL: veniceConfig.BaseURL,
+		Model:   veniceConfig.Model,
+	}, nil
 }
 
 // NewApp creates a new TUI application model.
@@ -260,6 +293,27 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.header = m.header.SetAutoRouted(false)
 		}
 
+		// Check for Venice media commands in NSFW mode
+		if m.nsfwMode {
+			mediaType, prompt, params, isMediaCmd := venice.ParseMediaCommand(content)
+			if isMediaCmd {
+				// Handle media generation directly (bypass LLM)
+				m.chat = m.chat.AddUserMessage(content)
+				m.chat = m.chat.AddAssistantMessage(fmt.Sprintf("🎨 Generating %s... please wait", mediaType))
+				m.status = m.status.SetText(fmt.Sprintf("⏳ Venice.ai %s generation in progress...", mediaType))
+
+				// Trigger async media generation
+				cmds = append(cmds, func() tea.Msg {
+					return GenerateMediaMsg{
+						MediaType: mediaType,
+						Prompt:    prompt,
+						Params:    params,
+					}
+				})
+				return m, tea.Batch(cmds...)
+			}
+		}
+
 		// Add user message to chat
 		m.chat = m.chat.AddUserMessage(content)
 		m.streaming = true
@@ -274,6 +328,96 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return TickMsg{Time: t}
 			}))
 		}
+
+	case GenerateMediaMsg:
+		// Generate media asynchronously via Venice.ai
+		cmds = append(cmds, func() tea.Msg {
+			// Load Venice config from skills.json
+			veniceConfig, err := loadVeniceConfig()
+			if err != nil {
+				return MediaResultMsg{
+					Success:   false,
+					Error:     fmt.Sprintf("Failed to load Venice config: %v", err),
+					MediaType: msg.MediaType,
+				}
+			}
+
+			config := venice.Config{
+				APIKey:  veniceConfig.APIKey,
+				BaseURL: veniceConfig.BaseURL,
+				Model:   veniceConfig.Model,
+			}
+
+			var response *venice.MediaResponse
+			var genErr error
+
+			switch msg.MediaType {
+			case "image":
+				response, genErr = venice.GenerateImage(config, msg.Prompt, msg.Params)
+			case "video":
+				response, genErr = venice.GenerateVideo(config, msg.Prompt, msg.Params)
+			case "upscale":
+				if path, ok := msg.Params["path"].(string); ok {
+					response, genErr = venice.UpscaleImage(config, path, msg.Params)
+				} else {
+					genErr = fmt.Errorf("no image path provided for upscale")
+				}
+			case "image-to-video":
+				if path, ok := msg.Params["path"].(string); ok {
+					response, genErr = venice.ImageToVideo(config, path, msg.Params)
+				} else {
+					genErr = fmt.Errorf("no image path provided for image-to-video")
+				}
+			default:
+				genErr = fmt.Errorf("unknown media type: %s", msg.MediaType)
+			}
+
+			if genErr != nil {
+				return MediaResultMsg{
+					Success:   false,
+					Error:     genErr.Error(),
+					MediaType: msg.MediaType,
+				}
+			}
+
+			if response == nil || !response.Success {
+				return MediaResultMsg{
+					Success:   false,
+					Error:     response.Error,
+					MediaType: msg.MediaType,
+				}
+			}
+
+			return MediaResultMsg{
+				Success:   true,
+				URL:       response.URL,
+				Path:      response.Path,
+				MediaType: msg.MediaType,
+			}
+		})
+
+	case MediaResultMsg:
+		// Handle media generation result
+		if msg.Success {
+			var resultText string
+			if msg.URL != "" {
+				resultText = fmt.Sprintf("✅ %s generated successfully!\n\n🔗 URL: %s", msg.MediaType, msg.URL)
+			} else if msg.Path != "" {
+				resultText = fmt.Sprintf("✅ %s generated successfully!\n\n💾 Saved to: %s", msg.MediaType, msg.Path)
+			} else {
+				resultText = fmt.Sprintf("✅ %s generated successfully!", msg.MediaType)
+			}
+
+			// Update the last assistant message with the result
+			m.chat = m.chat.SetLastAssistantContent(resultText)
+			m.status = m.status.SetText(fmt.Sprintf("✓ %s complete", msg.MediaType))
+		} else {
+			errorText := fmt.Sprintf("❌ %s generation failed: %s", msg.MediaType, msg.Error)
+			m.chat = m.chat.SetLastAssistantContent(errorText)
+			m.status = m.status.SetText(fmt.Sprintf("✗ %s failed", msg.MediaType))
+		}
+		m.streaming = false
+		m.status = m.status.SetStreaming(false)
 
 	case StreamChunkMsg:
 		m.chat = m.chat.AppendToLastAssistant(msg.Chunk.Content)
