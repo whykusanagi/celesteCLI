@@ -32,6 +32,7 @@ type StateChange struct {
 	EndpointChange *string
 	NSFWMode       *bool
 	Model          *string
+	ImageModel     *string
 	ClearHistory   bool
 }
 
@@ -77,6 +78,8 @@ func Execute(cmd *Command, ctx *CommandContext) *CommandResult {
 		return handleEndpoint(cmd)
 	case "model":
 		return handleModel(cmd)
+	case "image-model", "set-model":
+		return handleImageModel(cmd, ctx)
 	case "config":
 		return handleConfig(cmd)
 	case "clear":
@@ -95,12 +98,14 @@ func Execute(cmd *Command, ctx *CommandContext) *CommandResult {
 // handleNSFW handles the /nsfw command.
 func handleNSFW(cmd *Command) *CommandResult {
 	enabled := true
+	defaultImageModel := "lustify-sdxl"
 	return &CommandResult{
 		Success:      true,
-		Message:      "🔥 NSFW Mode Enabled\n\nSwitched to Venice.ai endpoint for uncensored content.\nAll requests will use Venice.ai until you run /safe.\n\nNote: Image generation will use uncensored models.",
+		Message:      "🔥 NSFW Mode Enabled\n\nSwitched to Venice.ai endpoint for uncensored content.\nImage Model: lustify-sdxl\n\nUse /set-model <model> to change image model.\nUse /help to see available models and commands.",
 		ShouldRender: true,
 		StateChange: &StateChange{
-			NSFWMode: &enabled,
+			NSFWMode:   &enabled,
+			ImageModel: &defaultImageModel,
 		},
 	}
 }
@@ -176,6 +181,56 @@ func handleModel(cmd *Command) *CommandResult {
 	}
 }
 
+// handleImageModel handles the /set-model command (for image generation in NSFW mode).
+func handleImageModel(cmd *Command, ctx *CommandContext) *CommandResult {
+	if !ctx.NSFWMode {
+		return &CommandResult{
+			Success:      false,
+			Message:      "⚠️  Image model can only be set in NSFW mode.\n\nUse /nsfw to enable NSFW mode first.",
+			ShouldRender: true,
+		}
+	}
+
+	if len(cmd.Args) == 0 {
+		return &CommandResult{
+			Success:      false,
+			Message:      "Usage: /set-model <model-name>\n\nAvailable models:\n  • lustify-sdxl (default NSFW)\n  • wai-Illustrious (anime)\n  • hidream (dream-like)\n  • nano-banana-pro\n  • venice-sd35 (Stable Diffusion 3.5)\n  • lustify-v7\n\nExample: /set-model wai-Illustrious\n\nOr use shortcuts: anime:, dream:, image:",
+			ShouldRender: true,
+		}
+	}
+
+	imageModel := cmd.Args[0]
+
+	// Validate model name
+	validModels := map[string]string{
+		"lustify-sdxl":      "NSFW image generation",
+		"wai-illustrious":   "Anime style",
+		"hidream":           "Dream-like quality",
+		"nano-banana-pro":   "Alternative model",
+		"venice-sd35":       "Stable Diffusion 3.5",
+		"lustify-v7":        "Lustify v7",
+		"qwen-image":        "Qwen vision model",
+	}
+
+	modelLower := strings.ToLower(imageModel)
+	if desc, ok := validModels[modelLower]; ok {
+		return &CommandResult{
+			Success:      true,
+			Message:      fmt.Sprintf("🎨 Image model changed to: %s\n%s\n\nThis will be used for all image: prompts until changed.", imageModel, desc),
+			ShouldRender: true,
+			StateChange: &StateChange{
+				ImageModel: &imageModel,
+			},
+		}
+	}
+
+	return &CommandResult{
+		Success:      false,
+		Message:      fmt.Sprintf("Unknown model: %s\n\nUse /set-model without arguments to see available models.", imageModel),
+		ShouldRender: true,
+	}
+}
+
 // handleConfig handles the /config command.
 func handleConfig(cmd *Command) *CommandResult {
 	if len(cmd.Args) == 0 {
@@ -218,7 +273,7 @@ func handleHelp(cmd *Command, ctx *CommandContext) *CommandResult {
 		helpText = `🔥 NSFW Mode - Venice.ai Uncensored
 
 Media Generation Commands:
-  image: <prompt>              Generate uncensored images (lustify-sdxl)
+  image: <prompt>              Generate images with current model
                                Example: image: cyberpunk cityscape at night
 
   anime: <prompt>              Generate anime-style images (wai-Illustrious)
@@ -227,11 +282,16 @@ Media Generation Commands:
   dream: <prompt>              High-quality dream-like images (hidream)
                                Example: dream: surreal landscape
 
-  image[model]: <prompt>       Use custom model
+  image[model]: <prompt>       Use specific model for one generation
                                Example: image[nano-banana-pro]: futuristic city
 
   upscale: <path>              Upscale and enhance existing image
                                Example: upscale: ~/photo.jpg
+
+Model Management:
+  /set-model <model>           Set default image generation model
+                               Example: /set-model wai-Illustrious
+                               Run without args to see all models
 
 Chat Commands:
   /safe                        Return to safe mode (OpenAI)
@@ -241,21 +301,30 @@ Chat Commands:
 Current Configuration:
   • Endpoint: Venice.ai (https://api.venice.ai/api/v1)
   • Chat Model: venice-uncensored (no function calling)
-  • Default Image Model: lustify-sdxl
-  • Downloads: ~/Downloads (configurable in skills.json)
-  • Image Quality: 40 steps, CFG 12.0, PNG format
+  • Image Model: Use /set-model to configure
+  • Downloads: ~/Downloads
+  • Quality: 40 steps, CFG 12.0, PNG format
 
 Available Image Models:
-  • lustify-sdxl (default) - NSFW image generation
-  • wai-Illustrious - Anime style (use "anime:" shortcut)
-  • hidream - Dream-like quality (use "dream:" shortcut)
+  • lustify-sdxl - NSFW image generation (default)
+  • wai-Illustrious - Anime style
+  • hidream - Dream-like quality
   • nano-banana-pro - Alternative model
   • venice-sd35 - Stable Diffusion 3.5
   • lustify-v7 - Lustify v7
+  • qwen-image - Qwen vision model
+
+Image Quality Parameters (defaults):
+  • Steps: 40 (1-50, higher = more detail)
+  • CFG Scale: 12.0 (0-20, higher = stronger prompt adherence)
+  • Size: 1024x1024 (up to 1280x1280)
+  • Format: PNG (lossless)
+  • Safe Mode: Disabled (no NSFW blurring)
 
 Configure downloads_dir in ~/.celeste/skills.json to change save location.
 
-Note: Video generation is not available via Venice.ai API at this time.`
+Tip: Ask the uncensored LLM to write detailed NSFW prompts, then use
+"image: [paste prompt]" to generate from that description!`
 	} else {
 		// Safe Mode Help
 		helpText = `Available Commands:

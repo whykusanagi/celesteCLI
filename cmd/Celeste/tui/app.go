@@ -28,13 +28,14 @@ type AppModel struct {
 	status StatusModel
 
 	// Application state
-	width     int
-	height    int
-	ready     bool
-	nsfwMode  bool
-	streaming bool
-	endpoint  string // Current endpoint (openai, venice, grok, etc.)
-	model     string // Current model name
+	width      int
+	height     int
+	ready      bool
+	nsfwMode   bool
+	streaming  bool
+	endpoint   string // Current endpoint (openai, venice, grok, etc.)
+	model      string // Current model name
+	imageModel string // Current image generation model (for NSFW mode)
 
 	// Simulated typing state
 	typingContent string // Full content to type
@@ -243,6 +244,14 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// Persist session state
 					m.persistSession()
 				}
+				if result.StateChange.ImageModel != nil {
+					m.imageModel = *result.StateChange.ImageModel
+					m.header = m.header.SetImageModel(m.imageModel)
+					m.status = m.status.SetText(fmt.Sprintf("🎨 Image model: %s", m.imageModel))
+
+					// Persist session state
+					m.persistSession()
+				}
 				if result.StateChange.ClearHistory {
 					m.chat = m.chat.Clear()
 				}
@@ -315,9 +324,10 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Trigger async media generation
 				cmds = append(cmds, func() tea.Msg {
 					return GenerateMediaMsg{
-						MediaType: mediaType,
-						Prompt:    prompt,
-						Params:    params,
+						MediaType:  mediaType,
+						Prompt:     prompt,
+						Params:     params,
+						ImageModel: m.imageModel, // Pass current image model from app state
 					}
 				})
 				return m, tea.Batch(cmds...)
@@ -367,7 +377,14 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Create config with appropriate model for the media type
 			modelToUse := veniceConfig.Model // Default to chat model
 			if msg.MediaType == "image" {
-				modelToUse = veniceConfig.ImageModel // Use image generation model
+				// Use app's image model if set, otherwise fall back to config
+				if msg.ImageModel != "" {
+					modelToUse = msg.ImageModel
+					LogInfo(fmt.Sprintf("Using app image model: %s", modelToUse))
+				} else {
+					modelToUse = veniceConfig.ImageModel
+					LogInfo(fmt.Sprintf("Using config image model: %s", modelToUse))
+				}
 			}
 			LogInfo(fmt.Sprintf("Using model: %s for %s generation", modelToUse, msg.MediaType))
 
@@ -782,7 +799,8 @@ type HeaderModel struct {
 	nsfwMode   bool
 	endpoint   string
 	model      string
-	autoRouted bool // Whether the last message was auto-routed
+	imageModel string // Image generation model (NSFW mode)
+	autoRouted bool   // Whether the last message was auto-routed
 }
 
 // NewHeaderModel creates a new header model.
@@ -814,6 +832,12 @@ func (m HeaderModel) SetModel(model string) HeaderModel {
 	return m
 }
 
+// SetImageModel sets the current image generation model.
+func (m HeaderModel) SetImageModel(model string) HeaderModel {
+	m.imageModel = model
+	return m
+}
+
 // SetAutoRouted sets whether auto-routing occurred.
 func (m HeaderModel) SetAutoRouted(routed bool) HeaderModel {
 	m.autoRouted = routed
@@ -828,6 +852,10 @@ func (m HeaderModel) View() string {
 	var endpointInfo string
 	if m.nsfwMode {
 		endpointInfo = NSFWStyle.Render("🔥 NSFW")
+		// Show image model if set
+		if m.imageModel != "" {
+			endpointInfo += " • " + ModelStyle.Render("img:" + m.imageModel)
+		}
 	} else if m.endpoint != "" && m.endpoint != "openai" {
 		// Show non-default endpoint
 		endpointDisplay := map[string]string{
@@ -846,8 +874,8 @@ func (m HeaderModel) View() string {
 		}
 	}
 
-	// Add model info if set
-	if m.model != "" {
+	// Add model info if set (and not in NSFW mode, as it shows chat model separately)
+	if m.model != "" && !m.nsfwMode {
 		if endpointInfo != "" {
 			endpointInfo += " • "
 		}

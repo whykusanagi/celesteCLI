@@ -120,9 +120,10 @@ type ExitMsg struct{}
 
 // GenerateMediaMsg is sent to generate media (image/video/etc) via Venice.ai.
 type GenerateMediaMsg struct {
-	MediaType string
-	Prompt    string
-	Params    map[string]interface{}
+	MediaType  string
+	Prompt     string
+	Params     map[string]interface{}
+	ImageModel string // Override image model (if set)
 }
 
 // MediaResultMsg is sent when media generation completes.
