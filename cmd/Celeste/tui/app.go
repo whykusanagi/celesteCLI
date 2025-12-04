@@ -270,7 +270,13 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status = m.status.SetText("Chat cleared")
 			return m, nil
 		case "help":
-			m.chat = m.chat.AddSystemMessage(helpText())
+			// Use context-aware /help command instead of static helpText()
+			helpCmd := &commands.Command{Name: "help"}
+			ctx := &commands.CommandContext{NSFWMode: m.nsfwMode}
+			result := commands.Execute(helpCmd, ctx)
+			if result.Success {
+				m.chat = m.chat.AddSystemMessage(result.Message)
+			}
 			return m, nil
 		case "tools", "skills", "debug":
 			// Show tools/skills debug info
