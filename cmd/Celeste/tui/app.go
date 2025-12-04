@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/whykusanagi/celesteCLI/cmd/Celeste/commands"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -30,6 +31,8 @@ type AppModel struct {
 	ready     bool
 	nsfwMode  bool
 	streaming bool
+	endpoint  string // Current endpoint (openai, venice, grok, etc.)
+	model     string // Current model name
 
 	// Simulated typing state
 	typingContent string // Full content to type
@@ -129,10 +132,48 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.status = m.status.SetWidth(m.width)
 
 	case SendMessageMsg:
-		// Handle special commands
 		content := strings.TrimSpace(msg.Content)
-		lowerContent := strings.ToLower(content)
 
+		// Check if it's a slash command first
+		if cmd := commands.Parse(content); cmd != nil {
+			result := commands.Execute(cmd)
+
+			// Show command result message if needed
+			if result.ShouldRender {
+				m.chat = m.chat.AddSystemMessage(result.Message)
+			}
+
+			// Apply state changes
+			if result.StateChange != nil {
+				if result.StateChange.EndpointChange != nil {
+					m.endpoint = *result.StateChange.EndpointChange
+					m.header = m.header.SetEndpoint(m.endpoint)
+					m.status = m.status.SetText(fmt.Sprintf("Switched to %s", m.endpoint))
+				}
+				if result.StateChange.NSFWMode != nil {
+					m.nsfwMode = *result.StateChange.NSFWMode
+					m.header = m.header.SetNSFWMode(m.nsfwMode)
+					// When NSFW mode is enabled, automatically switch to Venice
+					if m.nsfwMode {
+						m.endpoint = "venice"
+						m.header = m.header.SetEndpoint(m.endpoint)
+					}
+				}
+				if result.StateChange.Model != nil {
+					m.model = *result.StateChange.Model
+					m.header = m.header.SetModel(m.model)
+					m.status = m.status.SetText(fmt.Sprintf("Model changed to %s", m.model))
+				}
+				if result.StateChange.ClearHistory {
+					m.chat = m.chat.Clear()
+				}
+			}
+
+			return m, nil
+		}
+
+		// Handle legacy text commands (for backward compatibility)
+		lowerContent := strings.ToLower(content)
 		switch lowerContent {
 		case "exit", "quit", "q", ":q", ":quit", ":exit":
 			return m, tea.Quit
@@ -155,6 +196,18 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			debugMsg += fmt.Sprintf("\nLog file: %s", GetLogPath())
 			m.chat = m.chat.AddSystemMessage(debugMsg)
 			return m, nil
+		}
+
+		// Check for routing hints (hashtags or keywords at end)
+		suggestedEndpoint := commands.DetectRoutingHints(content)
+		if suggestedEndpoint != "" && suggestedEndpoint != m.endpoint {
+			// Auto-route based on hints
+			m.endpoint = suggestedEndpoint
+			m.header = m.header.SetEndpoint(m.endpoint)
+			m.header = m.header.SetAutoRouted(true)
+			m.status = m.status.SetText(fmt.Sprintf("🔀 Auto-routed to %s", suggestedEndpoint))
+		} else {
+			m.header = m.header.SetAutoRouted(false)
 		}
 
 		// Add user message to chat
@@ -181,15 +234,36 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case StreamDoneMsg:
 		if msg.FullContent != "" {
-			// Start simulated typing for the response
-			m.typingContent = msg.FullContent
-			m.typingPos = 0
-			m.chat = m.chat.AddAssistantMessage("") // Start with empty message
-			m.status = m.status.SetText("Typing...")
-			// Schedule first typing tick
-			cmds = append(cmds, tea.Tick(typingTickInterval, func(t time.Time) tea.Msg {
-				return TickMsg{Time: t}
-			}))
+			// Check for content policy refusal
+			if commands.IsContentPolicyRefusal(msg.FullContent) && m.endpoint != "venice" {
+				// Detected refusal - offer to switch to Venice
+				m.chat = m.chat.AddSystemMessage(
+					"⚠️  Content policy refusal detected.\n\n" +
+						"💡 Tip: Use /nsfw to switch to Venice.ai for uncensored responses,\n" +
+						"or add 'nsfw' at the end of your message for auto-routing.",
+				)
+				m.streaming = false
+				m.status = m.status.SetStreaming(false)
+				m.status = m.status.SetText("Content policy refusal - use /nsfw")
+
+				// Still show the original response
+				m.typingContent = msg.FullContent
+				m.typingPos = 0
+				m.chat = m.chat.AddAssistantMessage("")
+				cmds = append(cmds, tea.Tick(typingTickInterval, func(t time.Time) tea.Msg {
+					return TickMsg{Time: t}
+				}))
+			} else {
+				// Normal response - start simulated typing
+				m.typingContent = msg.FullContent
+				m.typingPos = 0
+				m.chat = m.chat.AddAssistantMessage("") // Start with empty message
+				m.status = m.status.SetText("Typing...")
+				// Schedule first typing tick
+				cmds = append(cmds, tea.Tick(typingTickInterval, func(t time.Time) tea.Msg {
+					return TickMsg{Time: t}
+				}))
+			}
 		} else {
 			m.streaming = false
 			m.status = m.status.SetStreaming(false)
@@ -396,13 +470,16 @@ func (m AppModel) SetLLMClient(client LLMClient) AppModel {
 
 // HeaderModel represents the header bar.
 type HeaderModel struct {
-	width    int
-	nsfwMode bool
+	width      int
+	nsfwMode   bool
+	endpoint   string
+	model      string
+	autoRouted bool // Whether the last message was auto-routed
 }
 
 // NewHeaderModel creates a new header model.
 func NewHeaderModel() HeaderModel {
-	return HeaderModel{}
+	return HeaderModel{endpoint: "openai"} // Default endpoint
 }
 
 // SetWidth sets the header width.
@@ -417,13 +494,61 @@ func (m HeaderModel) SetNSFWMode(enabled bool) HeaderModel {
 	return m
 }
 
+// SetEndpoint sets the current endpoint.
+func (m HeaderModel) SetEndpoint(endpoint string) HeaderModel {
+	m.endpoint = endpoint
+	return m
+}
+
+// SetModel sets the current model.
+func (m HeaderModel) SetModel(model string) HeaderModel {
+	m.model = model
+	return m
+}
+
+// SetAutoRouted sets whether auto-routing occurred.
+func (m HeaderModel) SetAutoRouted(routed bool) HeaderModel {
+	m.autoRouted = routed
+	return m
+}
+
 // View renders the header.
 func (m HeaderModel) View() string {
 	title := HeaderTitleStyle.Render("✨ Celeste CLI")
 
-	info := HeaderInfoStyle.Render("Press Ctrl+C to exit")
+	// Build endpoint/mode indicator
+	var endpointInfo string
 	if m.nsfwMode {
-		info = NSFWStyle.Render("[NSFW] ") + info
+		endpointInfo = NSFWStyle.Render("🔥 NSFW")
+	} else if m.endpoint != "" && m.endpoint != "openai" {
+		// Show non-default endpoint
+		endpointDisplay := map[string]string{
+			"venice":     "Venice.ai",
+			"grok":       "Grok",
+			"elevenlabs": "ElevenLabs",
+			"google":     "Google",
+		}
+		display := endpointDisplay[m.endpoint]
+		if display == "" {
+			display = m.endpoint
+		}
+		endpointInfo = EndpointStyle.Render(display)
+		if m.autoRouted {
+			endpointInfo = "🔀 " + endpointInfo
+		}
+	}
+
+	// Add model info if set
+	if m.model != "" {
+		if endpointInfo != "" {
+			endpointInfo += " • "
+		}
+		endpointInfo += ModelStyle.Render(m.model)
+	}
+
+	info := HeaderInfoStyle.Render("Press Ctrl+C to exit")
+	if endpointInfo != "" {
+		info = endpointInfo + " • " + info
 	}
 
 	// Calculate gap
@@ -498,17 +623,32 @@ func (m StatusModel) View() string {
 
 func helpText() string {
 	return `
-Commands:
-  help    - Show this help
-  clear   - Clear chat history
-  exit    - Exit the application
-  quit    - Exit the application
-  
+Slash Commands:
+  /help              - Show this help
+  /clear             - Clear chat history
+  /nsfw              - Switch to NSFW mode (Venice.ai, uncensored)
+  /safe              - Switch to safe mode (OpenAI)
+  /endpoint <name>   - Switch endpoint (openai, venice, grok, elevenlabs, google)
+  /model <name>      - Change model (e.g., gpt-4o, llama-3.3-70b)
+  /config <name>     - Load a named config profile
+
+Legacy Commands:
+  help, clear, exit, quit, tools, skills, debug
+
 Keyboard shortcuts:
   Ctrl+C     - Exit immediately
   PgUp/PgDn  - Scroll chat history
   Shift+↑/↓  - Scroll chat history
   ↑/↓        - Navigate input history
+
+Auto-Routing:
+  Add keywords at the end of your message for automatic routing:
+  • "nsfw" or "#nsfw" - Routes to Venice.ai
+  • "uncensored" - Routes to Venice.ai
+  • "explicit" - Routes to Venice.ai
+
+  Example: "Generate an image of a dragon nsfw"
+           → Automatically routes to Venice.ai
 `
 }
 

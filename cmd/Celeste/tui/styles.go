@@ -150,6 +150,15 @@ var (
 			Foreground(ColorWarning).
 			Bold(true)
 
+	// Endpoint indicator
+	EndpointStyle = lipgloss.NewStyle().
+			Foreground(ColorPurple).
+			Bold(true)
+
+	// Model indicator
+	ModelStyle = lipgloss.NewStyle().
+			Foreground(ColorTextSecondary)
+
 	// Function call display - minimal
 	FunctionCallStyle = lipgloss.NewStyle().
 				Foreground(ColorPurple).
