@@ -78,7 +78,8 @@ func TestParse(t *testing.T) {
 
 func TestExecuteNSFW(t *testing.T) {
 	cmd := &Command{Name: "nsfw"}
-	result := Execute(cmd)
+	ctx := &CommandContext{NSFWMode: false}
+	result := Execute(cmd, ctx)
 
 	assert.True(t, result.Success)
 	assert.Contains(t, result.Message, "NSFW Mode Enabled")
@@ -86,11 +87,14 @@ func TestExecuteNSFW(t *testing.T) {
 	require.NotNil(t, result.StateChange)
 	require.NotNil(t, result.StateChange.NSFWMode)
 	assert.True(t, *result.StateChange.NSFWMode)
+	require.NotNil(t, result.StateChange.ImageModel)
+	assert.Equal(t, "lustify-sdxl", *result.StateChange.ImageModel)
 }
 
 func TestExecuteSafe(t *testing.T) {
 	cmd := &Command{Name: "safe"}
-	result := Execute(cmd)
+	ctx := &CommandContext{NSFWMode: true}
+	result := Execute(cmd, ctx)
 
 	assert.True(t, result.Success)
 	assert.Contains(t, result.Message, "Safe Mode Enabled")
@@ -136,7 +140,8 @@ func TestExecuteEndpoint(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := &Command{Name: "endpoint", Args: tt.args}
-			result := Execute(cmd)
+			ctx := &CommandContext{}
+			result := Execute(cmd, ctx)
 
 			assert.Equal(t, !tt.expectError, result.Success)
 			assert.Contains(t, result.Message, tt.contains)
@@ -173,7 +178,8 @@ func TestExecuteModel(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := &Command{Name: "model", Args: tt.args}
-			result := Execute(cmd)
+			ctx := &CommandContext{}
+			result := Execute(cmd, ctx)
 
 			assert.Equal(t, !tt.expectError, result.Success)
 
@@ -188,7 +194,8 @@ func TestExecuteModel(t *testing.T) {
 
 func TestExecuteClear(t *testing.T) {
 	cmd := &Command{Name: "clear"}
-	result := Execute(cmd)
+	ctx := &CommandContext{}
+	result := Execute(cmd, ctx)
 
 	assert.True(t, result.Success)
 	assert.False(t, result.ShouldRender)
@@ -198,7 +205,8 @@ func TestExecuteClear(t *testing.T) {
 
 func TestExecuteHelp(t *testing.T) {
 	cmd := &Command{Name: "help"}
-	result := Execute(cmd)
+	ctx := &CommandContext{NSFWMode: false}
+	result := Execute(cmd, ctx)
 
 	assert.True(t, result.Success)
 	assert.True(t, result.ShouldRender)
@@ -209,7 +217,8 @@ func TestExecuteHelp(t *testing.T) {
 
 func TestExecuteUnknownCommand(t *testing.T) {
 	cmd := &Command{Name: "unknown"}
-	result := Execute(cmd)
+	ctx := &CommandContext{}
+	result := Execute(cmd, ctx)
 
 	assert.False(t, result.Success)
 	assert.Contains(t, result.Message, "Unknown command")
