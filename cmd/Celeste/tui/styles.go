@@ -4,38 +4,58 @@ package tui
 
 import "github.com/charmbracelet/lipgloss"
 
-// Corrupted Theme Colors
-// Ported from corrupted-theme/src/css/variables.css
+// Corrupted Theme Colors - Celeste Brand Identity
+// Aligned with whykusanagi.xyz corrupted voidpunk aesthetic
 var (
-	// Primary accent colors
-	ColorAccent      = lipgloss.Color("#d94f90") // Pink
+	// Primary accent colors - magenta/pink corruption
+	ColorAccent      = lipgloss.Color("#d94f90") // Pink (signature)
 	ColorAccentLight = lipgloss.Color("#e86ca8") // Light pink
 	ColorAccentDark  = lipgloss.Color("#b61b70") // Dark pink
+	ColorAccentGlow  = lipgloss.Color("#ff4da6") // Bright pink glow
 
-	// Purple gradient
-	ColorPurple      = lipgloss.Color("#8b5cf6") // Primary purple
-	ColorPurpleLight = lipgloss.Color("#a78bfa") // Light purple
-	ColorPurpleDark  = lipgloss.Color("#7c3aed") // Dark purple
+	// Purple gradient - abyss/void aesthetic
+	ColorPurple       = lipgloss.Color("#8b5cf6") // Primary purple
+	ColorPurpleLight  = lipgloss.Color("#a78bfa") // Light purple
+	ColorPurpleDark   = lipgloss.Color("#7c3aed") // Dark purple
+	ColorPurpleNeon   = lipgloss.Color("#c084fc") // Neon purple
+	ColorPurpleDeep   = lipgloss.Color("#6b21a8") // Deep void purple
 
-	// Background colors
-	ColorBg          = lipgloss.Color("#0a0a0a") // Main background
-	ColorBgSecondary = lipgloss.Color("#0f0f1a") // Secondary bg
-	ColorBgTertiary  = lipgloss.Color("#1a1a2e") // Tertiary bg
+	// Cyan/blue accents - digital/glitch
+	ColorCyan       = lipgloss.Color("#00d4ff") // Bright cyan
+	ColorCyanLight  = lipgloss.Color("#67e8f9") // Light cyan
+	ColorBlueNeon   = lipgloss.Color("#3b82f6") // Neon blue
 
-	// Text colors
-	ColorText          = lipgloss.Color("#f5f1f8") // Primary text
+	// Background colors - deep void
+	ColorBg           = lipgloss.Color("#0a0a0a") // Main background
+	ColorBgSecondary  = lipgloss.Color("#0f0f1a") // Secondary bg
+	ColorBgTertiary   = lipgloss.Color("#1a1a2e") // Tertiary bg
+	ColorBgGlass      = lipgloss.Color("#1a1a2e") // Glassmorphic layer
+	ColorBgOverlay    = lipgloss.Color("#0f0f1a") // Overlay
+
+	// Text colors - high contrast
+	ColorText          = lipgloss.Color("#f5f1f8") // Primary text (bright)
 	ColorTextSecondary = lipgloss.Color("#b8afc8") // Secondary text
 	ColorTextMuted     = lipgloss.Color("#7a7085") // Muted text
+	ColorTextGlow      = lipgloss.Color("#ffffff") // Glowing text
 
-	// Border colors
-	ColorBorder      = lipgloss.Color("#3a2555") // Primary border
-	ColorBorderLight = lipgloss.Color("#5a4575") // Light border
+	// Border colors - glassmorphic gradients
+	ColorBorder        = lipgloss.Color("#3a2555") // Primary border
+	ColorBorderLight   = lipgloss.Color("#5a4575") // Light border
+	ColorBorderGlow    = lipgloss.Color("#d94f90") // Glowing border
+	ColorBorderPurple  = lipgloss.Color("#8b5cf6") // Purple border
+	ColorBorderCyan    = lipgloss.Color("#00d4ff") // Cyan border
 
 	// Status colors
 	ColorSuccess = lipgloss.Color("#22c55e") // Green
 	ColorError   = lipgloss.Color("#ef4444") // Red
 	ColorWarning = lipgloss.Color("#eab308") // Yellow
 	ColorInfo    = lipgloss.Color("#06b6d4") // Cyan
+
+	// Corruption/glitch colors
+	ColorCorrupt1 = lipgloss.Color("#ff4757") // Red corruption
+	ColorCorrupt2 = lipgloss.Color("#ff6b9d") // Pink corruption
+	ColorCorrupt3 = lipgloss.Color("#c084fc") // Purple corruption
+	ColorCorrupt4 = lipgloss.Color("#00d4ff") // Cyan glitch
 )
 
 // Base styles - reusable building blocks
@@ -68,72 +88,92 @@ var (
 			Foreground(ColorPurple)
 )
 
-// Component-specific styles
+// Component-specific styles with glassmorphism
 var (
-	// Header styles - minimal, no border
+	// Header styles - glassmorphic bar with gradient accent
 	HeaderStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(ColorAccent).
-			Background(ColorBgSecondary)
+			Foreground(ColorText).
+			Background(ColorBgGlass).
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderBottom(true).
+			BorderForeground(ColorBorderGlow).
+			Padding(0, 1)
 
 	HeaderTitleStyle = lipgloss.NewStyle().
-				Foreground(ColorAccent).
+				Foreground(ColorAccentGlow).
 				Bold(true)
 
 	HeaderInfoStyle = lipgloss.NewStyle().
-			Foreground(ColorTextMuted)
+			Foreground(ColorTextSecondary)
 
 	// Chat panel styles - no border, just padding
 	ChatPanelStyle = lipgloss.NewStyle().
 			Padding(0, 1)
 
-	// Message styles
+	// Message styles - enhanced with glow effects
 	UserMessageStyle = lipgloss.NewStyle().
-				Foreground(ColorTextSecondary)
+				Foreground(ColorCyanLight).
+				Bold(false)
 
 	AssistantMessageStyle = lipgloss.NewStyle().
-				Foreground(ColorAccentLight)
+				Foreground(ColorAccentGlow)
 
 	SystemMessageStyle = lipgloss.NewStyle().
-				Foreground(ColorPurple).
+				Foreground(ColorPurpleNeon).
 				Italic(true)
 
 	TimestampStyle = lipgloss.NewStyle().
 			Foreground(ColorTextMuted).
 			Width(6)
 
-	// Input panel styles - simple top border
+	// Input panel styles - glassmorphic with gradient border
 	InputPanelStyle = lipgloss.NewStyle().
-			Foreground(ColorText)
+			Foreground(ColorText).
+			Background(ColorBgGlass).
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderTop(true).
+			BorderForeground(ColorBorderPurple).
+			Padding(0, 1)
 
 	InputPromptStyle = lipgloss.NewStyle().
-				Foreground(ColorAccent).
+				Foreground(ColorAccentGlow).
 				Bold(true)
 
 	InputTextStyle = lipgloss.NewStyle().
-			Foreground(ColorText)
+			Foreground(ColorTextGlow)
 
 	InputPlaceholderStyle = lipgloss.NewStyle().
-				Foreground(ColorTextMuted)
+				Foreground(ColorTextMuted).
+				Italic(true)
 
-	// Skills panel styles - minimal
+	// Skills panel styles - enhanced with glassmorphism
 	SkillsPanelStyle = lipgloss.NewStyle().
-				Foreground(ColorTextMuted)
+				Foreground(ColorTextMuted).
+				Background(ColorBgGlass).
+				BorderStyle(lipgloss.RoundedBorder()).
+				BorderForeground(ColorBorderLight).
+				Padding(1, 2).
+				MarginTop(1)
 
 	SkillNameStyle = lipgloss.NewStyle().
-			Foreground(ColorAccent)
+			Foreground(ColorAccentGlow).
+			Bold(true)
 
 	SkillDescStyle = lipgloss.NewStyle().
-			Foreground(ColorTextMuted)
+			Foreground(ColorTextSecondary)
 
 	SkillExecutingStyle = lipgloss.NewStyle().
-				Foreground(ColorWarning)
+				Foreground(ColorWarning).
+				Bold(true)
 
 	SkillCompletedStyle = lipgloss.NewStyle().
-				Foreground(ColorSuccess)
+				Foreground(ColorSuccess).
+				Bold(true)
 
 	SkillErrorStyle = lipgloss.NewStyle().
-			Foreground(ColorError)
+			Foreground(ColorError).
+			Bold(true)
 
 	// Status bar styles - minimal
 	StatusBarStyle = lipgloss.NewStyle().
@@ -145,19 +185,21 @@ var (
 	StatusStreamingStyle = lipgloss.NewStyle().
 				Foreground(ColorWarning)
 
-	// NSFW indicator
+	// NSFW indicator - bold glowing effect
 	NSFWStyle = lipgloss.NewStyle().
-			Foreground(ColorWarning).
-			Bold(true)
+			Foreground(ColorCorrupt1).
+			Background(ColorBgTertiary).
+			Bold(true).
+			Padding(0, 1)
 
-	// Endpoint indicator
+	// Endpoint indicator - purple neon
 	EndpointStyle = lipgloss.NewStyle().
-			Foreground(ColorPurple).
+			Foreground(ColorPurpleNeon).
 			Bold(true)
 
-	// Model indicator
+	// Model indicator - cyan glow
 	ModelStyle = lipgloss.NewStyle().
-			Foreground(ColorTextSecondary)
+			Foreground(ColorCyanLight)
 
 	// Function call display - minimal
 	FunctionCallStyle = lipgloss.NewStyle().
@@ -227,13 +269,77 @@ func RenderHeader(title, info string, width int) string {
 	titleRendered := HeaderTitleStyle.Render(title)
 	infoRendered := HeaderInfoStyle.Render(info)
 
-	// Calculate spacing
+	// Calculate spacing with separator
 	gap := width - lipgloss.Width(titleRendered) - lipgloss.Width(infoRendered) - 4
 	if gap < 1 {
 		gap = 1
 	}
 
+	// Create separator with corruption aesthetic
+	separator := lipgloss.NewStyle().
+		Foreground(ColorBorderGlow).
+		Render(lipgloss.NewStyle().Width(gap).Render("─"))
+
 	return HeaderStyle.Width(width).Render(
-		titleRendered + lipgloss.NewStyle().Width(gap).Render("") + infoRendered,
+		titleRendered + separator + infoRendered,
 	)
+}
+
+// RenderGlassmorphicBox creates a glassmorphic bordered box with gradient accent.
+func RenderGlassmorphicBox(content string, width int, borderColor lipgloss.Color) string {
+	return lipgloss.NewStyle().
+		Width(width).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(borderColor).
+		Background(ColorBgGlass).
+		Padding(1, 2).
+		Render(content)
+}
+
+// RenderGlowText adds a glowing effect to text with secondary color.
+func RenderGlowText(text string, primaryColor, glowColor lipgloss.Color) string {
+	// Simulate glow by rendering text twice with different colors
+	// Terminal can't do real glow, but we can suggest it with color choice
+	return lipgloss.NewStyle().
+		Foreground(primaryColor).
+		Bold(true).
+		Render(text)
+}
+
+// RenderCorruptedBorder creates a border with corruption effects.
+func RenderCorruptedBorder(content string, width int, frame int) string {
+	// Cycle through border colors for animation effect
+	borderColors := []lipgloss.Color{
+		ColorBorderGlow,
+		ColorBorderPurple,
+		ColorBorderCyan,
+		ColorBorderGlow,
+	}
+	borderColor := borderColors[frame%len(borderColors)]
+
+	return lipgloss.NewStyle().
+		Width(width).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(borderColor).
+		Background(ColorBgGlass).
+		Padding(1, 2).
+		Render(content)
+}
+
+// RenderNeonText renders text with neon glow effect.
+func RenderNeonText(text string, neonColor lipgloss.Color) string {
+	return lipgloss.NewStyle().
+		Foreground(neonColor).
+		Bold(true).
+		Render(text)
+}
+
+// RenderStatusBadge creates a styled status badge with glassmorphic bg.
+func RenderStatusBadge(text string, statusColor lipgloss.Color) string {
+	return lipgloss.NewStyle().
+		Foreground(statusColor).
+		Background(ColorBgTertiary).
+		Bold(true).
+		Padding(0, 1).
+		Render(text)
 }
