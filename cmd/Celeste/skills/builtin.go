@@ -27,7 +27,6 @@ import (
 func RegisterBuiltinSkills(registry *Registry, configLoader ConfigLoader) {
 	// Register skill definitions
 	registry.RegisterSkill(TarotSkill())
-	registry.RegisterSkill(ContentSkill())
 	registry.RegisterSkill(WeatherSkill())
 	registry.RegisterSkill(UnitConverterSkill())
 	registry.RegisterSkill(TimezoneConverterSkill())
@@ -49,9 +48,6 @@ func RegisterBuiltinSkills(registry *Registry, configLoader ConfigLoader) {
 	// Register handlers
 	registry.RegisterHandler("tarot_reading", func(args map[string]interface{}) (interface{}, error) {
 		return TarotHandler(args, configLoader)
-	})
-	registry.RegisterHandler("generate_content", func(args map[string]interface{}) (interface{}, error) {
-		return ContentHandler(args)
 	})
 	registry.RegisterHandler("get_weather", func(args map[string]interface{}) (interface{}, error) {
 		return WeatherHandler(args, configLoader)
@@ -223,39 +219,6 @@ func TarotSkill() Skill {
 				},
 			},
 			"required": []string{"spread_type"},
-		},
-	}
-}
-
-
-// ContentSkill returns the content generation skill definition.
-func ContentSkill() Skill {
-	return Skill{
-		Name:        "generate_content",
-		Description: "Generate content for various platforms (Twitter, TikTok, YouTube, Discord) with specific format and tone",
-		Parameters: map[string]interface{}{
-			"type": "object",
-			"properties": map[string]interface{}{
-				"platform": map[string]interface{}{
-					"type":        "string",
-					"enum":        []string{"twitter", "tiktok", "youtube", "discord"},
-					"description": "Target platform for the content",
-				},
-				"format": map[string]interface{}{
-					"type":        "string",
-					"enum":        []string{"short", "long", "general"},
-					"description": "Content length: short (280 chars), long (5000 chars), general (flexible)",
-				},
-				"tone": map[string]interface{}{
-					"type":        "string",
-					"description": "Tone/style for the content (e.g., teasing, cute, dramatic, funny)",
-				},
-				"topic": map[string]interface{}{
-					"type":        "string",
-					"description": "Topic or subject for the content",
-				},
-			},
-			"required": []string{"platform", "topic"},
 		},
 	}
 }
@@ -750,47 +713,6 @@ func TarotHandler(args map[string]interface{}, configLoader ConfigLoader) (inter
 
 	return result, nil
 }
-
-
-// ContentHandler generates content for platforms.
-func ContentHandler(args map[string]interface{}) (interface{}, error) {
-	platform := "twitter"
-	if p, ok := args["platform"].(string); ok {
-		platform = p
-	}
-
-	format := "short"
-	if f, ok := args["format"].(string); ok {
-		format = f
-	}
-
-	tone := "teasing"
-	if t, ok := args["tone"].(string); ok {
-		tone = t
-	}
-
-	topic := ""
-	if t, ok := args["topic"].(string); ok {
-		topic = t
-	}
-
-	// Build content generation prompt
-	prompt := fmt.Sprintf(`Generate %s content for %s.
-Topic: %s
-Tone: %s
-Format: %s length`, platform, platform, topic, tone, format)
-
-	return map[string]interface{}{
-		"success":  true,
-		"prompt":   prompt,
-		"platform": platform,
-		"format":   format,
-		"tone":     tone,
-		"topic":    topic,
-		"message":  "Content parameters configured. Ready for generation.",
-	}, nil
-}
-
 
 // WeatherHandler gets weather forecast for a location.
 func WeatherHandler(args map[string]interface{}, configLoader ConfigLoader) (interface{}, error) {
@@ -2278,7 +2200,6 @@ func CreateDefaultSkillFiles() error {
 
 	skills := []Skill{
 		TarotSkill(),
-		ContentSkill(),
 	}
 
 	for _, skill := range skills {

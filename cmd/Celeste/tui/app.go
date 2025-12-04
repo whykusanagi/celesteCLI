@@ -301,9 +301,13 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Check for Venice media commands in NSFW mode
 		if m.nsfwMode {
+			LogInfo(fmt.Sprintf("Checking for media command in: '%s'", content))
 			mediaType, prompt, params, isMediaCmd := venice.ParseMediaCommand(content)
+			LogInfo(fmt.Sprintf("ParseMediaCommand result: isMediaCmd=%v, mediaType=%s, prompt='%s'", isMediaCmd, mediaType, prompt))
+
 			if isMediaCmd {
 				// Handle media generation directly (bypass LLM)
+				LogInfo(fmt.Sprintf("✓ Detected %s media command, bypassing LLM", mediaType))
 				m.chat = m.chat.AddUserMessage(content)
 				m.chat = m.chat.AddAssistantMessage(fmt.Sprintf("🎨 Generating %s... please wait", mediaType))
 				m.status = m.status.SetText(fmt.Sprintf("⏳ Venice.ai %s generation in progress...", mediaType))
@@ -317,6 +321,8 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				})
 				return m, tea.Batch(cmds...)
+			} else {
+				LogInfo("No media command detected, sending to LLM chat")
 			}
 		}
 
@@ -343,22 +349,27 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case GenerateMediaMsg:
 		// Generate media asynchronously via Venice.ai
+		LogInfo(fmt.Sprintf("→ Starting %s generation with prompt: '%s'", msg.MediaType, msg.Prompt))
 		cmds = append(cmds, func() tea.Msg {
 			// Load Venice config from skills.json
+			LogInfo("Loading Venice config from skills.json")
 			veniceConfig, err := loadVeniceConfig()
 			if err != nil {
+				LogInfo(fmt.Sprintf("❌ Failed to load Venice config: %v", err))
 				return MediaResultMsg{
 					Success:   false,
 					Error:     fmt.Sprintf("Failed to load Venice config: %v", err),
 					MediaType: msg.MediaType,
 				}
 			}
+			LogInfo(fmt.Sprintf("✓ Loaded Venice config: baseURL=%s, imageModel=%s", veniceConfig.BaseURL, veniceConfig.ImageModel))
 
 			// Create config with appropriate model for the media type
 			modelToUse := veniceConfig.Model // Default to chat model
 			if msg.MediaType == "image" {
 				modelToUse = veniceConfig.ImageModel // Use image generation model
 			}
+			LogInfo(fmt.Sprintf("Using model: %s for %s generation", modelToUse, msg.MediaType))
 
 			config := venice.Config{
 				APIKey:  veniceConfig.APIKey,
@@ -369,6 +380,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			var response *venice.MediaResponse
 			var genErr error
 
+			LogInfo(fmt.Sprintf("Calling Venice.ai API for %s generation", msg.MediaType))
 			switch msg.MediaType {
 			case "image":
 				response, genErr = venice.GenerateImage(config, msg.Prompt, msg.Params)
@@ -391,6 +403,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			if genErr != nil {
+				LogInfo(fmt.Sprintf("❌ Media generation error: %v", genErr))
 				return MediaResultMsg{
 					Success:   false,
 					Error:     genErr.Error(),
@@ -398,7 +411,17 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 
-			if response == nil || !response.Success {
+			if response == nil {
+				LogInfo("❌ Response is nil")
+				return MediaResultMsg{
+					Success:   false,
+					Error:     "No response from Venice API",
+					MediaType: msg.MediaType,
+				}
+			}
+
+			if !response.Success {
+				LogInfo(fmt.Sprintf("❌ Response failed: %s", response.Error))
 				return MediaResultMsg{
 					Success:   false,
 					Error:     response.Error,
@@ -406,6 +429,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 
+			LogInfo(fmt.Sprintf("✓ Media generation successful: URL=%s, Path=%s", response.URL, response.Path))
 			return MediaResultMsg{
 				Success:   true,
 				URL:       response.URL,
@@ -416,13 +440,17 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case MediaResultMsg:
 		// Handle media generation result
+		LogInfo(fmt.Sprintf("Received MediaResultMsg: success=%v, mediaType=%s", msg.Success, msg.MediaType))
 		if msg.Success {
 			var resultText string
 			if msg.URL != "" {
+				LogInfo(fmt.Sprintf("✓ Media generation SUCCESS: URL=%s", msg.URL))
 				resultText = fmt.Sprintf("✅ %s generated successfully!\n\n🔗 URL: %s", msg.MediaType, msg.URL)
 			} else if msg.Path != "" {
+				LogInfo(fmt.Sprintf("✓ Media generation SUCCESS: Path=%s", msg.Path))
 				resultText = fmt.Sprintf("✅ %s generated successfully!\n\n💾 Saved to: %s", msg.MediaType, msg.Path)
 			} else {
+				LogInfo("✓ Media generation SUCCESS (no URL/Path)")
 				resultText = fmt.Sprintf("✅ %s generated successfully!", msg.MediaType)
 			}
 
@@ -430,6 +458,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.chat = m.chat.SetLastAssistantContent(resultText)
 			m.status = m.status.SetText(fmt.Sprintf("✓ %s complete", msg.MediaType))
 		} else {
+			LogInfo(fmt.Sprintf("✗ Media generation FAILED: %s", msg.Error))
 			errorText := fmt.Sprintf("❌ %s generation failed: %s", msg.MediaType, msg.Error)
 			m.chat = m.chat.SetLastAssistantContent(errorText)
 			m.status = m.status.SetText(fmt.Sprintf("✗ %s failed", msg.MediaType))

@@ -452,6 +452,7 @@ func saveBase64Image(b64 string, prefix string) (string, error) {
 // Returns (type, prompt, params, isMediaCommand)
 func ParseMediaCommand(message string) (string, string, map[string]interface{}, bool) {
 	message = strings.TrimSpace(message)
+	lowerMsg := strings.ToLower(message)
 
 	// Check for media prefixes
 	prefixes := map[string]string{
@@ -463,7 +464,7 @@ func ParseMediaCommand(message string) (string, string, map[string]interface{}, 
 	}
 
 	for prefix, mediaType := range prefixes {
-		if strings.HasPrefix(strings.ToLower(message), prefix) {
+		if strings.HasPrefix(lowerMsg, prefix) {
 			// Extract prompt/path after prefix
 			content := strings.TrimSpace(message[len(prefix):])
 			params := make(map[string]interface{})

@@ -275,12 +275,12 @@ Examples:
   /model gpt-4o      → Use GPT-4o model
   /safe              → Return to safe mode
 
-Skills Available: 19 function-calling tools
+Skills Available: 18 function-calling tools
   • Weather, currency, timezone conversion
   • Hashing, encoding, UUID generation
   • Twitch live checks, YouTube videos
-  • Reminders, notes, content generation
-  • Tarot readings
+  • Reminders, notes, tarot readings
+  • QR codes, passwords
 
 Tip: You can also add keywords like "nsfw" or "uncensored" at the end
 of your message for automatic routing while staying in control.`
