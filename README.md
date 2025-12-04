@@ -535,6 +535,113 @@ celeste help
 celeste --help
 ```
 
+### 🔥 NSFW Mode (Venice.ai Integration)
+
+NSFW mode provides uncensored chat and NSFW image generation via Venice.ai:
+
+**Activating NSFW Mode:**
+```bash
+# In chat, type:
+/nsfw
+
+# Header will show: 🔥 NSFW • img:lustify-sdxl
+```
+
+**Image Generation Commands:**
+
+```bash
+# Generate with default model (lustify-sdxl)
+image: cyberpunk cityscape at night
+
+# Generate anime-style images
+anime: magical girl with sword
+
+# Generate dream-like images
+dream: surreal cosmic landscape
+
+# Use specific model for one generation
+image[venice-sd35]: photorealistic portrait
+
+# Upscale existing image
+upscale: ~/path/to/image.jpg
+```
+
+**Model Management:**
+
+```bash
+# Set default image model
+/set-model wai-Illustrious
+
+# View available models
+/set-model
+
+# Models available:
+# - lustify-sdxl (default NSFW)
+# - wai-Illustrious (anime style)
+# - hidream (dream-like quality)
+# - nano-banana-pro
+# - venice-sd35 (Stable Diffusion 3.5)
+# - lustify-v7
+# - qwen-image
+```
+
+**Image Quality Settings:**
+
+All images generate with high-quality defaults:
+- **Steps**: 40 (1-50, higher = more detail)
+- **CFG Scale**: 12.0 (0-20, higher = stronger prompt adherence)
+- **Size**: 1024x1024 (up to 1280x1280)
+- **Format**: PNG (lossless)
+- **Safe Mode**: Disabled (no NSFW blurring)
+
+**Download Location:**
+
+Images save to `~/Downloads` by default. Customize in `~/.celeste/skills.json`:
+
+```json
+{
+  "downloads_dir": "~/Pictures"
+}
+```
+
+**LLM Prompt Chaining:**
+
+Ask the uncensored LLM to write prompts for you:
+
+```
+You: Write a detailed NSFW anime scene description
+Celeste: [Generates detailed prompt]
+You: image: [paste Celeste's prompt]
+Celeste: *generates image from AI-written prompt*
+```
+
+**Returning to Safe Mode:**
+
+```bash
+/safe
+# Returns to OpenAI endpoint with skills enabled
+```
+
+**Configuration:**
+
+Add Venice.ai API key to `~/.celeste/skills.json`:
+
+```json
+{
+  "venice_api_key": "your-venice-api-key",
+  "venice_base_url": "https://api.venice.ai/api/v1",
+  "venice_model": "venice-uncensored",
+  "venice_image_model": "lustify-sdxl",
+  "downloads_dir": "~/Downloads"
+}
+```
+
+**Limitations:**
+
+- Function calling disabled in NSFW mode (Venice uncensored doesn't support it)
+- Skills are unavailable (use /safe to re-enable)
+- Video generation not available (Venice API limitation)
+
 ---
 
 ## 🏗️ Architecture
