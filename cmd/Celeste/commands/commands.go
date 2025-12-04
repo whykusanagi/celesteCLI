@@ -222,15 +222,8 @@ Media Generation Commands (prefix-based):
                                Model: lustify-sdxl (or animewan, hidream, wai-Illustrious)
                                Example: image: cyberpunk cityscape at night
 
-  video: <prompt>              Generate videos from text
-                               Example: video: camera flying through neon city
-
-  upscale: <path>              Upscale existing image 2x
+  upscale: <path>              Upscale and enhance existing image
                                Example: upscale: ~/photo.jpg
-
-  image-to-video: <path> <prompt>   Animate an image
-  i2v: <path> <prompt>               (shorthand)
-                               Example: i2v: ~/art.png add motion blur
 
 Chat Commands:
   /safe                        Return to safe mode (OpenAI)
@@ -250,7 +243,9 @@ Available Image Models:
   • hidream - High-quality dream-like images
   • wai-Illustrious - Illustrious anime model
 
-Configure: Edit ~/.celeste/skills.json → venice_image_model`
+Configure: Edit ~/.celeste/skills.json → venice_image_model
+
+Note: Video generation is not available via Venice.ai API at this time.`
 	} else {
 		// Safe Mode Help
 		helpText = `Available Commands:

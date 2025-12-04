@@ -41,7 +41,8 @@ type MediaResponse struct {
 
 // GenerateImage generates an image using Venice.ai.
 func GenerateImage(config Config, prompt string, params map[string]interface{}) (*MediaResponse, error) {
-	url := config.BaseURL + "/images/generations"
+	// Use Venice's full-featured image generation endpoint
+	url := config.BaseURL + "/image/generate"
 
 	// Default parameters
 	// Use image generation model from config, or default to lustify-sdxl
@@ -54,6 +55,7 @@ func GenerateImage(config Config, prompt string, params map[string]interface{}) 
 		model = m
 	}
 
+	// Width and height (1-1280, default 1024)
 	width := 1024
 	if w, ok := params["width"].(int); ok {
 		width = w
@@ -64,18 +66,50 @@ func GenerateImage(config Config, prompt string, params map[string]interface{}) 
 		height = h
 	}
 
-	steps := 30
+	// Steps (1-50, default 20)
+	steps := 20
 	if s, ok := params["steps"].(int); ok {
 		steps = s
 	}
 
-	// Build request payload
+	// CFG scale (0 < value <= 20, default 7.5)
+	cfgScale := 7.5
+	if cfg, ok := params["cfg_scale"].(float64); ok {
+		cfgScale = cfg
+	}
+
+	// Number of variants (1-4, default 1)
+	variants := 1
+	if v, ok := params["variants"].(int); ok {
+		variants = v
+	}
+
+	// Output format (jpeg, png, webp - default webp)
+	format := "webp"
+	if f, ok := params["format"].(string); ok {
+		format = f
+	}
+
+	// Build request payload according to Venice /image/generate API
 	payload := map[string]interface{}{
-		"model":  model,
-		"prompt": prompt,
-		"width":  width,
-		"height": height,
-		"steps":  steps,
+		"model":     model,
+		"prompt":    prompt,
+		"width":     width,
+		"height":    height,
+		"steps":     steps,
+		"cfg_scale": cfgScale,
+		"variants":  variants,
+		"format":    format,
+	}
+
+	// Optional: negative prompt
+	if negPrompt, ok := params["negative_prompt"].(string); ok && negPrompt != "" {
+		payload["negative_prompt"] = negPrompt
+	}
+
+	// Optional: seed for reproducibility
+	if seed, ok := params["seed"].(int); ok {
+		payload["seed"] = seed
 	}
 
 	payloadBytes, err := json.Marshal(payload)
@@ -111,36 +145,26 @@ func GenerateImage(config Config, prompt string, params map[string]interface{}) 
 		}, nil
 	}
 
-	// Parse response
+	// Parse response - Venice /image/generate returns {"id": "...", "images": ["base64..."]}
 	var result map[string]interface{}
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	// Extract image URL or base64
-	if data, ok := result["data"].([]interface{}); ok && len(data) > 0 {
-		if img, ok := data[0].(map[string]interface{}); ok {
-			// Check for URL
-			if imageURL, ok := img["url"].(string); ok {
-				return &MediaResponse{
-					Success:   true,
-					URL:       imageURL,
-					MediaType: "image",
-				}, nil
+	// Extract base64 images from response
+	if images, ok := result["images"].([]interface{}); ok && len(images) > 0 {
+		// Venice returns base64 strings directly in the images array
+		if b64, ok := images[0].(string); ok {
+			// Save to file
+			path, err := saveBase64Image(b64, "image")
+			if err != nil {
+				return nil, fmt.Errorf("failed to save image: %w", err)
 			}
-			// Check for base64
-			if b64, ok := img["b64_json"].(string); ok {
-				// Save to file
-				path, err := saveBase64Image(b64, "image")
-				if err != nil {
-					return nil, fmt.Errorf("failed to save image: %w", err)
-				}
-				return &MediaResponse{
-					Success:   true,
-					Path:      path,
-					MediaType: "image",
-				}, nil
-			}
+			return &MediaResponse{
+				Success:   true,
+				Path:      path,
+				MediaType: "image",
+			}, nil
 		}
 	}
 
@@ -153,7 +177,7 @@ func GenerateImage(config Config, prompt string, params map[string]interface{}) 
 
 // UpscaleImage upscales an image using Venice.ai.
 func UpscaleImage(config Config, imagePath string, params map[string]interface{}) (*MediaResponse, error) {
-	url := config.BaseURL + "/images/upscale"
+	url := config.BaseURL + "/image/upscale"
 
 	// Read image file
 	imageData, err := os.ReadFile(imagePath)
@@ -454,13 +478,10 @@ func ParseMediaCommand(message string) (string, string, map[string]interface{}, 
 	message = strings.TrimSpace(message)
 	lowerMsg := strings.ToLower(message)
 
-	// Check for media prefixes
+	// Check for media prefixes (only image and upscale are currently available)
 	prefixes := map[string]string{
-		"image:":          "image",
-		"video:":          "video",
-		"upscale:":        "upscale",
-		"image-to-video:": "image-to-video",
-		"i2v:":            "image-to-video",
+		"image:":   "image",
+		"upscale:": "upscale",
 	}
 
 	for prefix, mediaType := range prefixes {
@@ -469,13 +490,13 @@ func ParseMediaCommand(message string) (string, string, map[string]interface{}, 
 			content := strings.TrimSpace(message[len(prefix):])
 			params := make(map[string]interface{})
 
-			// For upscale and i2v, first word is file path
-			if mediaType == "upscale" || mediaType == "image-to-video" {
+			// For upscale, first word is file path
+			if mediaType == "upscale" {
 				parts := strings.SplitN(content, " ", 2)
 				if len(parts) > 0 {
 					params["path"] = parts[0]
 					if len(parts) > 1 {
-						content = parts[1] // Rest is additional prompt/params
+						content = parts[1] // Rest is additional params
 					} else {
 						content = ""
 					}
