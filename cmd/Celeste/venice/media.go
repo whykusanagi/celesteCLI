@@ -67,9 +67,24 @@ func GenerateImage(config Config, prompt string, params map[string]interface{}) 
 	}
 
 	// Steps (1-50, default 40 for high quality)
+	// Note: Some models have lower limits (e.g., wai-Illustrious max is 30)
 	steps := 40
 	if s, ok := params["steps"].(int); ok {
 		steps = s
+	}
+
+	// Apply model-specific step limits to prevent API errors
+	modelStepLimits := map[string]int{
+		"wai-Illustrious": 30,
+		"hidream":         30,
+		"nano-banana-pro": 30,
+		"qwen-image":      30,
+	}
+
+	if maxSteps, hasLimit := modelStepLimits[model]; hasLimit {
+		if steps > maxSteps {
+			steps = maxSteps
+		}
 	}
 
 	// CFG scale (0 < value <= 20, default 12 for strong prompt adherence)
@@ -512,6 +527,7 @@ func ParseMediaCommand(message string) (string, string, map[string]interface{}, 
 		content := strings.TrimSpace(message[6:])
 		params := map[string]interface{}{
 			"model": "wai-Illustrious", // Anime model
+			"steps": 30,                 // wai-Illustrious max steps is 30
 		}
 		return "image", content, params, true
 	}
@@ -521,6 +537,7 @@ func ParseMediaCommand(message string) (string, string, map[string]interface{}, 
 		content := strings.TrimSpace(message[6:])
 		params := map[string]interface{}{
 			"model": "hidream", // High quality dream-like images
+			"steps": 30,        // hidream max steps is 30
 		}
 		return "image", content, params, true
 	}
