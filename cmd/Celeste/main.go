@@ -260,6 +260,13 @@ func (a *TUIClientAdapter) SendMessage(messages []tui.ChatMessage, tools []tui.S
 				i, msg.Role, len(msg.Content), len(msg.ToolCalls)))
 		}
 
+		// Check if we're sending tools to Venice uncensored (which may not support function calling)
+		if strings.Contains(currentConfig.BaseURL, "venice") && currentConfig.Model == "venice-uncensored" && len(tools) > 0 {
+			tui.LogInfo(fmt.Sprintf("  ⚠️  WARNING: Sending %d tools to venice-uncensored model", len(tools)))
+			tui.LogInfo("     Venice Uncensored may not support function calling")
+			tui.LogInfo("     Consider using llama-3.3-70b or qwen3-235b for function calling")
+		}
+
 		var fullContent string
 		var toolCalls []llm.ToolCallResult
 
@@ -279,6 +286,16 @@ func (a *TUIClientAdapter) SendMessage(messages []tui.ChatMessage, tools []tui.S
 			tui.LogInfo(fmt.Sprintf("  Endpoint: %s", currentConfig.BaseURL))
 			tui.LogInfo(fmt.Sprintf("  Model: %s", currentConfig.Model))
 			tui.LogInfo(fmt.Sprintf("  Message count: %d", len(messages)))
+			tui.LogInfo(fmt.Sprintf("  Full error type: %T", err))
+
+			// Show helpful hint for Venice 400 errors
+			if strings.Contains(errorMsg, "400") && strings.Contains(currentConfig.BaseURL, "venice") {
+				tui.LogInfo("  💡 Venice.ai 400 error - possible causes:")
+				tui.LogInfo("     - Invalid model name (check model ID matches Venice docs)")
+				tui.LogInfo("     - API key might be invalid or expired")
+				tui.LogInfo("     - Request format incompatibility")
+				tui.LogInfo(fmt.Sprintf("     - Current model: %s", currentConfig.Model))
+			}
 
 			return tui.StreamErrorMsg{Err: err}
 		}
