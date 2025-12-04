@@ -48,6 +48,10 @@ func main() {
 	// Parse command line
 	if len(args) < 1 {
 		printUsage()
+		// Check if default config exists and suggest chat command
+		if hasDefaultConfig() {
+			fmt.Println("\n💡 Tip: You have a default configuration. Maybe you meant `celeste chat`?")
+		}
 		os.Exit(0)
 	}
 
@@ -77,6 +81,13 @@ func main() {
 		// Treat unknown command as a message
 		runSingleMessage(strings.Join(args, " "))
 	}
+}
+
+// hasDefaultConfig checks if a default configuration file exists.
+func hasDefaultConfig() bool {
+	configPath := config.NamedConfigPath("") // Empty name = default config
+	_, err := os.Stat(configPath)
+	return err == nil
 }
 
 // printUsage prints the CLI usage information.
