@@ -48,6 +48,7 @@ type Config struct {
 
 	// Twitch settings
 	TwitchClientID        string `json:"twitch_client_id,omitempty"`
+	TwitchClientSecret    string `json:"twitch_client_secret,omitempty"`
 	TwitchDefaultStreamer string `json:"twitch_default_streamer,omitempty"`
 
 	// YouTube settings
@@ -196,6 +197,9 @@ func LoadNamed(name string) (*Config, error) {
 		if skillsConfig.TwitchClientID != "" {
 			config.TwitchClientID = skillsConfig.TwitchClientID
 		}
+		if skillsConfig.TwitchClientSecret != "" {
+			config.TwitchClientSecret = skillsConfig.TwitchClientSecret
+		}
 		if skillsConfig.TwitchDefaultStreamer != "" {
 			config.TwitchDefaultStreamer = skillsConfig.TwitchDefaultStreamer
 		}
@@ -310,6 +314,21 @@ func Load() (*Config, error) {
 		}
 		if skillsConfig.WeatherDefaultZipCode != "" {
 			config.WeatherDefaultZipCode = skillsConfig.WeatherDefaultZipCode
+		}
+		if skillsConfig.TwitchClientID != "" {
+			config.TwitchClientID = skillsConfig.TwitchClientID
+		}
+		if skillsConfig.TwitchClientSecret != "" {
+			config.TwitchClientSecret = skillsConfig.TwitchClientSecret
+		}
+		if skillsConfig.TwitchDefaultStreamer != "" {
+			config.TwitchDefaultStreamer = skillsConfig.TwitchDefaultStreamer
+		}
+		if skillsConfig.YouTubeAPIKey != "" {
+			config.YouTubeAPIKey = skillsConfig.YouTubeAPIKey
+		}
+		if skillsConfig.YouTubeDefaultChannel != "" {
+			config.YouTubeDefaultChannel = skillsConfig.YouTubeDefaultChannel
 		}
 	}
 
@@ -435,6 +454,7 @@ func (l *ConfigLoader) GetTwitchConfig() (skills.TwitchConfig, error) {
 
 	return skills.TwitchConfig{
 		ClientID:        l.config.TwitchClientID,
+		ClientSecret:    l.config.TwitchClientSecret,
 		DefaultStreamer: defaultStreamer,
 	}, nil
 }

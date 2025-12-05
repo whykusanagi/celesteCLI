@@ -134,6 +134,7 @@ type WeatherConfig struct {
 // TwitchConfig holds Twitch API configuration.
 type TwitchConfig struct {
 	ClientID        string
+	ClientSecret    string
 	DefaultStreamer string
 }
 
