@@ -95,11 +95,18 @@ Celeste chat
 - **Session Listing** - Browse and load previous sessions by ID
 - **Session Clearing** - Bulk delete sessions when needed
 
-### Multi-Provider Support
-- ✅ **OpenAI** (gpt-4o, gpt-4o-mini, gpt-4-turbo)
-- ✅ **Grok/xAI** (grok-beta) - OpenAI-compatible API
-- ⚠️ **DigitalOcean** - Partial (requires cloud functions)
-- ❓ **Venice.ai, ElevenLabs** - Needs testing
+### Multi-Provider Support (8 Providers)
+- ✅ **OpenAI** (gpt-4o-mini, gpt-4o) - Function calling supported
+- ✅ **Grok/xAI** (grok-4-1-fast) - Optimized for tool calling, 2M context
+- ✅ **Venice.ai** (venice-uncensored) - NSFW mode, image generation
+- ✅ **Anthropic Claude** (claude-sonnet-4-5) - Advanced tool use
+- ✅ **Google Vertex AI** (gemini-1.5-pro) - Function calling supported
+- ✅ **OpenRouter** (multi-provider) - Parallel function calling
+- ⚠️ **DigitalOcean** (gpt-4o-mini) - Cloud-only functions (no local skills)
+- ❓ **ElevenLabs** - Voice AI (unclear tool support)
+
+**Dynamic Model Selection** - Auto-selects best tool-calling model per provider
+**Capability Indicators** - Visual feedback (✓ skills / ⚠️ no skills) in header
 
 [See full compatibility matrix](#-llm-provider-compatibility)
 
@@ -482,11 +489,40 @@ celeste -config grok chat
 
 ### In-Chat Commands
 
+#### Core Commands
 | Command | Action |
 |---------|--------|
-| `help` | Show available commands and keyboard shortcuts |
-| `clear` | Clear chat history (current session only) |
-| `exit`, `quit`, `q` | Exit application |
+| `/help` | Show available commands and keyboard shortcuts |
+| `/clear` | Clear chat history (current session only) |
+| `/exit`, `/quit`, `/q` | Exit application |
+
+#### Provider & Model Management
+| Command | Action |
+|---------|--------|
+| `/endpoint <provider>` | Switch to a different LLM provider (openai, grok, venice, vertex, openrouter, etc.) |
+| `/set-model` | List available models for current provider with capability indicators |
+| `/set-model <name>` | Switch to a specific model (validates function calling support) |
+| `/set-model <name> --force` | Override model compatibility warnings |
+| `/list-models` | Alias for `/set-model` |
+
+**Examples:**
+```bash
+# Switch to Grok (auto-selects grok-4-1-fast for tool calling)
+/endpoint grok
+
+# List Grok models with capability indicators
+/set-model
+# Output:
+# ✓ grok-4-1-fast - Best for tool calling (2000k context)
+# ✓ grok-4-1 - High-quality reasoning
+#   grok-4-latest - Latest general model (no skills)
+
+# Force use a non-tool model
+/set-model grok-4-latest --force
+
+# Switch to Vertex AI Gemini
+/endpoint vertex
+```
 
 ### Single Message Mode (Non-Interactive)
 
