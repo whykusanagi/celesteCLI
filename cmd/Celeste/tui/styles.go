@@ -14,23 +14,23 @@ var (
 	ColorAccentGlow  = lipgloss.Color("#ff4da6") // Bright pink glow
 
 	// Purple gradient - abyss/void aesthetic
-	ColorPurple       = lipgloss.Color("#8b5cf6") // Primary purple
-	ColorPurpleLight  = lipgloss.Color("#a78bfa") // Light purple
-	ColorPurpleDark   = lipgloss.Color("#7c3aed") // Dark purple
-	ColorPurpleNeon   = lipgloss.Color("#c084fc") // Neon purple
-	ColorPurpleDeep   = lipgloss.Color("#6b21a8") // Deep void purple
+	ColorPurple      = lipgloss.Color("#8b5cf6") // Primary purple
+	ColorPurpleLight = lipgloss.Color("#a78bfa") // Light purple
+	ColorPurpleDark  = lipgloss.Color("#7c3aed") // Dark purple
+	ColorPurpleNeon  = lipgloss.Color("#c084fc") // Neon purple
+	ColorPurpleDeep  = lipgloss.Color("#6b21a8") // Deep void purple
 
 	// Cyan/blue accents - digital/glitch
-	ColorCyan       = lipgloss.Color("#00d4ff") // Bright cyan
-	ColorCyanLight  = lipgloss.Color("#67e8f9") // Light cyan
-	ColorBlueNeon   = lipgloss.Color("#3b82f6") // Neon blue
+	ColorCyan      = lipgloss.Color("#00d4ff") // Bright cyan
+	ColorCyanLight = lipgloss.Color("#67e8f9") // Light cyan
+	ColorBlueNeon  = lipgloss.Color("#3b82f6") // Neon blue
 
 	// Background colors - deep void
-	ColorBg           = lipgloss.Color("#0a0a0a") // Main background
-	ColorBgSecondary  = lipgloss.Color("#0f0f1a") // Secondary bg
-	ColorBgTertiary   = lipgloss.Color("#1a1a2e") // Tertiary bg
-	ColorBgGlass      = lipgloss.Color("#1a1a2e") // Glassmorphic layer
-	ColorBgOverlay    = lipgloss.Color("#0f0f1a") // Overlay
+	ColorBg          = lipgloss.Color("#0a0a0a") // Main background
+	ColorBgSecondary = lipgloss.Color("#0f0f1a") // Secondary bg
+	ColorBgTertiary  = lipgloss.Color("#1a1a2e") // Tertiary bg
+	ColorBgGlass     = lipgloss.Color("#1a1a2e") // Glassmorphic layer
+	ColorBgOverlay   = lipgloss.Color("#0f0f1a") // Overlay
 
 	// Text colors - high contrast
 	ColorText          = lipgloss.Color("#f5f1f8") // Primary text (bright)
@@ -39,11 +39,11 @@ var (
 	ColorTextGlow      = lipgloss.Color("#ffffff") // Glowing text
 
 	// Border colors - glassmorphic gradients
-	ColorBorder        = lipgloss.Color("#3a2555") // Primary border
-	ColorBorderLight   = lipgloss.Color("#5a4575") // Light border
-	ColorBorderGlow    = lipgloss.Color("#d94f90") // Glowing border
-	ColorBorderPurple  = lipgloss.Color("#8b5cf6") // Purple border
-	ColorBorderCyan    = lipgloss.Color("#00d4ff") // Cyan border
+	ColorBorder       = lipgloss.Color("#3a2555") // Primary border
+	ColorBorderLight  = lipgloss.Color("#5a4575") // Light border
+	ColorBorderGlow   = lipgloss.Color("#d94f90") // Glowing border
+	ColorBorderPurple = lipgloss.Color("#8b5cf6") // Purple border
+	ColorBorderCyan   = lipgloss.Color("#00d4ff") // Cyan border
 
 	// Status colors
 	ColorSuccess = lipgloss.Color("#22c55e") // Green

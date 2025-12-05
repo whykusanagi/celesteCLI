@@ -29,17 +29,17 @@ type AppModel struct {
 	status StatusModel
 
 	// Application state
-	width            int
-	height           int
-	ready            bool
-	nsfwMode         bool
-	streaming        bool
-	endpoint         string // Current endpoint (openai, venice, grok, etc.)
-	safeEndpoint     string // Endpoint to return to when leaving NSFW mode
-	model            string // Current model name
-	imageModel       string // Current image generation model (for NSFW mode)
-	provider         string // Current provider (grok, openai, venice, etc.) - detected from endpoint
-	skillsEnabled    bool   // Whether skills/function calling is available
+	width         int
+	height        int
+	ready         bool
+	nsfwMode      bool
+	streaming     bool
+	endpoint      string // Current endpoint (openai, venice, grok, etc.)
+	safeEndpoint  string // Endpoint to return to when leaving NSFW mode
+	model         string // Current model name
+	imageModel    string // Current image generation model (for NSFW mode)
+	provider      string // Current provider (grok, openai, venice, etc.) - detected from endpoint
+	skillsEnabled bool   // Whether skills/function calling is available
 
 	// Simulated typing state
 	typingContent string // Full content to type

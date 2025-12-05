@@ -139,11 +139,11 @@ func TestLoadSkillsConfig(t *testing.T) {
 
 	// Test 2: Create skills.json and load it
 	skillsData := map[string]interface{}{
-		"venice_api_key":            "test-venice-key",
-		"tarot_auth_token":          "test-tarot-token",
-		"weather_default_zip_code":  "12345",
-		"twitch_client_id":          "test-twitch-id",
-		"youtube_api_key":           "test-youtube-key",
+		"venice_api_key":           "test-venice-key",
+		"tarot_auth_token":         "test-tarot-token",
+		"weather_default_zip_code": "12345",
+		"twitch_client_id":         "test-twitch-id",
+		"youtube_api_key":          "test-youtube-key",
 	}
 
 	skillsJSON, err := json.MarshalIndent(skillsData, "", "  ")
@@ -395,12 +395,12 @@ func TestListConfigs(t *testing.T) {
 
 	// Create config files
 	files := []string{
-		"config.json",           // default
-		"config.openai.json",    // named
-		"config.grok.json",      // named
-		"config.venice.json",    // named
-		"skills.json",           // not a config
-		"sessions/test.json",    // not a config
+		"config.json",        // default
+		"config.openai.json", // named
+		"config.grok.json",   // named
+		"config.venice.json", // named
+		"skills.json",        // not a config
+		"sessions/test.json", // not a config
 	}
 
 	for _, file := range files {

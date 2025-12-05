@@ -276,10 +276,10 @@ func TestBuiltinSkillsRegistration(t *testing.T) {
 // TestSkillParameters tests that skills have properly structured parameters
 func TestSkillParameters(t *testing.T) {
 	testCases := []struct {
-		name             string
-		skillFunc        func() Skill
-		requiredParams   []string
-		optionalParams   []string
+		name           string
+		skillFunc      func() Skill
+		requiredParams []string
+		optionalParams []string
 	}{
 		{
 			name:           "UUID Generator",

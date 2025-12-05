@@ -113,15 +113,15 @@ func GenerateImage(config Config, prompt string, params map[string]interface{}) 
 
 	// Build request payload according to Venice /image/generate API
 	payload := map[string]interface{}{
-		"model":      model,
-		"prompt":     prompt,
-		"width":      width,
-		"height":     height,
-		"steps":      steps,
-		"cfg_scale":  cfgScale,
-		"variants":   variants,
-		"format":     format,
-		"safe_mode":  safeMode,
+		"model":     model,
+		"prompt":    prompt,
+		"width":     width,
+		"height":    height,
+		"steps":     steps,
+		"cfg_scale": cfgScale,
+		"variants":  variants,
+		"format":    format,
+		"safe_mode": safeMode,
 	}
 
 	// Optional: negative prompt
@@ -527,7 +527,7 @@ func ParseMediaCommand(message string) (string, string, map[string]interface{}, 
 		content := strings.TrimSpace(message[6:])
 		params := map[string]interface{}{
 			"model": "wai-Illustrious", // Anime model
-			"steps": 30,                 // wai-Illustrious max steps is 30
+			"steps": 30,                // wai-Illustrious max steps is 30
 		}
 		return "image", content, params, true
 	}

@@ -96,15 +96,15 @@ Celeste chat
 - **Session Clearing** - Bulk delete sessions when needed
 
 ### Multi-Provider Support (8 Providers)
-- ✅ **OpenAI** (gpt-4o-mini, gpt-4o) - Function calling supported
+- ✅ **OpenAI** (gpt-4o-mini, gpt-4o) - Full function calling with streaming
 - ✅ **Grok/xAI** (grok-4-1-fast) - Optimized for tool calling, 2M context
-- ✅ **Venice.ai** (venice-uncensored) - NSFW mode, image generation
-- ✅ **Anthropic Claude** (claude-sonnet-4-5) - Advanced tool use
-- ✅ **Google Gemini AI** (gemini-2.0-flash) - **RECOMMENDED** - Simple API keys (AIza...), free tier available
+- ✅ **Venice.ai** (venice-uncensored) - NSFW mode, image generation (no function calling)
+- ✅ **Anthropic Claude** (claude-sonnet-4-5) - Advanced tool use features
+- ✅ **Google Gemini AI** (gemini-2.0-flash) - **RECOMMENDED** - Simple API keys (AIza...), free tier, full streaming + function calling
 - ⚠️ **Google Vertex AI** (gemini-2.0-flash) - **ENTERPRISE** - OAuth2 tokens (ya29...), requires GCP project + billing
-- ✅ **OpenRouter** (multi-provider) - Parallel function calling
+- ✅ **OpenRouter** (multi-provider) - Parallel function calling support
 - ⚠️ **DigitalOcean** (gpt-4o-mini) - Cloud-only functions (no local skills)
-- ❓ **ElevenLabs** - Voice AI (unclear tool support)
+- ❓ **ElevenLabs** - Voice AI (function calling support unknown)
 
 **Dynamic Model Selection** - Auto-selects best tool-calling model per provider
 **Capability Indicators** - Visual feedback (✓ skills / ⚠️ no skills) in header

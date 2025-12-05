@@ -239,8 +239,12 @@ func (c *Client) SendMessageStream(ctx context.Context, messages []tui.ChatMessa
 			}
 
 			// Handle tool calls
+			// Note: Different providers stream tool calls in different formats:
+			// - OpenAI: Streams tool calls incrementally across multiple chunks with an Index
+			// - Gemini: Sends complete tool calls in a single chunk without an Index
 			for _, tc := range choice.Delta.ToolCalls {
 				if tc.Index != nil {
+					// OpenAI format: Tool calls have an index for streaming accumulation
 					idx := *tc.Index
 					for len(toolCalls) <= idx {
 						toolCalls = append(toolCalls, openai.ToolCall{})
@@ -256,6 +260,19 @@ func (c *Client) SendMessageStream(ctx context.Context, messages []tui.ChatMessa
 					}
 					if tc.Function.Arguments != "" {
 						toolCalls[idx].Function.Arguments += tc.Function.Arguments
+					}
+				} else {
+					// Gemini format: Tool calls come complete without an index
+					// Append as a new tool call if it has an ID
+					if tc.ID != "" {
+						toolCalls = append(toolCalls, openai.ToolCall{
+							ID:   tc.ID,
+							Type: tc.Type,
+							Function: openai.FunctionCall{
+								Name:      tc.Function.Name,
+								Arguments: tc.Function.Arguments,
+							},
+						})
 					}
 				}
 			}

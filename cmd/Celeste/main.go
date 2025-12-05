@@ -375,8 +375,8 @@ func (a *TUIClientAdapter) SendMessage(messages []tui.ChatMessage, tools []tui.S
 					Status:    "executing",
 					Timestamp: time.Now(),
 				},
-				ToolCallID:       tc.ID,           // Store tool call ID for sending result back
-				AssistantContent: displayContent,  // Show thinking phrase if empty
+				ToolCallID:       tc.ID,          // Store tool call ID for sending result back
+				AssistantContent: displayContent, // Show thinking phrase if empty
 				ToolCalls:        toolCallInfos,
 			}
 		}

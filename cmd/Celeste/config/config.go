@@ -27,9 +27,9 @@ type Config struct {
 	TypingSpeed    int  `json:"typing_speed"` // chars per second
 
 	// Venice.ai settings (for NSFW mode)
-	VeniceAPIKey   string `json:"venice_api_key,omitempty"`
-	VeniceBaseURL  string `json:"venice_base_url,omitempty"`
-	VeniceModel    string `json:"venice_model,omitempty"`     // Chat model (venice-uncensored)
+	VeniceAPIKey     string `json:"venice_api_key,omitempty"`
+	VeniceBaseURL    string `json:"venice_base_url,omitempty"`
+	VeniceModel      string `json:"venice_model,omitempty"`       // Chat model (venice-uncensored)
 	VeniceImageModel string `json:"venice_image_model,omitempty"` // Image model (lustify-sdxl)
 
 	// Tarot settings

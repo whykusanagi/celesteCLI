@@ -224,7 +224,6 @@ func TarotSkill() Skill {
 	}
 }
 
-
 // WeatherSkill returns the weather forecast skill definition.
 func WeatherSkill() Skill {
 	return Skill{

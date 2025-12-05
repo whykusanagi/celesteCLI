@@ -14,13 +14,13 @@ import (
 
 // ChatModel represents the chat panel with scrollable messages.
 type ChatModel struct {
-	viewport      viewport.Model
-	messages      []ChatMessage
-	functionCalls []FunctionCall
-	width         int
-	height        int
-	ready         bool
-	userScrolled  bool // Track if user has scrolled manually
+	viewport       viewport.Model
+	messages       []ChatMessage
+	functionCalls  []FunctionCall
+	width          int
+	height         int
+	ready          bool
+	userScrolled   bool // Track if user has scrolled manually
 	showSkillCalls bool // Toggle to show/hide skill call logs
 }
 

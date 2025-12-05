@@ -88,7 +88,7 @@ var Registry = map[string]ProviderCapabilities{
 		PreferredToolModel:      "gemini-2.0-flash",
 		RequiresAPIKey:          true, // Simple API key from https://aistudio.google.com/apikey
 		IsOpenAICompatible:      true,
-		Notes:                   "RECOMMENDED: Gemini AI Studio - Simple API keys (AIza...), free tier available. Get key: https://aistudio.google.com/apikey",
+		Notes:                   "RECOMMENDED: Gemini AI Studio - Simple API keys (AIza...), free tier available. Full function calling support with streaming. Get key: https://aistudio.google.com/apikey",
 	},
 
 	"vertex": {

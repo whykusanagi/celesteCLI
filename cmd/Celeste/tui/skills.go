@@ -13,9 +13,9 @@ import (
 type MenuState int
 
 const (
-	MenuStateStatus MenuState = iota // Default - show status
-	MenuStateCommands                 // /menu - show commands
-	MenuStateSkills                   // /skills - show skills
+	MenuStateStatus   MenuState = iota // Default - show status
+	MenuStateCommands                  // /menu - show commands
+	MenuStateSkills                    // /skills - show skills
 )
 
 // SkillsModel represents the skills panel (RPG-style menu).
