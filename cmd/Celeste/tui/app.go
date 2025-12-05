@@ -313,6 +313,10 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if result.StateChange.ClearHistory {
 					m.chat = m.chat.Clear()
 				}
+
+				if result.StateChange.MenuState != nil {
+					m.skills = m.skills.SetMenuState(*result.StateChange.MenuState)
+				}
 			}
 
 			return m, nil
@@ -785,7 +789,18 @@ func (m AppModel) View() string {
 	sections = append(sections, m.input.View())
 
 	// Skills panel (fixed, 5 lines) - update config before rendering
-	m.skills = m.skills.SetConfig(m.endpoint, m.model, m.skillsEnabled, m.nsfwMode)
+	// Calculate skills count and disabled reason
+	skillsCount := len(m.skills.GetDefinitions())
+	disabledReason := ""
+	if !m.skillsEnabled {
+		if m.nsfwMode {
+			disabledReason = "NSFW Mode - Venice doesn't support tools"
+		} else {
+			disabledReason = "Current model doesn't support function calling"
+		}
+	}
+
+	m.skills = m.skills.SetConfig(m.endpoint, m.model, m.skillsEnabled, m.nsfwMode, skillsCount, disabledReason)
 	sections = append(sections, m.skills.View())
 
 	// Status bar (fixed, 1 line)

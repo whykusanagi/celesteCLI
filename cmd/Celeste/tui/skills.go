@@ -3,9 +3,19 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+)
+
+// MenuState represents the current menu display mode.
+type MenuState int
+
+const (
+	MenuStateStatus MenuState = iota // Default - show status
+	MenuStateCommands                 // /menu - show commands
+	MenuStateSkills                   // /skills - show skills
 )
 
 // SkillsModel represents the skills panel (RPG-style menu).
@@ -15,11 +25,14 @@ type SkillsModel struct {
 	width           int
 	height          int
 	// Config info for RPG menu
-	endpoint      string
-	model         string
-	skillsEnabled bool
-	nsfwMode      bool
-	// Context-aware help
+	endpoint       string
+	model          string
+	skillsEnabled  bool
+	skillsCount    int    // Number of available skills
+	disabledReason string // Why skills are disabled (if they are)
+	nsfwMode       bool
+	// Menu navigation
+	menuState    MenuState
 	currentInput string // What user is currently typing
 }
 
@@ -39,17 +52,43 @@ func (m SkillsModel) SetSize(width, height int) SkillsModel {
 }
 
 // SetConfig sets the current configuration info for the RPG menu.
-func (m SkillsModel) SetConfig(endpoint, model string, skillsEnabled, nsfwMode bool) SkillsModel {
+func (m SkillsModel) SetConfig(endpoint, model string, skillsEnabled, nsfwMode bool, skillsCount int, disabledReason string) SkillsModel {
 	m.endpoint = endpoint
 	m.model = model
 	m.skillsEnabled = skillsEnabled
 	m.nsfwMode = nsfwMode
+	m.skillsCount = skillsCount
+	m.disabledReason = disabledReason
 	return m
 }
 
 // SetCurrentInput updates what the user is currently typing for context-aware help.
 func (m SkillsModel) SetCurrentInput(input string) SkillsModel {
 	m.currentInput = input
+	// If user starts typing, return to status view
+	if input != "" && (m.menuState == MenuStateCommands || m.menuState == MenuStateSkills) {
+		m.menuState = MenuStateStatus
+	}
+	return m
+}
+
+// SetMenuState sets the menu display mode.
+func (m SkillsModel) SetMenuState(state string) SkillsModel {
+	switch state {
+	case "commands":
+		m.menuState = MenuStateCommands
+	case "skills":
+		m.menuState = MenuStateSkills
+	case "status":
+		m.menuState = MenuStateStatus
+	default:
+		// Toggle: if already in that state, return to status
+		if m.menuState == MenuStateCommands && state == "commands" {
+			m.menuState = MenuStateStatus
+		} else if m.menuState == MenuStateSkills && state == "skills" {
+			m.menuState = MenuStateStatus
+		}
+	}
 	return m
 }
 
@@ -82,82 +121,198 @@ func (m SkillsModel) GetDefinitions() []SkillDefinition {
 	return m.skills
 }
 
-// View renders the skills panel - RPG-style menu with contextual help.
+// View renders the skills panel based on current menu state.
 func (m SkillsModel) View() string {
+	switch m.menuState {
+	case MenuStateCommands:
+		return m.renderCommandsMenu()
+	case MenuStateSkills:
+		return m.renderSkillsMenu()
+	default:
+		return m.renderStatusView()
+	}
+}
+
+// renderStatusView renders the default status view with contextual help.
+func (m SkillsModel) renderStatusView() string {
 	var sections []string
 
-	// === SYSTEM STATUS (Compact) ===
-	statusLine := TextMutedStyle.Render(m.endpoint) + TextMutedStyle.Render(" • ") +
-		ModelStyle.Render(m.model)
+	// === SYSTEM STATUS ===
+	sections = append(sections, AccentStyle.Render("⚡ SYSTEM STATUS"))
 
-	if m.nsfwMode {
-		statusLine += TextMutedStyle.Render(" • ") + NSFWStyle.Render("🔥")
-	}
+	// Provider line
+	providerLine := TextMutedStyle.Render("Provider: ") + PurpleStyle.Bold(true).Render(m.endpoint)
+	sections = append(sections, providerLine)
 
+	// Model line
+	modelLine := TextMutedStyle.Render("Model: ") + ModelStyle.Render(m.model)
+	sections = append(sections, modelLine)
+
+	// Skills status line (with count or reason)
+	var skillsLine string
 	if m.skillsEnabled {
-		statusLine += TextMutedStyle.Render(" • Skills ") + SkillCompletedStyle.Render("✓")
+		skillsLine = TextMutedStyle.Render("Skills: ") +
+			SkillCompletedStyle.Render(fmt.Sprintf("✓ Enabled (%d available)", m.skillsCount))
+	} else {
+		reason := m.disabledReason
+		if reason == "" {
+			reason = "Model doesn't support tools"
+		}
+		skillsLine = TextMutedStyle.Render("Skills: ") +
+			SkillErrorStyle.Render("✗ Disabled") +
+			TextMutedStyle.Render(" - ") + TextSecondaryStyle.Render(reason)
 	}
 
-	sections = append(sections, AccentStyle.Render("⚡ STATUS"), statusLine)
+	// NSFW indicator on same line
+	if m.nsfwMode {
+		skillsLine += TextMutedStyle.Render("        NSFW: ") + NSFWStyle.Render(" 🔥 Enabled ")
+	} else {
+		skillsLine += TextMutedStyle.Render("        NSFW: ") + TextSecondaryStyle.Render("✗ Disabled")
+	}
 
-	// === COMMANDS (Compact list) ===
-	sections = append(sections, "", AccentStyle.Render("📋 COMMANDS"))
+	sections = append(sections, skillsLine)
 
-	commandsList := TextMutedStyle.Render("/help /clear /config /nsfw /safe /endpoint")
-	sections = append(sections, commandsList)
-
-	// === SKILLS (Compact, show executing ones with status) ===
-	if m.skillsEnabled && len(m.skills) > 0 {
-		sections = append(sections, "", AccentStyle.Render("✨ SKILLS"))
-
-		// Show executing skills first
-		var executing []string
-		for _, skill := range m.skills {
-			if status, ok := m.executingSkills[skill.Name]; ok && status == "executing" {
-				executing = append(executing, SkillExecutingStyle.Render("⏳"+skill.Name))
-			}
-		}
-
-		if len(executing) > 0 {
-			sections = append(sections, strings.Join(executing, " "))
-		}
-
-		// Show all skills compactly
-		var skillNames []string
-		for _, skill := range m.skills {
-			if _, ok := m.executingSkills[skill.Name]; !ok {
-				skillNames = append(skillNames, TextMutedStyle.Render(skill.Name))
-			}
-		}
-
-		if len(skillNames) > 0 {
-			// Split into multiple lines if too long
-			line := ""
-			for i, name := range skillNames {
-				if i > 0 {
-					line += TextMutedStyle.Render(" • ")
-				}
-				line += name
-
-				// Break into multiple lines if needed
-				if len(line) > 70 || i == len(skillNames)-1 {
-					sections = append(sections, line)
-					line = ""
-				}
-			}
+	// Show executing skill with corruption animation
+	var executingSkill string
+	for _, skill := range m.skills {
+		if status, ok := m.executingSkills[skill.Name]; ok && status == "executing" {
+			corrupted := CorruptText(skill.Name, 0.4)
+			executingSkill = SkillExecutingStyle.Render(fmt.Sprintf("⏳ %s ", corrupted)) +
+				TextMutedStyle.Render("(Executing...)")
+			break
 		}
 	}
 
-	// === CONTEXTUAL HELP (Shows description when user types) ===
+	if executingSkill != "" {
+		sections = append(sections, "")
+		sections = append(sections, executingSkill)
+	}
+
+	// === CONTEXTUAL HELP (when user is typing) ===
 	if m.currentInput != "" {
 		desc := m.getContextualHelp(m.currentInput)
 		if desc != "" {
-			sections = append(sections, "", AccentStyle.Render("💡 HELP"))
+			sections = append(sections, "")
+			sections = append(sections, AccentStyle.Render("💡 HELP"))
 			sections = append(sections, TextSecondaryStyle.Render(desc))
 		}
+	} else {
+		// Show tip when not typing
+		sections = append(sections, "")
+		tip := TextMutedStyle.Render("💡 TIP: Type ") +
+			AccentStyle.Render("/menu") +
+			TextMutedStyle.Render(" to see commands • ") +
+			AccentStyle.Render("/skills") +
+			TextMutedStyle.Render(" to see tools")
+		sections = append(sections, tip)
 	}
 
-	// Join all sections
+	content := lipgloss.JoinVertical(lipgloss.Left, sections...)
+
+	return SkillsPanelStyle.
+		Width(m.width).
+		Height(m.height).
+		Render(content)
+}
+
+// renderCommandsMenu renders the commands menu view.
+func (m SkillsModel) renderCommandsMenu() string {
+	var sections []string
+
+	sections = append(sections, AccentStyle.Render("📋 COMMANDS MENU"))
+	sections = append(sections, "")
+
+	// List all commands with descriptions
+	commands := []struct {
+		cmd  string
+		desc string
+	}{
+		{"/help", "Show detailed help"},
+		{"/menu", "Toggle this commands menu"},
+		{"/skills", "View available AI skills"},
+		{"/config", "List configuration profiles"},
+		{"/endpoint", "Switch API provider"},
+		{"/model", "Change current model"},
+		{"/nsfw", "Enable uncensored mode"},
+		{"/safe", "Return to safe mode"},
+		{"/clear", "Clear chat history"},
+	}
+
+	for _, c := range commands {
+		line := AccentStyle.Render(c.cmd) +
+			strings.Repeat(" ", 15-len(c.cmd)) +
+			TextSecondaryStyle.Render(c.desc)
+		sections = append(sections, line)
+	}
+
+	sections = append(sections, "")
+	tip := TextMutedStyle.Render("💡 Type command name to see details as you type")
+	sections = append(sections, tip)
+
+	content := lipgloss.JoinVertical(lipgloss.Left, sections...)
+
+	return SkillsPanelStyle.
+		Width(m.width).
+		Height(m.height).
+		Render(content)
+}
+
+// renderSkillsMenu renders the skills menu view.
+func (m SkillsModel) renderSkillsMenu() string {
+	var sections []string
+
+	title := AccentStyle.Render(fmt.Sprintf("✨ AVAILABLE SKILLS (%d total)", len(m.skills)))
+	sections = append(sections, title)
+	sections = append(sections, "")
+
+	if !m.skillsEnabled {
+		reason := m.disabledReason
+		if reason == "" {
+			reason = "Model doesn't support function calling"
+		}
+		sections = append(sections, SkillErrorStyle.Render("❌ Skills are currently disabled"))
+		sections = append(sections, TextSecondaryStyle.Render("Reason: "+reason))
+		sections = append(sections, "")
+		sections = append(sections, TextMutedStyle.Render("Use /safe to enable OpenAI mode with skills support"))
+	} else {
+		// List all skills with status indicators
+		for _, skill := range m.skills {
+			status, ok := m.executingSkills[skill.Name]
+
+			var indicator string
+			var nameStyle lipgloss.Style
+
+			if !ok {
+				indicator = TextMutedStyle.Render("○")
+				nameStyle = SkillNameStyle
+			} else {
+				switch status {
+				case "executing":
+					corrupted := CorruptText(skill.Name, 0.4)
+					indicator = SkillExecutingStyle.Render("⏳")
+					nameStyle = SkillExecutingStyle
+					skill.Name = corrupted + " (EXECUTING)"
+				case "completed":
+					indicator = SkillCompletedStyle.Render("✓")
+					nameStyle = SkillNameStyle
+				case "error":
+					indicator = SkillErrorStyle.Render("✗")
+					nameStyle = SkillErrorStyle
+				default:
+					indicator = TextMutedStyle.Render("○")
+					nameStyle = SkillNameStyle
+				}
+			}
+
+			skillLine := indicator + " " + nameStyle.Render(skill.Name)
+			sections = append(sections, skillLine)
+		}
+
+		sections = append(sections, "")
+		tip := TextMutedStyle.Render("💡 Type skill name to see full description")
+		sections = append(sections, tip)
+	}
+
 	content := lipgloss.JoinVertical(lipgloss.Left, sections...)
 
 	return SkillsPanelStyle.

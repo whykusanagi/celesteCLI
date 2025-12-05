@@ -45,6 +45,7 @@ type StateChange struct {
 	Model          *string
 	ImageModel     *string
 	ClearHistory   bool
+	MenuState      *string // "status", "commands", "skills"
 }
 
 // Parse parses a message to check if it's a command.
@@ -97,6 +98,10 @@ func Execute(cmd *Command, ctx *CommandContext) *CommandResult {
 		return handleClear(cmd)
 	case "help":
 		return handleHelp(cmd, ctx)
+	case "menu":
+		return handleMenu(cmd)
+	case "skills":
+		return handleSkills(cmd, ctx)
 	default:
 		return &CommandResult{
 			Success:      false,
@@ -729,4 +734,30 @@ func IsContentPolicyRefusal(response string) bool {
 	}
 
 	return false
+}
+
+// handleMenu handles the /menu command (toggle commands menu).
+func handleMenu(cmd *Command) *CommandResult {
+	menuState := "commands"
+	return &CommandResult{
+		Success:      true,
+		Message:      "", // Don't render message - just change state
+		ShouldRender: false,
+		StateChange: &StateChange{
+			MenuState: &menuState,
+		},
+	}
+}
+
+// handleSkills handles the /skills command (toggle skills menu).
+func handleSkills(cmd *Command, ctx *CommandContext) *CommandResult {
+	menuState := "skills"
+	return &CommandResult{
+		Success:      true,
+		Message:      "", // Don't render message - just change state
+		ShouldRender: false,
+		StateChange: &StateChange{
+			MenuState: &menuState,
+		},
+	}
 }
