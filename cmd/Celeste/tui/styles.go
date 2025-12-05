@@ -343,3 +343,12 @@ func RenderStatusBadge(text string, statusColor lipgloss.Color) string {
 		Padding(0, 1).
 		Render(text)
 }
+
+// RenderCorruptedSkill renders a skill name with corruption effect during execution.
+// Uses the existing CorruptText function from streaming.go with 40% intensity.
+func RenderCorruptedSkill(name string) string {
+	corrupted := CorruptText(name, 0.4) // 40% corruption intensity
+	return SkillExecutingStyle.
+		Strikethrough(true).
+		Render(corrupted)
+}

@@ -77,9 +77,11 @@ func (m SkillsModel) View() string {
 		} else {
 			switch status {
 			case "executing":
-				name = SkillExecutingStyle.Render("⏳" + skill.Name)
+				// Show corruption effect while executing
+				name = RenderCorruptedSkill(skill.Name)
 			case "completed":
-				name = SkillCompletedStyle.Render("✓" + skill.Name)
+				// Return to normal after completion (no checkmark)
+				name = SkillNameStyle.Render(skill.Name)
 			case "error":
 				name = SkillErrorStyle.Render("✗" + skill.Name)
 			default:
@@ -113,33 +115,23 @@ func (m SkillsModel) View() string {
 func (m SkillsModel) renderSkillCard(skill SkillDefinition, width int) string {
 	// Status indicator
 	status, ok := m.executingSkills[skill.Name]
-	var indicator string
-	var nameStyle lipgloss.Style
+	var renderedName string
 
 	if !ok {
-		indicator = TextMutedStyle.Render("●")
-		nameStyle = SkillNameStyle
+		renderedName = SkillNameStyle.Render(skill.Name)
 	} else {
 		switch status {
 		case "executing":
-			indicator = SkillExecutingStyle.Render("⏳")
-			nameStyle = SkillExecutingStyle
+			// Show corruption effect while executing
+			renderedName = RenderCorruptedSkill(skill.Name)
 		case "completed":
-			indicator = SkillCompletedStyle.Render("✓")
-			nameStyle = SkillCompletedStyle
+			// Return to normal after completion
+			renderedName = SkillNameStyle.Render(skill.Name)
 		case "error":
-			indicator = SkillErrorStyle.Render("✗")
-			nameStyle = SkillErrorStyle
+			renderedName = SkillErrorStyle.Render("✗" + skill.Name)
 		default:
-			indicator = TextMutedStyle.Render("●")
-			nameStyle = SkillNameStyle
+			renderedName = SkillNameStyle.Render(skill.Name)
 		}
-	}
-
-	// Truncate name if needed
-	name := skill.Name
-	if len(name) > width-4 {
-		name = name[:width-7] + "..."
 	}
 
 	// Truncate description
@@ -148,10 +140,9 @@ func (m SkillsModel) renderSkillCard(skill SkillDefinition, width int) string {
 		desc = desc[:width-5] + "..."
 	}
 
-	header := indicator + " " + nameStyle.Render(name)
 	description := SkillDescStyle.Render(desc)
 
-	card := lipgloss.JoinVertical(lipgloss.Left, header, description)
+	card := lipgloss.JoinVertical(lipgloss.Left, renderedName, description)
 
 	return lipgloss.NewStyle().
 		Width(width).
