@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        go: ['1.23', '1.24']
+        go: ['1.23']
 
     steps:
     - name: Check out code
@@ -72,7 +72,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.24'
+        go-version: '1.23'
         cache: true
 
     - name: Run golangci-lint
@@ -124,12 +124,19 @@ jobs:
     steps:
     - name: Check out code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch all history for gitleaks
 
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.24'
+        go-version: '1.23'
         cache: true
+
+    - name: Run Gitleaks
+      uses: gitleaks/gitleaks-action@v2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Run govulncheck
       run: |
@@ -148,15 +155,15 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.24'
+        go-version: '1.23'
         cache: true
 
     - name: Build for multiple platforms
       run: |
-        GOOS=linux GOARCH=amd64 go build -o dist/celeste-linux-amd64 ./cmd/Celeste
-        GOOS=darwin GOARCH=amd64 go build -o dist/celeste-darwin-amd64 ./cmd/Celeste
-        GOOS=darwin GOARCH=arm64 go build -o dist/celeste-darwin-arm64 ./cmd/Celeste
-        GOOS=windows GOARCH=amd64 go build -o dist/celeste-windows-amd64.exe ./cmd/Celeste
+        GOOS=linux GOARCH=amd64 go build -o dist/celeste-linux-amd64 ./cmd/celeste
+        GOOS=darwin GOARCH=amd64 go build -o dist/celeste-darwin-amd64 ./cmd/celeste
+        GOOS=darwin GOARCH=arm64 go build -o dist/celeste-darwin-arm64 ./cmd/celeste
+        GOOS=windows GOARCH=amd64 go build -o dist/celeste-windows-amd64.exe ./cmd/celeste
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4

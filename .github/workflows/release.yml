@@ -22,7 +22,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.21'
+        go-version: '1.23'
 
     - name: Get version from tag
       id: get_version
@@ -31,15 +31,15 @@ jobs:
     - name: Build binaries
       run: |
         # Linux
-        GOOS=linux GOARCH=amd64 go build -ldflags "-X main.Version=${{ steps.get_version.outputs.VERSION }}" -o dist/celeste-linux-amd64 ./cmd/Celeste
-        GOOS=linux GOARCH=arm64 go build -ldflags "-X main.Version=${{ steps.get_version.outputs.VERSION }}" -o dist/celeste-linux-arm64 ./cmd/Celeste
+        GOOS=linux GOARCH=amd64 go build -ldflags "-X main.Version=${{ steps.get_version.outputs.VERSION }}" -o dist/celeste-linux-amd64 ./cmd/celeste
+        GOOS=linux GOARCH=arm64 go build -ldflags "-X main.Version=${{ steps.get_version.outputs.VERSION }}" -o dist/celeste-linux-arm64 ./cmd/celeste
 
         # macOS
-        GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.Version=${{ steps.get_version.outputs.VERSION }}" -o dist/celeste-darwin-amd64 ./cmd/Celeste
-        GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.Version=${{ steps.get_version.outputs.VERSION }}" -o dist/celeste-darwin-arm64 ./cmd/Celeste
+        GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.Version=${{ steps.get_version.outputs.VERSION }}" -o dist/celeste-darwin-amd64 ./cmd/celeste
+        GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.Version=${{ steps.get_version.outputs.VERSION }}" -o dist/celeste-darwin-arm64 ./cmd/celeste
 
         # Windows
-        GOOS=windows GOARCH=amd64 go build -ldflags "-X main.Version=${{ steps.get_version.outputs.VERSION }}" -o dist/celeste-windows-amd64.exe ./cmd/Celeste
+        GOOS=windows GOARCH=amd64 go build -ldflags "-X main.Version=${{ steps.get_version.outputs.VERSION }}" -o dist/celeste-windows-amd64.exe ./cmd/celeste
 
     - name: Create archives
       run: |
