@@ -157,6 +157,9 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			var cmd tea.Cmd
 			m.input, cmd = m.input.Update(msg)
 			cmds = append(cmds, cmd)
+
+			// Update skills panel with current input for contextual help
+			m.skills = m.skills.SetCurrentInput(m.input.Value())
 		}
 
 	case tea.WindowSizeMsg:
@@ -164,17 +167,20 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		m.ready = true
 
-		// Calculate component heights - compact layout
+		// Calculate component heights - RPG menu layout
 		headerHeight := 1
 		inputHeight := 2
-		skillsHeight := 3 // Reduced from 5
+		skillsHeight := 12 // Increased for RPG-style menu with contextual help
 		statusHeight := 1
 		chatHeight := m.height - headerHeight - inputHeight - skillsHeight - statusHeight
 
 		// Ensure minimum chat height
 		if chatHeight < 5 {
 			chatHeight = 5
-			skillsHeight = 2 // Further reduce skills if needed
+			skillsHeight = m.height - headerHeight - inputHeight - statusHeight - chatHeight
+			if skillsHeight < 6 {
+				skillsHeight = 6 // Minimum for RPG menu
+			}
 		}
 
 		// Update component sizes
@@ -778,7 +784,8 @@ func (m AppModel) View() string {
 	// Input panel (fixed, 3 lines)
 	sections = append(sections, m.input.View())
 
-	// Skills panel (fixed, 5 lines)
+	// Skills panel (fixed, 5 lines) - update config before rendering
+	m.skills = m.skills.SetConfig(m.endpoint, m.model, m.skillsEnabled, m.nsfwMode)
 	sections = append(sections, m.skills.View())
 
 	// Status bar (fixed, 1 line)

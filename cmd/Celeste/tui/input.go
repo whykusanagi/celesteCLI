@@ -140,6 +140,11 @@ func (m InputModel) View() string {
 		Render(input)
 }
 
+// Value returns the current input value.
+func (m InputModel) Value() string {
+	return m.textInput.Value()
+}
+
 // Focus focuses the input.
 func (m InputModel) Focus() InputModel {
 	m.textInput.Focus()
@@ -150,11 +155,6 @@ func (m InputModel) Focus() InputModel {
 func (m InputModel) Blur() InputModel {
 	m.textInput.Blur()
 	return m
-}
-
-// Value returns the current input value.
-func (m InputModel) Value() string {
-	return m.textInput.Value()
 }
 
 // SetValue sets the input value.
