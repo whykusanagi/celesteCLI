@@ -70,19 +70,19 @@ func (m ChatModel) Update(msg tea.Msg) (ChatModel, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "pgup":
-			m.viewport.ViewUp()
+			m.viewport.PageUp()
 			m.userScrolled = true
 		case "pgdown":
-			m.viewport.ViewDown()
+			m.viewport.PageDown()
 			// If at bottom, reset userScrolled
 			if m.viewport.AtBottom() {
 				m.userScrolled = false
 			}
 		case "shift+up":
-			m.viewport.LineUp(3)
+			m.viewport.ScrollUp(3)
 			m.userScrolled = true
 		case "shift+down":
-			m.viewport.LineDown(3)
+			m.viewport.ScrollDown(3)
 			if m.viewport.AtBottom() {
 				m.userScrolled = false
 			}
