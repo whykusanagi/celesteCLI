@@ -20,15 +20,51 @@ This document tracks planned features, enhancements, and potential migrations fo
 
 ### High Priority
 
-#### 1. Test Vertex AI Integration with All Skills
-- **Status**: Implementation complete, testing pending
-- **Goal**: Validate that all 18 skills work with Gemini via OpenAI-compatible endpoint
-- **Tests**:
-  - [ ] Weather skill (get_weather)
-  - [ ] YouTube API (get_youtube_videos)
-  - [ ] Twitch live check (check_twitch_live)
-  - [ ] All 18 skills tested with gemini-2.0-flash-exp
-- **Success Criteria**: All skills return correct data, no format issues
+#### 1. Vertex AI (Google Cloud) Setup Guide
+- **Status**: Requires complex Google Cloud configuration
+- **Goal**: Document complete Vertex AI setup for enterprise users
+- **Provider Clarification**:
+  - **Gemini AI (AI Studio)**: Simple API keys ✅ READY
+  - **Vertex AI (Google Cloud)**: OAuth2 tokens, requires setup ⚠️ ENTERPRISE ONLY
+
+**Vertex AI Requirements:**
+1. **Google Cloud Project**: Active GCP project with billing enabled
+2. **Vertex AI API**: Enable Vertex AI API in GCP console
+3. **Service Account**: Create service account with `Vertex AI User` role
+4. **Authentication**: Use OAuth2 tokens (NOT simple API keys)
+5. **Token Management**: Tokens expire after 1 hour, need refresh mechanism
+
+**Endpoint URL Format:**
+```
+https://aiplatform.googleapis.com/v1/projects/{PROJECT_ID}/locations/{LOCATION}/endpoints/openapi
+```
+
+**Configuration Example:**
+```json
+{
+  "api_key": "ya29.c.c0ASRK0Ga...",  // OAuth2 access token
+  "base_url": "https://aiplatform.googleapis.com/v1/projects/my-project/locations/us-central1/endpoints/openapi",
+  "model": "gemini-2.0-flash",
+  "timeout": 60
+}
+```
+
+**Token Generation (Go example):**
+```go
+import "golang.org/x/oauth2/google"
+
+creds, _ := google.FindDefaultCredentials(ctx, "https://www.googleapis.com/auth/cloud-platform")
+token, _ := creds.TokenSource.Token()
+config.APIKey = token.AccessToken
+```
+
+**Why Most Users Should Use Gemini Instead:**
+- Gemini AI: Simple API key from https://aistudio.google.com/apikey
+- Vertex AI: Requires GCP project, billing, OAuth2 setup
+- Both use same Gemini models, same function calling capabilities
+- Vertex AI is for enterprise users with existing GCP infrastructure
+
+- **Decision**: Gemini AI is the recommended provider for most users
 
 #### 2. Improve Error Messaging
 - **Goal**: Better error messages for common issues

@@ -100,8 +100,8 @@ Celeste chat
 - ✅ **Grok/xAI** (grok-4-1-fast) - Optimized for tool calling, 2M context
 - ✅ **Venice.ai** (venice-uncensored) - NSFW mode, image generation
 - ✅ **Anthropic Claude** (claude-sonnet-4-5) - Advanced tool use
-- ✅ **Google Gemini AI** (gemini-2.0-flash) - Function calling via OpenAI-compatible endpoint (AI Studio API key)
-- ⚠️ **Google Vertex AI** (gemini-2.0-flash) - Requires Google Cloud OAuth2 setup (complex, use Gemini AI instead)
+- ✅ **Google Gemini AI** (gemini-2.0-flash) - **RECOMMENDED** - Simple API keys (AIza...), free tier available
+- ⚠️ **Google Vertex AI** (gemini-2.0-flash) - **ENTERPRISE** - OAuth2 tokens (ya29...), requires GCP project + billing
 - ✅ **OpenRouter** (multi-provider) - Parallel function calling
 - ⚠️ **DigitalOcean** (gpt-4o-mini) - Cloud-only functions (no local skills)
 - ❓ **ElevenLabs** - Voice AI (unclear tool support)

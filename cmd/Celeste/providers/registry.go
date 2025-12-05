@@ -83,24 +83,24 @@ var Registry = map[string]ProviderCapabilities{
 		Name:                    "Google Gemini AI (AI Studio)",
 		BaseURL:                 "https://generativelanguage.googleapis.com/v1beta/openai",
 		SupportsFunctionCalling: true,
-		SupportsModelListing:    false, // Fixed model list
+		SupportsModelListing:    false,
 		DefaultModel:            "gemini-2.0-flash",
-		PreferredToolModel:      "gemini-2.0-flash", // Best for function calling
-		RequiresAPIKey:          true,               // Get from: https://aistudio.google.com/apikey
+		PreferredToolModel:      "gemini-2.0-flash",
+		RequiresAPIKey:          true, // Simple API key from https://aistudio.google.com/apikey
 		IsOpenAICompatible:      true,
-		Notes:                   "Gemini AI Studio with OpenAI-compatible endpoint. Get API key from https://aistudio.google.com/apikey (NOT Google Cloud).",
+		Notes:                   "RECOMMENDED: Gemini AI Studio - Simple API keys (AIza...), free tier available. Get key: https://aistudio.google.com/apikey",
 	},
 
 	"vertex": {
 		Name:                    "Google Vertex AI (Cloud)",
-		BaseURL:                 "", // Requires: https://LOCATION-aiplatform.googleapis.com/v1/projects/PROJECT_ID/locations/LOCATION/endpoints/openapi
+		BaseURL:                 "https://aiplatform.googleapis.com/v1/projects/PROJECT_ID/locations/LOCATION/endpoints/openapi",
 		SupportsFunctionCalling: true,
-		SupportsModelListing:    false, // Fixed model list
+		SupportsModelListing:    false,
 		DefaultModel:            "gemini-2.0-flash",
 		PreferredToolModel:      "gemini-2.0-flash",
-		RequiresAPIKey:          false, // Uses OAuth2 tokens from Google Cloud
+		RequiresAPIKey:          true, // OAuth2 access tokens (ya29...), expire hourly
 		IsOpenAICompatible:      true,
-		Notes:                   "Vertex AI (Google Cloud) - Requires Google Cloud project + OAuth2. Complex setup. Use 'gemini' provider for simpler API key auth.",
+		Notes:                   "ENTERPRISE: Vertex AI - OAuth2 tokens (ya29...), requires GCP project + billing. See ROADMAP.md for setup. Most users should use 'gemini' instead.",
 	},
 
 	"openrouter": {
