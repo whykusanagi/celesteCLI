@@ -131,7 +131,7 @@ func handleSafe(cmd *Command) *CommandResult {
 	disabled := false
 	return &CommandResult{
 		Success:      true,
-		Message:      "✅ Safe Mode Enabled\n\nSwitched back to OpenAI endpoint.\nContent will follow OpenAI usage policies.",
+		Message:      "✅ Safe Mode Enabled\n\nReturned to your default endpoint.\nSkills/function calling will be re-enabled if supported by the model.",
 		ShouldRender: true,
 		StateChange: &StateChange{
 			NSFWMode: &disabled,

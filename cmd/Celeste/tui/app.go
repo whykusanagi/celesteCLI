@@ -29,16 +29,17 @@ type AppModel struct {
 	status StatusModel
 
 	// Application state
-	width         int
-	height        int
-	ready         bool
-	nsfwMode      bool
-	streaming     bool
-	endpoint      string // Current endpoint (openai, venice, grok, etc.)
-	model         string // Current model name
-	imageModel    string // Current image generation model (for NSFW mode)
-	provider      string // Current provider (grok, openai, venice, etc.) - detected from endpoint
-	skillsEnabled bool   // Whether skills/function calling is available
+	width            int
+	height           int
+	ready            bool
+	nsfwMode         bool
+	streaming        bool
+	endpoint         string // Current endpoint (openai, venice, grok, etc.)
+	safeEndpoint     string // Endpoint to return to when leaving NSFW mode
+	model            string // Current model name
+	imageModel       string // Current image generation model (for NSFW mode)
+	provider         string // Current provider (grok, openai, venice, etc.) - detected from endpoint
+	skillsEnabled    bool   // Whether skills/function calling is available
 
 	// Simulated typing state
 	typingContent string // Full content to type
@@ -271,8 +272,11 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if result.StateChange.NSFWMode != nil {
 					m.nsfwMode = *result.StateChange.NSFWMode
 					m.header = m.header.SetNSFWMode(m.nsfwMode)
-					// When NSFW mode is enabled, automatically switch to Venice
+
+					// When NSFW mode is enabled, save current endpoint and switch to Venice
 					if m.nsfwMode {
+						// Save the current "safe" endpoint
+						m.safeEndpoint = m.endpoint
 						m.endpoint = "venice"
 						m.header = m.header.SetEndpoint(m.endpoint)
 
@@ -280,6 +284,22 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						if switcher, ok := m.llmClient.(EndpointSwitcher); ok {
 							if err := switcher.SwitchEndpoint(m.endpoint); err != nil {
 								m.status = m.status.SetText(fmt.Sprintf("Error switching to Venice: %v", err))
+							}
+						}
+					} else {
+						// When NSFW mode is disabled, restore the safe endpoint
+						if m.safeEndpoint != "" {
+							m.endpoint = m.safeEndpoint
+						} else {
+							// Fallback to default if no safe endpoint saved
+							m.endpoint = "openai"
+						}
+						m.header = m.header.SetEndpoint(m.endpoint)
+
+						// Actually switch the LLM client back
+						if switcher, ok := m.llmClient.(EndpointSwitcher); ok {
+							if err := switcher.SwitchEndpoint(m.endpoint); err != nil {
+								m.status = m.status.SetText(fmt.Sprintf("Error switching endpoint: %v", err))
 							}
 						}
 					}
