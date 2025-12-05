@@ -81,14 +81,14 @@ var Registry = map[string]ProviderCapabilities{
 
 	"vertex": {
 		Name:                    "Google Vertex AI (Gemini)",
-		BaseURL:                 "", // Requires project-specific URL
+		BaseURL:                 "https://generativelanguage.googleapis.com/v1beta/openai/",
 		SupportsFunctionCalling: true,
 		SupportsModelListing:    false, // Fixed model list
-		DefaultModel:            "gemini-1.5-pro",
-		PreferredToolModel:      "gemini-1.5-pro",
-		RequiresAPIKey:          false, // Uses Google Cloud Auth
+		DefaultModel:            "gemini-2.0-flash-exp",
+		PreferredToolModel:      "gemini-2.0-flash-exp", // Best for function calling with thinking
+		RequiresAPIKey:          true,  // Uses Gemini API key
 		IsOpenAICompatible:      true,
-		Notes:                   "Requires Google Cloud credentials. OpenAI-compatible endpoint available.",
+		Notes:                   "Uses OpenAI-compatible endpoint. Supports all 18 skills unchanged. Set GEMINI_API_KEY.",
 	},
 
 	"openrouter": {
