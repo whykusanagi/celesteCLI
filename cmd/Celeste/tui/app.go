@@ -7,11 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/whykusanagi/celesteCLI/cmd/Celeste/commands"
-	"github.com/whykusanagi/celesteCLI/cmd/Celeste/config"
-	"github.com/whykusanagi/celesteCLI/cmd/Celeste/venice"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/whykusanagi/celesteCLI/cmd/Celeste/commands"
+	"github.com/whykusanagi/celesteCLI/cmd/Celeste/config"
+	"github.com/whykusanagi/celesteCLI/cmd/Celeste/providers"
+	"github.com/whykusanagi/celesteCLI/cmd/Celeste/venice"
 )
 
 // Typing speed: ~25 chars/sec for smooth, visible corruption effects
@@ -28,14 +29,16 @@ type AppModel struct {
 	status StatusModel
 
 	// Application state
-	width      int
-	height     int
-	ready      bool
-	nsfwMode   bool
-	streaming  bool
-	endpoint   string // Current endpoint (openai, venice, grok, etc.)
-	model      string // Current model name
-	imageModel string // Current image generation model (for NSFW mode)
+	width         int
+	height        int
+	ready         bool
+	nsfwMode      bool
+	streaming     bool
+	endpoint      string // Current endpoint (openai, venice, grok, etc.)
+	model         string // Current model name
+	imageModel    string // Current image generation model (for NSFW mode)
+	provider      string // Current provider (grok, openai, venice, etc.) - detected from endpoint
+	skillsEnabled bool   // Whether skills/function calling is available
 
 	// Simulated typing state
 	typingContent string // Full content to type
@@ -182,9 +185,16 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Check if it's a slash command first
 		if cmd := commands.Parse(content); cmd != nil {
-			// Create context with current state
+			// Create context with current state (needed for model listing/validation)
+			// Try to get config from LLMClient (available if it's the adapter from main.go)
+			// If not available, commands will fall back to static model lists
 			ctx := &commands.CommandContext{
-				NSFWMode: m.nsfwMode,
+				NSFWMode:      m.nsfwMode,
+				Provider:      m.provider,
+				CurrentModel:  m.model,
+				APIKey:        "", // Will be populated if config accessible
+				BaseURL:       "", // Will be populated if config accessible
+				SkillsEnabled: m.skillsEnabled,
 			}
 			result := commands.Execute(cmd, ctx)
 
@@ -197,7 +207,45 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if result.StateChange != nil {
 				if result.StateChange.EndpointChange != nil {
 					m.endpoint = *result.StateChange.EndpointChange
+
+					// Detect provider from endpoint name
+					// Provider detection will use endpoint name mapping
+					m.provider = m.endpoint
+
+					// Update skills availability and auto-select best model
+					if caps, ok := providers.GetProvider(m.provider); ok {
+						m.skillsEnabled = caps.SupportsFunctionCalling
+
+						// AUTO-SELECT: Choose best tool-calling model for this provider
+						if caps.PreferredToolModel != "" {
+							m.model = caps.PreferredToolModel
+							m.header = m.header.SetModel(m.model)
+							LogInfo(fmt.Sprintf("Auto-selected model: %s (optimized for tool calling)", m.model))
+
+							// Update LLM client model
+							if switcher, ok := m.llmClient.(EndpointSwitcher); ok {
+								if err := switcher.ChangeModel(m.model); err != nil {
+									LogInfo(fmt.Sprintf("Error changing model: %v", err))
+								}
+							}
+						} else if caps.DefaultModel != "" {
+							m.model = caps.DefaultModel
+							m.header = m.header.SetModel(m.model)
+							LogInfo(fmt.Sprintf("Using default model: %s", m.model))
+
+							// Update LLM client model
+							if switcher, ok := m.llmClient.(EndpointSwitcher); ok {
+								if err := switcher.ChangeModel(m.model); err != nil {
+									LogInfo(fmt.Sprintf("Error changing model: %v", err))
+								}
+							}
+						}
+
+						LogInfo(fmt.Sprintf("Provider detected: %s, skills enabled: %v", m.provider, m.skillsEnabled))
+					}
+
 					m.header = m.header.SetEndpoint(m.endpoint)
+					m.header = m.header.SetSkillsEnabled(m.skillsEnabled) // Update UI indicator
 					m.status = m.status.SetText(fmt.Sprintf("Switched to %s", m.endpoint))
 
 					// Actually switch the LLM client endpoint
@@ -801,12 +849,13 @@ func (m *AppModel) persistSession() {
 
 // HeaderModel represents the header bar.
 type HeaderModel struct {
-	width      int
-	nsfwMode   bool
-	endpoint   string
-	model      string
-	imageModel string // Image generation model (NSFW mode)
-	autoRouted bool   // Whether the last message was auto-routed
+	width         int
+	nsfwMode      bool
+	endpoint      string
+	model         string
+	imageModel    string // Image generation model (NSFW mode)
+	autoRouted    bool   // Whether the last message was auto-routed
+	skillsEnabled bool   // Whether skills/function calling is available
 }
 
 // NewHeaderModel creates a new header model.
@@ -844,6 +893,12 @@ func (m HeaderModel) SetImageModel(model string) HeaderModel {
 	return m
 }
 
+// SetSkillsEnabled sets whether skills/function calling is available.
+func (m HeaderModel) SetSkillsEnabled(enabled bool) HeaderModel {
+	m.skillsEnabled = enabled
+	return m
+}
+
 // SetAutoRouted sets whether auto-routing occurred.
 func (m HeaderModel) SetAutoRouted(routed bool) HeaderModel {
 	m.autoRouted = routed
@@ -860,7 +915,7 @@ func (m HeaderModel) View() string {
 		endpointInfo = NSFWStyle.Render("🔥 NSFW")
 		// Show image model if set
 		if m.imageModel != "" {
-			endpointInfo += " • " + ModelStyle.Render("img:" + m.imageModel)
+			endpointInfo += " • " + ModelStyle.Render("img:"+m.imageModel)
 		}
 	} else if m.endpoint != "" && m.endpoint != "openai" {
 		// Show non-default endpoint
@@ -885,7 +940,14 @@ func (m HeaderModel) View() string {
 		if endpointInfo != "" {
 			endpointInfo += " • "
 		}
-		endpointInfo += ModelStyle.Render(m.model)
+		// Add capability indicator
+		modelDisplay := m.model
+		if m.skillsEnabled {
+			modelDisplay += " ✓" // Checkmark for skills enabled
+		} else {
+			modelDisplay += " ⚠" // Warning for no skills
+		}
+		endpointInfo += ModelStyle.Render(modelDisplay)
 	}
 
 	info := HeaderInfoStyle.Render("Press Ctrl+C to exit")

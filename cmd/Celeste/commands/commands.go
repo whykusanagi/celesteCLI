@@ -3,8 +3,11 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"strings"
+
+	"github.com/whykusanagi/celesteCLI/cmd/Celeste/providers"
 )
 
 // Command represents a parsed slash command.
@@ -16,7 +19,12 @@ type Command struct {
 
 // CommandContext provides context for command execution.
 type CommandContext struct {
-	NSFWMode bool
+	NSFWMode      bool
+	Provider      string // Current provider (grok, openai, venice, etc.)
+	CurrentModel  string // Current model in use
+	APIKey        string // API key for model listing
+	BaseURL       string // Base URL for API calls
+	SkillsEnabled bool   // Whether skills/functions are currently enabled
 }
 
 // CommandResult represents the result of executing a command.
@@ -78,8 +86,8 @@ func Execute(cmd *Command, ctx *CommandContext) *CommandResult {
 		return handleEndpoint(cmd)
 	case "model":
 		return handleModel(cmd)
-	case "image-model", "set-model":
-		return handleImageModel(cmd, ctx)
+	case "image-model", "set-model", "list-models":
+		return handleSetModel(cmd, ctx)
 	case "config":
 		return handleConfig(cmd)
 	case "clear":
@@ -181,20 +189,24 @@ func handleModel(cmd *Command) *CommandResult {
 	}
 }
 
-// handleImageModel handles the /set-model command (for image generation in NSFW mode).
-func handleImageModel(cmd *Command, ctx *CommandContext) *CommandResult {
-	if !ctx.NSFWMode {
-		return &CommandResult{
-			Success:      false,
-			Message:      "⚠️  Image model can only be set in NSFW mode.\n\nUse /nsfw to enable NSFW mode first.",
-			ShouldRender: true,
-		}
+// handleSetModel handles the /set-model and /list-models commands.
+// Context-aware: image models in NSFW mode, chat models otherwise.
+func handleSetModel(cmd *Command, ctx *CommandContext) *CommandResult {
+	// NSFW mode: Handle image models (backward compatibility with Venice pattern)
+	if ctx.NSFWMode {
+		return handleImageModel(cmd, ctx)
 	}
 
-	if len(cmd.Args) == 0 {
+	// Chat mode: Handle chat models with provider awareness
+	return handleChatModel(cmd, ctx)
+}
+
+// handleImageModel handles image model selection in NSFW mode (Venice pattern).
+func handleImageModel(cmd *Command, ctx *CommandContext) *CommandResult {
+	if len(cmd.Args) == 0 || cmd.Name == "list-models" {
 		return &CommandResult{
 			Success:      false,
-			Message:      "Usage: /set-model <model-name>\n\nAvailable models:\n  • lustify-sdxl (default NSFW)\n  • wai-Illustrious (anime)\n  • hidream (dream-like)\n  • nano-banana-pro\n  • venice-sd35 (Stable Diffusion 3.5)\n  • lustify-v7\n\nExample: /set-model wai-Illustrious\n\nOr use shortcuts: anime:, dream:, image:",
+			Message:      "Available Image Models:\n\n  • lustify-sdxl (default NSFW)\n  • wai-Illustrious (anime)\n  • hidream (dream-like)\n  • nano-banana-pro\n  • venice-sd35 (Stable Diffusion 3.5)\n  • lustify-v7\n\nUsage: /set-model <model-name>\nExample: /set-model wai-Illustrious\n\nOr use shortcuts: anime:, dream:, image:",
 			ShouldRender: true,
 		}
 	}
@@ -203,13 +215,13 @@ func handleImageModel(cmd *Command, ctx *CommandContext) *CommandResult {
 
 	// Validate model name
 	validModels := map[string]string{
-		"lustify-sdxl":      "NSFW image generation",
-		"wai-illustrious":   "Anime style",
-		"hidream":           "Dream-like quality",
-		"nano-banana-pro":   "Alternative model",
-		"venice-sd35":       "Stable Diffusion 3.5",
-		"lustify-v7":        "Lustify v7",
-		"qwen-image":        "Qwen vision model",
+		"lustify-sdxl":    "NSFW image generation",
+		"wai-illustrious": "Anime style",
+		"hidream":         "Dream-like quality",
+		"nano-banana-pro": "Alternative model",
+		"venice-sd35":     "Stable Diffusion 3.5",
+		"lustify-v7":      "Lustify v7",
+		"qwen-image":      "Qwen vision model",
 	}
 
 	modelLower := strings.ToLower(imageModel)
@@ -228,6 +240,143 @@ func handleImageModel(cmd *Command, ctx *CommandContext) *CommandResult {
 		Success:      false,
 		Message:      fmt.Sprintf("Unknown model: %s\n\nUse /set-model without arguments to see available models.", imageModel),
 		ShouldRender: true,
+	}
+}
+
+// handleChatModel handles chat model selection with provider capabilities.
+func handleChatModel(cmd *Command, ctx *CommandContext) *CommandResult {
+	// Get provider capabilities
+	caps, ok := providers.GetProvider(ctx.Provider)
+	if !ok {
+		return &CommandResult{
+			Success:      false,
+			Message:      fmt.Sprintf("Unknown provider: %s\n\nUse /endpoint to switch providers.", ctx.Provider),
+			ShouldRender: true,
+		}
+	}
+
+	// No args or /list-models: Show available models
+	if len(cmd.Args) == 0 || cmd.Name == "list-models" {
+		return listAvailableModels(ctx, caps)
+	}
+
+	// Check for --force flag
+	forceModel := false
+	modelName := cmd.Args[0]
+	if len(cmd.Args) > 1 && cmd.Args[1] == "--force" {
+		forceModel = true
+	}
+
+	// Create model service to validate
+	modelService := providers.NewModelService(ctx.APIKey, ctx.BaseURL, ctx.Provider)
+	modelInfo, err := modelService.ValidateModel(context.Background(), modelName)
+
+	if err != nil {
+		// Model not found, but allow if --force
+		if forceModel {
+			return &CommandResult{
+				Success:      true,
+				Message:      fmt.Sprintf("🤖 Model changed to: %s\n⚠️  Model validation unavailable", modelName),
+				ShouldRender: true,
+				StateChange: &StateChange{
+					Model: &modelName,
+				},
+			}
+		}
+
+		return &CommandResult{
+			Success:      false,
+			Message:      fmt.Sprintf("❌ Model '%s' not found for provider %s\n\nUse /set-model to see available models.\nUse /set-model %s --force to set anyway.", modelName, caps.Name, modelName),
+			ShouldRender: true,
+		}
+	}
+
+	// Model found - check tool support
+	if !modelInfo.SupportsTools && ctx.SkillsEnabled {
+		if !forceModel {
+			return &CommandResult{
+				Success:      false,
+				Message:      fmt.Sprintf("⚠️  Model '%s' does not support function calling.\n\n%s\n\nSkills will be disabled with this model.\n\n✓ Use /set-model %s for skills support\n  Or proceed with /set-model %s --force", modelName, modelInfo.Description, caps.PreferredToolModel, modelName),
+				ShouldRender: true,
+			}
+		}
+
+		// Forced non-tool model
+		return &CommandResult{
+			Success:      true,
+			Message:      fmt.Sprintf("🤖 Model changed to: %s\n⚠️  Skills disabled - model does not support function calling\n\n%s", modelName, modelInfo.Description),
+			ShouldRender: true,
+			StateChange: &StateChange{
+				Model: &modelName,
+			},
+		}
+	}
+
+	// Model supports tools or skills aren't required
+	checkmark := ""
+	if modelInfo.SupportsTools {
+		checkmark = " ✓"
+	}
+
+	return &CommandResult{
+		Success:      true,
+		Message:      fmt.Sprintf("🤖 Model changed to: %s%s\n\n%s", modelName, checkmark, modelInfo.Description),
+		ShouldRender: true,
+		StateChange: &StateChange{
+			Model: &modelName,
+		},
+	}
+}
+
+// listAvailableModels fetches and displays available models for current provider.
+func listAvailableModels(ctx *CommandContext, caps providers.ProviderCapabilities) *CommandResult {
+	modelService := providers.NewModelService(ctx.APIKey, ctx.BaseURL, ctx.Provider)
+
+	models, err := modelService.ListModels(context.Background())
+	if err != nil {
+		// Fallback to common models help
+		return &CommandResult{
+			Success:      false,
+			Message:      fmt.Sprintf("Failed to fetch models from %s\n\n%s\n\nCommon models:\n%s\n\nUsage: /set-model <model-id>", caps.Name, err, getCommonModelsHelp(ctx.Provider)),
+			ShouldRender: true,
+		}
+	}
+
+	// Format model list with capability indicators
+	formattedList := providers.FormatModelList(models, true)
+
+	// Add header and usage
+	message := fmt.Sprintf("Available Models for %s:\n\n%s\nUsage: /set-model <model-id>", caps.Name, formattedList)
+
+	// Add recommendation
+	if caps.PreferredToolModel != "" {
+		message += fmt.Sprintf("\n\n💡 Recommended: %s (optimized for skills)", caps.PreferredToolModel)
+	}
+
+	return &CommandResult{
+		Success:      true,
+		Message:      message,
+		ShouldRender: true,
+	}
+}
+
+// getCommonModelsHelp returns static model suggestions when API fails.
+func getCommonModelsHelp(provider string) string {
+	switch provider {
+	case "grok":
+		return "  • grok-4-1-fast (recommended for skills)\n  • grok-4-1\n  • grok-beta"
+	case "openai":
+		return "  • gpt-4o-mini (recommended)\n  • gpt-4o\n  • gpt-4-turbo"
+	case "venice":
+		return "  • venice-uncensored (no skills)\n  • llama-3.3-70b\n  • qwen3-235b"
+	case "anthropic":
+		return "  • claude-sonnet-4-5-20250929\n  • claude-opus-4-5-20251101"
+	case "vertex":
+		return "  • gemini-1.5-pro\n  • gemini-1.5-flash"
+	case "openrouter":
+		return "  • openai/gpt-4o-mini\n  • anthropic/claude-sonnet-4-5"
+	default:
+		return "  (provider-specific models)"
 	}
 }
 

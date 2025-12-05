@@ -55,17 +55,17 @@ celeste chat
 
 **API Endpoint**: `https://api.x.ai/v1`
 **Function Calling**: OpenAI-compatible API
-**Models**: grok-beta
+**Models**: grok-4-1-fast (recommended for tool calling), grok-beta
 
 **Setup**:
 ```bash
 celeste config --set-key YOUR_GROK_KEY
 celeste config --set-url https://api.x.ai/v1
-celeste config --set-model grok-beta
+celeste config --set-model grok-4-1-fast
 celeste chat
 ```
 
-**Why it works**: Grok uses OpenAI-compatible API, including function calling support.
+**Why it works**: Grok uses OpenAI-compatible API, including function calling support. The `grok-4-1-fast` model is specifically trained for agentic tool calling and excels at function calling tasks.
 
 **Testing**: Run provider tests to verify:
 ```bash
