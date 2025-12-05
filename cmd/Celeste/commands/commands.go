@@ -4,7 +4,10 @@ package commands
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/whykusanagi/celesteCLI/cmd/Celeste/providers"
@@ -382,12 +385,9 @@ func getCommonModelsHelp(provider string) string {
 
 // handleConfig handles the /config command.
 func handleConfig(cmd *Command) *CommandResult {
+	// No args: List available configs
 	if len(cmd.Args) == 0 {
-		return &CommandResult{
-			Success:      false,
-			Message:      "Usage: /config <name>\n\nLoads a named configuration profile.\nExample: /config grok",
-			ShouldRender: true,
-		}
+		return listAvailableConfigs()
 	}
 
 	configName := cmd.Args[0]
@@ -398,6 +398,128 @@ func handleConfig(cmd *Command) *CommandResult {
 		StateChange: &StateChange{
 			EndpointChange: &configName,
 		},
+	}
+}
+
+// listAvailableConfigs lists all available configuration profiles.
+func listAvailableConfigs() *CommandResult {
+	homeDir, _ := os.UserHomeDir()
+	configDir := filepath.Join(homeDir, ".celeste")
+
+	// Read directory
+	entries, err := os.ReadDir(configDir)
+	if err != nil {
+		return &CommandResult{
+			Success:      false,
+			Message:      fmt.Sprintf("❌ Error reading config directory: %v\n\nConfig directory: %s", err, configDir),
+			ShouldRender: true,
+		}
+	}
+
+	// Find all config files
+	configs := []string{}
+	for _, entry := range entries {
+		name := entry.Name()
+		if strings.HasPrefix(name, "config.") && strings.HasSuffix(name, ".json") {
+			// Extract profile name: config.grok.json -> grok
+			profileName := strings.TrimPrefix(name, "config.")
+			profileName = strings.TrimSuffix(profileName, ".json")
+			if profileName != "" {
+				configs = append(configs, profileName)
+			}
+		} else if name == "config.json" {
+			configs = append(configs, "default")
+		}
+	}
+
+	if len(configs) == 0 {
+		return &CommandResult{
+			Success:      false,
+			Message:      "❌ No configuration profiles found.\n\nCreate configs in: ~/.celeste/\n\nExample:\n  config.json (default)\n  config.grok.json\n  config.vertex.json",
+			ShouldRender: true,
+		}
+	}
+
+	// Build message
+	var msg strings.Builder
+	msg.WriteString("⚙️  Available Configuration Profiles:\n\n")
+
+	for _, profile := range configs {
+		// Load config to show details
+		var configPath string
+		if profile == "default" {
+			configPath = filepath.Join(configDir, "config.json")
+		} else {
+			configPath = filepath.Join(configDir, fmt.Sprintf("config.%s.json", profile))
+		}
+
+		// Read config
+		data, err := os.ReadFile(configPath)
+		if err != nil {
+			continue
+		}
+
+		var cfg map[string]interface{}
+		if err := json.Unmarshal(data, &cfg); err != nil {
+			continue
+		}
+
+		// Extract key info
+		baseURL := ""
+		model := ""
+		if val, ok := cfg["base_url"].(string); ok {
+			baseURL = val
+		}
+		if val, ok := cfg["model"].(string); ok {
+			model = val
+		}
+
+		// Determine provider from base URL
+		provider := "unknown"
+		switch {
+		case strings.Contains(baseURL, "openai.com"):
+			provider = "OpenAI"
+		case strings.Contains(baseURL, "x.ai"):
+			provider = "xAI Grok"
+		case strings.Contains(baseURL, "venice.ai"):
+			provider = "Venice.ai"
+		case strings.Contains(baseURL, "anthropic.com"):
+			provider = "Anthropic"
+		case strings.Contains(baseURL, "googleapis.com"):
+			provider = "Google Vertex AI"
+		case strings.Contains(baseURL, "openrouter.ai"):
+			provider = "OpenRouter"
+		case strings.Contains(baseURL, "digitalocean"):
+			provider = "DigitalOcean"
+		}
+
+		// Check if provider supports function calling
+		providerCaps, _ := providers.GetProvider(strings.ToLower(strings.Fields(provider)[0]))
+		indicator := ""
+		if providerCaps.SupportsFunctionCalling {
+			indicator = " ✓"
+		} else if provider != "unknown" {
+			indicator = " ⚠️"
+		}
+
+		msg.WriteString(fmt.Sprintf("  • %s%s\n", profile, indicator))
+		msg.WriteString(fmt.Sprintf("    Provider: %s\n", provider))
+		if model != "" {
+			msg.WriteString(fmt.Sprintf("    Model: %s\n", model))
+		}
+		msg.WriteString("\n")
+	}
+
+	msg.WriteString("Usage: /config <profile-name>\n")
+	msg.WriteString("Example: /config grok\n\n")
+	msg.WriteString("Legend:\n")
+	msg.WriteString("  ✓  = Function calling supported (skills available)\n")
+	msg.WriteString("  ⚠️  = No function calling (skills unavailable)\n")
+
+	return &CommandResult{
+		Success:      true,
+		Message:      msg.String(),
+		ShouldRender: true,
 	}
 }
 
