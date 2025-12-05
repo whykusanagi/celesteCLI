@@ -479,27 +479,37 @@ func listAvailableConfigs() *CommandResult {
 			model = val
 		}
 
-		// Determine provider from base URL
+		// Detect provider using providers.DetectProvider
+		providerKey := providers.DetectProvider(baseURL)
+		providerCaps, found := providers.GetProvider(providerKey)
+
+		// Get display name
 		provider := "unknown"
-		switch {
-		case strings.Contains(baseURL, "openai.com"):
-			provider = "OpenAI"
-		case strings.Contains(baseURL, "x.ai"):
-			provider = "xAI Grok"
-		case strings.Contains(baseURL, "venice.ai"):
-			provider = "Venice.ai"
-		case strings.Contains(baseURL, "anthropic.com"):
-			provider = "Anthropic"
-		case strings.Contains(baseURL, "googleapis.com"):
-			provider = "Google Vertex AI"
-		case strings.Contains(baseURL, "openrouter.ai"):
-			provider = "OpenRouter"
-		case strings.Contains(baseURL, "digitalocean"):
-			provider = "DigitalOcean"
+		if found {
+			provider = providerCaps.Name
+		} else {
+			// Fallback to manual detection if not in registry
+			switch {
+			case strings.Contains(baseURL, "openai.com"):
+				provider = "OpenAI"
+			case strings.Contains(baseURL, "x.ai"):
+				provider = "xAI Grok"
+			case strings.Contains(baseURL, "venice.ai"):
+				provider = "Venice.ai"
+			case strings.Contains(baseURL, "anthropic.com"):
+				provider = "Anthropic"
+			case strings.Contains(baseURL, "generativelanguage.googleapis.com"):
+				provider = "Google Gemini AI"
+			case strings.Contains(baseURL, "aiplatform.googleapis.com"):
+				provider = "Google Vertex AI"
+			case strings.Contains(baseURL, "openrouter.ai"):
+				provider = "OpenRouter"
+			case strings.Contains(baseURL, "digitalocean"):
+				provider = "DigitalOcean"
+			}
 		}
 
 		// Check if provider supports function calling
-		providerCaps, _ := providers.GetProvider(strings.ToLower(strings.Fields(provider)[0]))
 		indicator := ""
 		if providerCaps.SupportsFunctionCalling {
 			indicator = " ✓"

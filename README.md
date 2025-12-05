@@ -100,7 +100,8 @@ Celeste chat
 - ✅ **Grok/xAI** (grok-4-1-fast) - Optimized for tool calling, 2M context
 - ✅ **Venice.ai** (venice-uncensored) - NSFW mode, image generation
 - ✅ **Anthropic Claude** (claude-sonnet-4-5) - Advanced tool use
-- ✅ **Google Vertex AI** (gemini-2.0-flash-exp) - Function calling via OpenAI-compatible endpoint
+- ✅ **Google Gemini AI** (gemini-2.0-flash) - Function calling via OpenAI-compatible endpoint (AI Studio API key)
+- ⚠️ **Google Vertex AI** (gemini-2.0-flash) - Requires Google Cloud OAuth2 setup (complex, use Gemini AI instead)
 - ✅ **OpenRouter** (multi-provider) - Parallel function calling
 - ⚠️ **DigitalOcean** (gpt-4o-mini) - Cloud-only functions (no local skills)
 - ❓ **ElevenLabs** - Voice AI (unclear tool support)
@@ -499,7 +500,7 @@ celeste -config grok chat
 #### Provider & Model Management
 | Command | Action |
 |---------|--------|
-| `/endpoint <provider>` | Switch to a different LLM provider (openai, grok, venice, vertex, openrouter, etc.) |
+| `/endpoint <provider>` | Switch to a different LLM provider (openai, grok, venice, gemini, openrouter, etc.) |
 | `/set-model` | List available models for current provider with capability indicators |
 | `/set-model <name>` | Switch to a specific model (validates function calling support) |
 | `/set-model <name> --force` | Override model compatibility warnings |
@@ -520,8 +521,8 @@ celeste -config grok chat
 # Force use a non-tool model
 /set-model grok-4-latest --force
 
-# Switch to Vertex AI Gemini
-/endpoint vertex
+# Switch to Gemini AI (AI Studio)
+/endpoint gemini
 ```
 
 ### Single Message Mode (Non-Interactive)

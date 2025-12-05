@@ -79,16 +79,28 @@ var Registry = map[string]ProviderCapabilities{
 		Notes:                   "Advanced tool use features. OpenAI SDK compatibility is for testing only. Native API recommended.",
 	},
 
-	"vertex": {
-		Name:                    "Google Vertex AI (Gemini)",
+	"gemini": {
+		Name:                    "Google Gemini AI (AI Studio)",
 		BaseURL:                 "https://generativelanguage.googleapis.com/v1beta/openai/",
 		SupportsFunctionCalling: true,
 		SupportsModelListing:    false, // Fixed model list
-		DefaultModel:            "gemini-2.0-flash-exp",
-		PreferredToolModel:      "gemini-2.0-flash-exp", // Best for function calling with thinking
-		RequiresAPIKey:          true,  // Uses Gemini API key
+		DefaultModel:            "gemini-2.0-flash",
+		PreferredToolModel:      "gemini-2.0-flash", // Best for function calling
+		RequiresAPIKey:          true,               // Get from: https://aistudio.google.com/apikey
 		IsOpenAICompatible:      true,
-		Notes:                   "Uses OpenAI-compatible endpoint. Supports all 18 skills unchanged. Set GEMINI_API_KEY.",
+		Notes:                   "Gemini AI Studio with OpenAI-compatible endpoint. Get API key from https://aistudio.google.com/apikey (NOT Google Cloud).",
+	},
+
+	"vertex": {
+		Name:                    "Google Vertex AI (Cloud)",
+		BaseURL:                 "", // Requires: https://LOCATION-aiplatform.googleapis.com/v1/projects/PROJECT_ID/locations/LOCATION/endpoints/openapi
+		SupportsFunctionCalling: true,
+		SupportsModelListing:    false, // Fixed model list
+		DefaultModel:            "gemini-2.0-flash",
+		PreferredToolModel:      "gemini-2.0-flash",
+		RequiresAPIKey:          false, // Uses OAuth2 tokens from Google Cloud
+		IsOpenAICompatible:      true,
+		Notes:                   "Vertex AI (Google Cloud) - Requires Google Cloud project + OAuth2. Complex setup. Use 'gemini' provider for simpler API key auth.",
 	},
 
 	"openrouter": {
@@ -180,7 +192,9 @@ func DetectProvider(baseURL string) string {
 		return "venice"
 	case contains(baseURL, "anthropic.com"):
 		return "anthropic"
-	case contains(baseURL, "googleapis.com") || contains(baseURL, "vertexai"):
+	case contains(baseURL, "generativelanguage.googleapis.com"):
+		return "gemini"
+	case contains(baseURL, "aiplatform.googleapis.com") || contains(baseURL, "vertexai"):
 		return "vertex"
 	case contains(baseURL, "openrouter.ai"):
 		return "openrouter"
