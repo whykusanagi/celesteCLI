@@ -473,6 +473,16 @@ func (a *TUIClientAdapter) SwitchEndpoint(endpoint string) error {
 
 	a.client.UpdateConfig(llmConfig)
 
+	// Re-inject Celeste persona prompt after endpoint switch (unless explicitly skipped)
+	if !cfg.SkipPersonaPrompt {
+		a.client.SetSystemPrompt(prompts.GetSystemPrompt(false))
+		tui.LogInfo("✓ Celeste persona prompt re-injected after endpoint switch")
+	} else {
+		// Clear system prompt if persona is disabled in new config
+		a.client.SetSystemPrompt("")
+		tui.LogInfo("  Persona prompt skipped (SkipPersonaPrompt = true)")
+	}
+
 	// Log the switch with masked API key
 	maskedKey := "none"
 	if len(cfg.APIKey) > 8 {
