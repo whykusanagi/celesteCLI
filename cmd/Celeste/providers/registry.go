@@ -81,7 +81,7 @@ var Registry = map[string]ProviderCapabilities{
 
 	"gemini": {
 		Name:                    "Google Gemini AI (AI Studio)",
-		BaseURL:                 "https://generativelanguage.googleapis.com/v1beta/openai/",
+		BaseURL:                 "https://generativelanguage.googleapis.com/v1beta/openai",
 		SupportsFunctionCalling: true,
 		SupportsModelListing:    false, // Fixed model list
 		DefaultModel:            "gemini-2.0-flash",
