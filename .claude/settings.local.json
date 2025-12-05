@@ -66,7 +66,19 @@
       "Bash(go mod tidy:*)",
       "Bash(go get:*)",
       "Bash(go version:*)",
-      "Bash(go test:*)"
+      "Bash(go test:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(xargs -I {} bash -c 'head -1 {}')",
+      "Bash(go mod why:*)",
+      "Bash(grep:*)",
+      "Bash(git log:*)",
+      "Bash(rm:*)",
+      "Bash(nm:*)",
+      "Bash(git mv:*)",
+      "Bash(./celeste:*)",
+      "Bash(GOFLAGS=\"-mod=mod\" go build:*)",
+      "Bash(/bin/rm:*)"
     ],
     "deny": [],
     "ask": []

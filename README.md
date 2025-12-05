@@ -4,7 +4,7 @@
 
 **A premium, corruption-aesthetic command-line interface for CelesteAI**
 
-[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?style=flat&logo=go)](https://golang.org/)
 [![License](https://img.shields.io/badge/License-MIT-purple)](LICENSE)
 [![TUI Framework](https://img.shields.io/badge/TUI-Bubble%20Tea-d94f90)](https://github.com/charmbracelet/bubbletea)
 
@@ -28,7 +28,28 @@ CelesteCLI is the **official command-line interface** for CelesteAI, featuring:
 
 ## 🚀 Quick Start
 
-### Installation
+### Quick Install (Recommended)
+
+If you have Go 1.23+ installed:
+
+```bash
+go install github.com/whykusanagi/celesteCLI/cmd/celeste@latest
+```
+
+The `celeste` binary will be installed to `$GOPATH/bin` (or `~/go/bin` by default).
+
+**Requirements:**
+- Go 1.23.0 or higher
+- `$GOPATH/bin` (or `~/go/bin`) in your PATH
+
+To add to PATH:
+```bash
+export PATH="$PATH:$(go env GOPATH)/bin"
+```
+
+### Manual Installation
+
+Alternatively, build from source:
 
 ```bash
 # Clone the repository
@@ -36,26 +57,27 @@ git clone https://github.com/whykusanagi/celesteCLI.git
 cd celesteCLI
 
 # Build the binary
-go build -o Celeste ./cmd/Celeste
+go build -o celeste ./cmd/celeste
 
 # Install to PATH (optional)
-cp Celeste ~/.local/bin/
+cp celeste ~/.local/bin/
 ```
 
 ### First Run
 
 ```bash
 # Set up your API key
-Celeste config --set-key YOUR_OPENAI_API_KEY
+celeste config --set-key YOUR_OPENAI_API_KEY
 
 # Start chatting!
-Celeste chat
+celeste chat
 ```
 
 ---
 
 ## 📚 Table of Contents
 
+- [Installation](#-quick-start)
 - [Features](#-features)
 - [Skills System (21 Skills)](#-skills-system-21-skills)
 - [LLM Provider Compatibility](#-llm-provider-compatibility)
@@ -294,13 +316,13 @@ Run automated tests to verify function calling:
 
 ```bash
 # Test OpenAI
-OPENAI_API_KEY=your-key go test ./cmd/Celeste/llm -run TestOpenAI_FunctionCalling -v
+OPENAI_API_KEY=your-key go test ./cmd/celeste/llm -run TestOpenAI_FunctionCalling -v
 
 # Test Grok
-GROK_API_KEY=your-key go test ./cmd/Celeste/llm -run TestGrok_FunctionCalling -v
+GROK_API_KEY=your-key go test ./cmd/celeste/llm -run TestGrok_FunctionCalling -v
 
 # Test Venice.ai
-VENICE_API_KEY=your-key go test ./cmd/Celeste/llm -run TestVeniceAI_FunctionCalling -v
+VENICE_API_KEY=your-key go test ./cmd/celeste/llm -run TestVeniceAI_FunctionCalling -v
 ```
 
 **Expected output (working):**
@@ -687,7 +709,7 @@ Add Venice.ai API key to `~/.celeste/skills.json`:
 
 ```
 celesteCLI/
-├── cmd/Celeste/               # Main application
+├── cmd/celeste/               # Main application
 │   ├── main.go               # CLI entry point
 │   ├── tui/                  # Bubble Tea TUI components
 │   │   ├── app.go           # Main TUI model & update loop
@@ -835,7 +857,7 @@ Colors pulse between magenta (`#d94f90`) and red (`#dc2626`) to show "corruption
 ```bash
 cd celesteCLI
 go mod tidy
-go build -o Celeste ./cmd/Celeste
+go build -o celeste ./cmd/celeste
 ```
 
 ### Running Tests
@@ -848,7 +870,7 @@ go test ./...
 go test -cover ./...
 
 # Run specific package
-go test ./cmd/Celeste/skills -v
+go test ./cmd/celeste/skills -v
 
 # Run provider compatibility tests
 OPENAI_API_KEY=sk-xxx go test ./cmd/Celeste/llm -run TestOpenAI_FunctionCalling -v
@@ -919,7 +941,7 @@ celeste chat
 **Solution:**
 ```bash
 # Test provider compatibility
-OPENAI_API_KEY=your-key go test ./cmd/Celeste/llm -run TestOpenAI_FunctionCalling -v
+OPENAI_API_KEY=your-key go test ./cmd/celeste/llm -run TestOpenAI_FunctionCalling -v
 
 # If provider doesn't support skills, switch to OpenAI or Grok
 celeste config --set-url https://api.openai.com/v1
@@ -992,7 +1014,7 @@ resize  # Check current size
 **Solution:**
 ```bash
 go mod tidy
-go build -o Celeste ./cmd/Celeste
+go build -o celeste ./cmd/celeste
 ```
 
 **Error:** `package X is not in GOROOT`
@@ -1042,7 +1064,7 @@ Before submitting a PR:
 
 ```bash
 # Build succeeds
-go build -o Celeste ./cmd/Celeste
+go build -o celeste ./cmd/celeste
 
 # All tests pass
 go test ./...
@@ -1055,7 +1077,7 @@ gofmt -w ./cmd
 git diff  # Should show no changes
 
 # TUI works
-./Celeste chat
+./celeste chat
 ```
 
 ---

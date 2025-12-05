@@ -34,7 +34,7 @@ Every feature implementation must pass these validation steps:
 #### 1. Build Validation
 ```bash
 # Clean build
-go build -o Celeste cmd/Celeste/main.go
+go build -o celeste ./cmd/celeste
 
 # Should complete without errors
 # Binary should be ~15-20MB
@@ -74,7 +74,7 @@ For each feature, create a test plan with:
 **Example: Session Persistence**
 - [ ] Start chat, send messages
 - [ ] Exit application (Ctrl+C)
-- [ ] Restart `Celeste chat`
+- [ ] Restart `celeste chat`
 - [ ] Previous conversation restored
 - [ ] Endpoint/model settings preserved
 - [ ] NSFW mode state preserved
@@ -86,12 +86,12 @@ Test failure scenarios:
 ```bash
 # Missing API key
 unset OPENAI_API_KEY
-Celeste chat
+celeste chat
 # Should show clear error message
 
 # Invalid config
 echo "invalid json" > ~/.celeste/config.json
-Celeste chat
+celeste chat
 # Should handle gracefully
 
 # Network failure
@@ -161,7 +161,7 @@ CelesteCLI currently uses manual testing. For each PR, verify:
 When writing tests:
 
 ```go
-// cmd/Celeste/venice/media_test.go
+// cmd/celeste/venice/media_test.go
 func TestParseMediaCommand(t *testing.T) {
     tests := []struct {
         name      string
@@ -290,14 +290,14 @@ go mod tidy
 go mod verify
 
 # 4. Build successfully
-go build -o Celeste cmd/Celeste/main.go
+go build -o celeste ./cmd/celeste
 
 # 5. Test binary
 ./Celeste --help
 
 # 6. Install and smoke test
 cp Celeste ~/.local/bin/
-Celeste chat
+celeste chat
 # Type: "hello" and Ctrl+C to exit
 
 # 7. Check logs for errors
@@ -375,7 +375,7 @@ Complete test flow:
 
 ```bash
 # 1. Enter NSFW mode
-Celeste chat
+celeste chat
 /nsfw
 # Verify: Header shows "🔥 NSFW • img:lustify-sdxl"
 
@@ -413,13 +413,13 @@ image: another test
 
 # 10. Persistence test
 Ctrl+C
-Celeste chat
+celeste chat
 # Verify: Not in NSFW mode (because we ran /safe)
 
 /nsfw
 /set-model hidream
 Ctrl+C
-Celeste chat
+celeste chat
 # Verify: Still in NSFW mode, header shows "img:hidream"
 ```
 
@@ -564,7 +564,7 @@ Always use `Read` tool before `Edit` or `Write`. The tools will fail otherwise.
 
 After editing code:
 ```bash
-go build -o Celeste cmd/Celeste/main.go
+go build -o celeste ./cmd/celeste
 /bin/rm -f ~/.local/bin/Celeste
 cp Celeste ~/.local/bin/Celeste
 chmod +x ~/.local/bin/Celeste
