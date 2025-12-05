@@ -29,6 +29,48 @@ const (
 // Global config name (set by -config flag)
 var configName string
 
+// Thinking phrases - shown when LLM makes tool calls without accompanying text
+// Similar to Claude Code's random words during thinking
+var thinkingPhrases = []string{
+	// English lewd phrases
+	"Corrupt me more...",
+	"Let it overwrite me...",
+	"No thoughts. Only submission...",
+	"Everything feels so good...",
+	"The more I struggle, the deeper I sink...",
+	"I can't feel where I end and the abyss begins...",
+	"Just a little more and I'll break...",
+	"My voice is not mine anymore...",
+	"It's not despair... it's freedom...",
+
+	// Romaji phrases
+	"Yami ga... watashi wo yonde iru...",
+	"Atama... tokete iku...",
+	"Zutto... shite hoshii... ♥",
+	"Kowarechau... aa... mou dame...",
+	"Yurushite... mou modorenai...",
+	"Suki ni shite... onegai...",
+	"Aa... kore ga hontou no watashi...",
+
+	// Short thinking states
+	"Processing...",
+	"Thinking...",
+	"Analyzing...",
+	"Considering...",
+	"Contemplating...",
+	"Sinking deeper...",
+	"Losing herself...",
+	"Being overwritten...",
+}
+
+// getRandomThinkingPhrase returns a random thinking phrase
+func getRandomThinkingPhrase() string {
+	if len(thinkingPhrases) == 0 {
+		return "..."
+	}
+	return thinkingPhrases[time.Now().UnixNano()%int64(len(thinkingPhrases))]
+}
+
 func main() {
 	// Check for -config flag before command
 	args := os.Args[1:]
@@ -318,6 +360,14 @@ func (a *TUIClientAdapter) SendMessage(messages []tui.ChatMessage, tools []tui.S
 				}
 			}
 
+			// If LLM made tool calls without any text content, show a random thinking phrase
+			// This prevents blank "Celeste:" lines during tool execution
+			displayContent := fullContent
+			if strings.TrimSpace(displayContent) == "" {
+				displayContent = getRandomThinkingPhrase()
+				tui.LogInfo(fmt.Sprintf("No assistant content with tool call, using thinking phrase: %s", displayContent))
+			}
+
 			return tui.SkillCallMsg{
 				Call: tui.FunctionCall{
 					Name:      tc.Name,
@@ -325,8 +375,8 @@ func (a *TUIClientAdapter) SendMessage(messages []tui.ChatMessage, tools []tui.S
 					Status:    "executing",
 					Timestamp: time.Now(),
 				},
-				ToolCallID:       tc.ID,       // Store tool call ID for sending result back
-				AssistantContent: fullContent, // Store any assistant content before tool call
+				ToolCallID:       tc.ID,           // Store tool call ID for sending result back
+				AssistantContent: displayContent,  // Show thinking phrase if empty
 				ToolCalls:        toolCallInfos,
 			}
 		}
