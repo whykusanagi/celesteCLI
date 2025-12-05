@@ -1561,23 +1561,88 @@ func TwitchLiveCheckHandler(args map[string]interface{}, configLoader ConfigLoad
 		return formatConfigError("check_twitch_live", "streamer", "celeste config --set-twitch-streamer <name>"), nil
 	}
 
-	// Check if Client ID is configured (required for API call)
-	if config.ClientID == "" {
+	// Check if Client ID and Secret are configured (required for OAuth)
+	if config.ClientID == "" || config.ClientSecret == "" {
 		return formatErrorResponse(
 			"config_error",
-			"Twitch Client ID is required. Please configure it using: celeste config --set-twitch-client-id <client-id>",
-			"The Twitch Client ID is needed to access the Twitch API. You can get one from the Twitch Developer Console.",
+			"Twitch Client ID and Secret are required. Please configure them in skills.json.",
+			"The Twitch API requires OAuth authentication. You need both Client ID and Client Secret from the Twitch Developer Console.",
 			map[string]interface{}{
 				"skill":          "check_twitch_live",
-				"config_command": "celeste config --set-twitch-client-id <client-id>",
+				"config_command": "Add twitch_client_id and twitch_client_secret to ~/.celeste/skills.json",
 			},
 		), nil
 	}
 
-	// Use Twitch Helix API
-	url := fmt.Sprintf("https://api.twitch.tv/helix/streams?user_login=%s", streamer)
+	// Step 1: Get OAuth token using Client Credentials flow
+	tokenURL := "https://id.twitch.tv/oauth2/token"
+	tokenData := fmt.Sprintf("client_id=%s&client_secret=%s&grant_type=client_credentials",
+		config.ClientID, config.ClientSecret)
 
 	client := &http.Client{Timeout: 10 * time.Second}
+	tokenReq, err := http.NewRequest("POST", tokenURL, strings.NewReader(tokenData))
+	if err != nil {
+		return formatErrorResponse(
+			"internal_error",
+			"Failed to create OAuth request",
+			"An internal error occurred. Please try again.",
+			map[string]interface{}{
+				"skill": "check_twitch_live",
+				"error": err.Error(),
+			},
+		), nil
+	}
+	tokenReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	tokenResp, err := client.Do(tokenReq)
+	if err != nil {
+		return formatErrorResponse(
+			"network_error",
+			"Failed to get Twitch OAuth token",
+			"Please check your internet connection and try again.",
+			map[string]interface{}{
+				"skill": "check_twitch_live",
+				"error": err.Error(),
+			},
+		), nil
+	}
+	defer tokenResp.Body.Close()
+
+	if tokenResp.StatusCode != 200 {
+		body, _ := io.ReadAll(tokenResp.Body)
+		return formatErrorResponse(
+			"auth_error",
+			"Failed to authenticate with Twitch",
+			"The Twitch Client ID or Secret may be invalid. Please check your configuration.",
+			map[string]interface{}{
+				"skill":       "check_twitch_live",
+				"status_code": tokenResp.StatusCode,
+				"response":    string(body),
+			},
+		), nil
+	}
+
+	var tokenResult struct {
+		AccessToken string `json:"access_token"`
+		ExpiresIn   int    `json:"expires_in"`
+		TokenType   string `json:"token_type"`
+	}
+
+	if err := json.NewDecoder(tokenResp.Body).Decode(&tokenResult); err != nil {
+		return formatErrorResponse(
+			"api_error",
+			"Failed to parse OAuth token response",
+			"The Twitch OAuth API returned invalid data. Please try again.",
+			map[string]interface{}{
+				"skill": "check_twitch_live",
+				"error": err.Error(),
+			},
+		), nil
+	}
+
+	// Step 2: Use OAuth token to check if streamer is live
+	url := fmt.Sprintf("https://api.twitch.tv/helix/streams?user_login=%s", streamer)
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return formatErrorResponse(
@@ -1592,6 +1657,7 @@ func TwitchLiveCheckHandler(args map[string]interface{}, configLoader ConfigLoad
 	}
 
 	req.Header.Set("Client-ID", config.ClientID)
+	req.Header.Set("Authorization", "Bearer "+tokenResult.AccessToken)
 
 	resp, err := client.Do(req)
 	if err != nil {
