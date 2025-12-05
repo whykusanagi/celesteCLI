@@ -250,8 +250,12 @@ func (m *ChatModel) updateContent() {
 	var lines []string
 	contentWidth := m.width - 4 // Account for padding and some margin
 
-	// Render messages
+	// Render messages (skip tool results - only LLM needs to see them)
 	for _, msg := range m.messages {
+		// Don't render tool results in UI - they're for LLM only
+		if msg.Role == "tool" {
+			continue
+		}
 		lines = append(lines, m.renderMessage(msg, contentWidth))
 		lines = append(lines, "") // Spacing between messages
 	}
