@@ -143,6 +143,10 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c":
 			return m, tea.Quit
+		case "ctrl+k":
+			// Toggle skill call logs visibility
+			m.chat = m.chat.ToggleSkillCalls()
+			m.status = m.status.SetText("Skill calls toggled")
 		case "pgup", "pgdown", "shift+up", "shift+down":
 			// Scrolling keys go to chat
 			var cmd tea.Cmd

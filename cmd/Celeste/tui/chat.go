@@ -21,13 +21,15 @@ type ChatModel struct {
 	height        int
 	ready         bool
 	userScrolled  bool // Track if user has scrolled manually
+	showSkillCalls bool // Toggle to show/hide skill call logs
 }
 
 // NewChatModel creates a new chat model.
 func NewChatModel() ChatModel {
 	return ChatModel{
-		messages:      []ChatMessage{},
-		functionCalls: []FunctionCall{},
+		messages:       []ChatMessage{},
+		functionCalls:  []FunctionCall{},
+		showSkillCalls: false, // Hidden by default for cleaner UI
 	}
 }
 
@@ -232,6 +234,13 @@ func (m ChatModel) Clear() ChatModel {
 	return m
 }
 
+// ToggleSkillCalls toggles the visibility of skill call logs.
+func (m ChatModel) ToggleSkillCalls() ChatModel {
+	m.showSkillCalls = !m.showSkillCalls
+	m.updateContent()
+	return m
+}
+
 // updateContent rebuilds the viewport content from messages.
 func (m *ChatModel) updateContent() {
 	if !m.ready {
@@ -247,9 +256,11 @@ func (m *ChatModel) updateContent() {
 		lines = append(lines, "") // Spacing between messages
 	}
 
-	// Render function calls (interspersed if we track order)
-	for _, call := range m.functionCalls {
-		lines = append(lines, m.renderFunctionCall(call, contentWidth))
+	// Render function calls (only if showSkillCalls is true)
+	if m.showSkillCalls {
+		for _, call := range m.functionCalls {
+			lines = append(lines, m.renderFunctionCall(call, contentWidth))
+		}
 	}
 
 	content := strings.Join(lines, "\n")
