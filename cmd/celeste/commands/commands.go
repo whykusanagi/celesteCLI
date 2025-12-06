@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/whykusanagi/celesteCLI/cmd/Celeste/providers"
+	"github.com/whykusanagi/celesteCLI/cmd/celeste/providers"
 )
 
 // Command represents a parsed slash command.

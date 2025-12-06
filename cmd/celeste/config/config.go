@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/whykusanagi/celesteCLI/cmd/Celeste/skills"
+	"github.com/whykusanagi/celesteCLI/cmd/celeste/skills"
 )
 
 // Config holds all configuration for Celeste CLI.

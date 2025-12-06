@@ -78,7 +78,16 @@
       "Bash(git mv:*)",
       "Bash(./celeste:*)",
       "Bash(GOFLAGS=\"-mod=mod\" go build:*)",
-      "Bash(/bin/rm:*)"
+      "Bash(/bin/rm:*)",
+      "Bash(git tag:*)",
+      "Bash(go install:*)",
+      "Bash(celeste --version:*)",
+      "Bash(GOPRIVATE=\"\" go install:*)",
+      "Bash(GIT_TERMINAL_PROMPT=0 GOPROXY=direct go install:*)",
+      "Bash(gitleaks detect:*)",
+      "WebFetch(domain:whykusanagi.xyz)",
+      "Bash(curl:*)",
+      "Bash(identify:*)"
     ],
     "deny": [],
     "ask": []

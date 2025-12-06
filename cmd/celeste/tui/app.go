@@ -9,10 +9,10 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/whykusanagi/celesteCLI/cmd/Celeste/commands"
-	"github.com/whykusanagi/celesteCLI/cmd/Celeste/config"
-	"github.com/whykusanagi/celesteCLI/cmd/Celeste/providers"
-	"github.com/whykusanagi/celesteCLI/cmd/Celeste/venice"
+	"github.com/whykusanagi/celesteCLI/cmd/celeste/commands"
+	"github.com/whykusanagi/celesteCLI/cmd/celeste/config"
+	"github.com/whykusanagi/celesteCLI/cmd/celeste/providers"
+	"github.com/whykusanagi/celesteCLI/cmd/celeste/venice"
 )
 
 // Typing speed: ~25 chars/sec for smooth, visible corruption effects

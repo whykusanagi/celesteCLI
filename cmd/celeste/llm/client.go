@@ -11,8 +11,8 @@ import (
 
 	"github.com/sashabaranov/go-openai"
 
-	"github.com/whykusanagi/celesteCLI/cmd/Celeste/skills"
-	"github.com/whykusanagi/celesteCLI/cmd/Celeste/tui"
+	"github.com/whykusanagi/celesteCLI/cmd/celeste/skills"
+	"github.com/whykusanagi/celesteCLI/cmd/celeste/tui"
 )
 
 // Client wraps the OpenAI client for Celeste's needs.

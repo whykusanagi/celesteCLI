@@ -13,11 +13,11 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/whykusanagi/celesteCLI/cmd/Celeste/config"
-	"github.com/whykusanagi/celesteCLI/cmd/Celeste/llm"
-	"github.com/whykusanagi/celesteCLI/cmd/Celeste/prompts"
-	"github.com/whykusanagi/celesteCLI/cmd/Celeste/skills"
-	"github.com/whykusanagi/celesteCLI/cmd/Celeste/tui"
+	"github.com/whykusanagi/celesteCLI/cmd/celeste/config"
+	"github.com/whykusanagi/celesteCLI/cmd/celeste/llm"
+	"github.com/whykusanagi/celesteCLI/cmd/celeste/prompts"
+	"github.com/whykusanagi/celesteCLI/cmd/celeste/skills"
+	"github.com/whykusanagi/celesteCLI/cmd/celeste/tui"
 )
 
 // Version information
