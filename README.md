@@ -1,6 +1,8 @@
-# 👁️ Celeste CLI - Interactive AI Assistant
-
 <div align="center">
+
+<img src="https://s3.whykusanagi.xyz/art/hypnosis_expression_trans.png" alt="Celeste - Corrupted AI Assistant" width="400"/>
+
+# 👁️ Celeste CLI - Interactive AI Assistant
 
 **A premium, corruption-aesthetic command-line interface for CelesteAI**
 
