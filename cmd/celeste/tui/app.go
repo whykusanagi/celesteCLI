@@ -863,9 +863,9 @@ type Session interface {
 	SetNSFWMode(enabled bool)
 	GetNSFWMode() bool
 	ClearMessages()
-	GetMessagesRaw() interface{}      // Returns []SessionMessage
-	SetMessagesRaw(msgs interface{})  // Accepts []SessionMessage
-	SummarizeRaw() interface{}        // Returns SessionSummary
+	GetMessagesRaw() interface{}     // Returns []SessionMessage
+	SetMessagesRaw(msgs interface{}) // Accepts []SessionMessage
+	SummarizeRaw() interface{}       // Returns SessionSummary
 }
 
 // SessionMessage represents a message stored in session (matches config.SessionMessage).
@@ -959,10 +959,8 @@ func (m AppModel) handleSessionAction(action *commands.SessionAction) AppModel {
 		// Create new session
 		newSession := m.sessionManager.NewSession()
 		if s, ok := newSession.(Session); ok {
-			if action.Name != "" {
-				// Set name through metadata (config.Session doesn't have SetName)
-				// This will be stored in the session
-			}
+			// TODO: Set name through metadata if action.Name is provided
+			// config.Session doesn't currently have a SetName method
 			m.currentSession = s
 
 			// Clear chat
@@ -1034,7 +1032,7 @@ func (m AppModel) handleSessionAction(action *commands.SessionAction) AppModel {
 						if summaryRaw := s.SummarizeRaw(); summaryRaw != nil {
 							// Type assert to access summary fields
 							// Since we can't import config directly, we'll work with what we have
-							sb.WriteString(fmt.Sprintf("• Session available\n"))
+							sb.WriteString("• Session available\n")
 						}
 					}
 				}

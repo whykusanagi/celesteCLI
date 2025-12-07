@@ -1,7 +1,21 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(gh repo view:*)",
+      "Bash(docker-compose:*)",
+      "Bash(lsof:*)",
+      "Bash(gh run watch:*)",
+      "Bash(gh repo edit:*)",
+      "Bash(git show:*)",
+      "Bash(celeste --help:*)",
+      "Bash(~/go/bin/celeste:*)",
+      "Bash(/bin/cp:*)",
+      "Bash(celeste session:*)",
+      "Bash(celeste version:*)",
+      "Bash(for:*)",
+      "Bash(do echo \"=== Check $i ===\")",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": []
