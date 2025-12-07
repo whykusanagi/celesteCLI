@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://s3.whykusanagi.xyz/art/hypnosis_expression_trans.png" alt="Celeste - Corrupted AI Assistant" width="400"/>
+<img src="https://s3.whykusanagi.xyz/art/hypnosis_expression_trans.png" alt="Celeste - Corrupted AI Assistant" width="300"/>
 
 # 👁️ Celeste CLI - Interactive AI Assistant
 
@@ -353,9 +353,9 @@ Here's how skills work under the hood:
 sequenceDiagram
     participant User
     participant CLI as CelesteCLI
-    participant LLM as LLM Provider<br/>(OpenAI/Grok)
-    participant Skill as Skill Handler<br/>(Local Execution)
-    participant API as External API<br/>(Optional)
+    participant LLM as LLM Provider
+    participant Skill as Skill Handler
+    participant API as External API
 
     User->>CLI: "What's the weather in NYC?"
     CLI->>LLM: Send message + tools definition
@@ -781,9 +781,9 @@ flowchart TB
     end
 
     subgraph Storage["Persistence Layer"]
-        Config --> ConfigFiles[~/.celeste/config.json<br/>secrets.json<br/>skills.json]
-        Session --> SessionFiles[~/.celeste/sessions/<br/>{uuid}.json]
-        Handler --> |reminders/notes| LocalStorage[~/.celeste/reminders.json<br/>notes.json]
+        Config --> ConfigFiles["~/.celeste/config.json"]
+        Session --> SessionFiles["~/.celeste/sessions/*.json"]
+        Handler --> |reminders/notes| LocalStorage["~/.celeste/reminders.json"]
     end
 
     subgraph External["External APIs"]

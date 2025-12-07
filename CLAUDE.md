@@ -8,6 +8,8 @@ This document provides comprehensive guidelines for AI assistants (like Claude) 
 - [Feature Validation](#feature-validation)
 - [Testing Requirements](#testing-requirements)
 - [Documentation Standards](#documentation-standards)
+- [Mermaid Diagram Guidelines](#mermaid-diagram-guidelines)
+- [Image Display Guidelines](#image-display-guidelines)
 - [Code Quality Checks](#code-quality-checks)
 - [NSFW Mode Features](#nsfw-mode-features)
 - [Venice.ai Integration](#veniceai-integration)
@@ -269,6 +271,177 @@ Current Configuration:
   • Downloads: ~/Downloads
   • Quality: 40 steps, CFG 12.0, PNG format
 ```
+
+---
+
+## Mermaid Diagram Guidelines
+
+### GitHub Mermaid Rendering Rules
+
+GitHub's mermaid renderer has strict parsing requirements. Follow these rules to ensure diagrams display correctly:
+
+#### ❌ NEVER Do This:
+```markdown
+participant LLM as LLM Provider<br/>(OpenAI/Grok)  ❌ NO HTML tags in labels
+ConfigFiles[~/.celeste/config.json<br/>secrets.json]  ❌ NO line breaks in node labels
+```
+
+#### ✅ ALWAYS Do This:
+```markdown
+participant LLM as LLM Provider  ✅ Simple text only
+ConfigFiles["~/.celeste/config.json"]  ✅ One file per node
+```
+
+### Common Mermaid Errors and Fixes
+
+#### Error: "Parse error... Expecting 'SQE', got 'DIAMOND_START'"
+**Cause**: HTML tags (`<br/>`) inside node labels
+
+**Fix**: Remove all HTML and use separate nodes:
+```mermaid
+# WRONG:
+Config --> Files[config.json<br/>secrets.json]
+
+# CORRECT:
+Config --> ConfigFile["config.json"]
+Config --> SecretFile["secrets.json"]
+```
+
+#### Error: "Unable to render rich display"
+**Cause**: Complex nested structures or special characters
+
+**Fix**: Simplify node labels and use standard characters only:
+```mermaid
+# WRONG:
+Handler --> Storage[~/.celeste/{uuid}.json]
+
+# CORRECT:
+Handler --> Storage["~/.celeste/sessions/*.json"]
+```
+
+### Mermaid Best Practices
+
+1. **Keep Labels Simple**:
+   - Use plain text only
+   - No HTML tags (`<br/>`, `<b>`, etc.)
+   - No special formatting
+
+2. **Use Quotes for Paths**:
+   ```mermaid
+   Storage["~/.celeste/config.json"]  ✅
+   Storage[~/.celeste/config.json]    ❌
+   ```
+
+3. **One Concept Per Node**:
+   - Don't combine multiple files in one node
+   - Create separate nodes for clarity
+
+4. **Test Diagrams Locally**:
+   ```bash
+   # Use mermaid-cli to test before committing
+   npm install -g @mermaid-js/mermaid-cli
+   mmdc -i diagram.mmd -o diagram.svg
+   ```
+
+5. **Validate Before Commit**:
+   - Preview in VS Code with Mermaid extension
+   - Check GitHub's mermaid docs: https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/creating-diagrams
+
+### Example: Good vs Bad Diagrams
+
+#### ❌ BAD - Will Break on GitHub
+```mermaid
+flowchart TB
+    Config --> Files[config.json<br/>secrets.json<br/>skills.json]
+    Session --> Sessions[~/.celeste/sessions/<br/>{uuid}.json]
+```
+
+#### ✅ GOOD - Will Render Correctly
+```mermaid
+flowchart TB
+    Config --> ConfigFile["config.json"]
+    Config --> SecretFile["secrets.json"]
+    Session --> SessionDir["~/.celeste/sessions/*.json"]
+```
+
+---
+
+## Image Display Guidelines
+
+### Image Size Recommendations
+
+When adding images to README or documentation:
+
+#### 1. **Check Image File Size FIRST**
+```bash
+# Download and check file size
+curl -I "https://example.com/image.png" | grep -i content-length
+
+# If over 1MB, GitHub may have issues rendering inline
+```
+
+#### 2. **Use Appropriate Display Widths**
+
+| Image Original Size | Recommended Width | Use Case |
+|---------------------|-------------------|----------|
+| < 1 MB | 400-500px | Header images, logos |
+| 1-5 MB | 300-400px | Character art, screenshots |
+| 5-10 MB | 200-300px | High-res artwork |
+| > 10 MB | Link only | Don't embed, use external link |
+
+#### 3. **Image Syntax**
+```markdown
+# GOOD - Sized appropriately
+<img src="https://s3.example.com/art/image.png" alt="Description" width="300"/>
+
+# BAD - No size limit, may cause rendering issues
+![](https://s3.example.com/huge-image.png)
+```
+
+#### 4. **Test Image Loading**
+```bash
+# Verify image exists and get metadata
+curl -I "https://s3.example.com/art/image.png" 2>&1 | grep -E "(HTTP|Content-Type|Content-Length)"
+
+# Download to check actual file
+curl -s "https://s3.example.com/art/image.png" -o /tmp/test.png
+file /tmp/test.png
+ls -lh /tmp/test.png
+```
+
+### Image Content Length Errors
+
+**Error**: "Content length exceeded" in rendered markdown
+
+**Causes**:
+1. Image file > 5 MB without size attribute
+2. Image returns HTML instead of image data
+3. CDN/server misconfiguration
+
+**Fixes**:
+1. **Add explicit width**: `width="300"` or smaller
+2. **Verify image URL returns actual image**:
+   ```bash
+   curl -I "https://url.com/image.png" | grep content-type
+   # Should show: content-type: image/png
+   # NOT: content-type: text/html
+   ```
+3. **Use direct S3/CDN URLs**: Avoid URLs that redirect to HTML pages
+
+### Example: Proper Image Display
+```markdown
+<div align="center">
+  <img src="https://s3.whykusanagi.xyz/art/character.png"
+       alt="Character Name - Description"
+       width="300"/>
+</div>
+```
+
+**Why this works**:
+- Uses direct S3 URL (not proxied through website)
+- Explicit width prevents rendering issues
+- Descriptive alt text for accessibility
+- Centered for visual appeal
 
 ---
 
