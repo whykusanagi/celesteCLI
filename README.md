@@ -751,8 +751,10 @@ celesteCLI/
 ### Component Flow Diagram
 
 ```mermaid
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#4a90e2','secondaryColor':'#7c3aed','tertiaryColor':'#10b981','primaryTextColor':'#fff','lineColor':'#6c757d','fontSize':'14px'}}}%%
 flowchart TB
-    subgraph CLI["CLI Entry (main.go)"]
+    subgraph CLI["🖥️ CLI Entry (main.go)"]
+        style CLI fill:#e8f4f8,stroke:#4a90e2,stroke-width:2px
         Main[Parse Args] --> |chat| TUI[Launch TUI]
         Main --> |config| Config[Config Manager]
         Main --> |session| Session[Session Manager]
@@ -760,7 +762,8 @@ flowchart TB
         Main --> |help| Help[Print Help]
     end
 
-    subgraph TUI_Layer["TUI Layer (Bubble Tea)"]
+    subgraph TUI_Layer["🎨 TUI Layer (Bubble Tea)"]
+        style TUI_Layer fill:#f3e8ff,stroke:#7c3aed,stroke-width:2px
         TUI --> Header[Header Bar]
         TUI --> Viewport[Chat Viewport]
         TUI --> Input[Text Input + History]
@@ -768,7 +771,8 @@ flowchart TB
         TUI --> Status[Status Bar]
     end
 
-    subgraph Backend["Backend (Business Logic)"]
+    subgraph Backend["⚙️ Backend (Business Logic)"]
+        style Backend fill:#fef3c7,stroke:#f59e0b,stroke-width:2px
         Input --> |user message| LLM[LLM Client]
         LLM --> |stream chunks| Stream[Streaming Handler]
         Stream --> |SSE parsing| SimType[Simulated Typing]
@@ -781,13 +785,15 @@ flowchart TB
         LLM --> |final response| Stream
     end
 
-    subgraph Storage["Persistence Layer"]
+    subgraph Storage["💾 Persistence Layer"]
+        style Storage fill:#d1fae5,stroke:#10b981,stroke-width:2px
         Config --> ConfigFiles["~/.celeste/config.json"]
         Session --> SessionFiles["~/.celeste/sessions/*.json"]
         Handler --> |reminders/notes| LocalStorage["~/.celeste/reminders.json"]
     end
 
-    subgraph External["External APIs"]
+    subgraph External["🌐 External APIs"]
+        style External fill:#fee2e2,stroke:#ef4444,stroke-width:2px
         Handler --> |weather| WttrIn[wttr.in API]
         Handler --> |tarot| TarotAPI[Tarot Function]
         Handler --> |nsfw/images| VeniceAI[Venice.ai]
@@ -795,6 +801,17 @@ flowchart TB
         Handler --> |twitch| TwitchAPI[Twitch API]
         Handler --> |youtube| YouTubeAPI[YouTube Data API]
     end
+
+    classDef entryPoint fill:#4a90e2,stroke:#357abd,color:#fff
+    classDef uiComponent fill:#7c3aed,stroke:#6b21a8,color:#fff
+    classDef business fill:#f59e0b,stroke:#d97706,color:#fff
+    classDef storage fill:#10b981,stroke:#059669,color:#fff
+    classDef external fill:#ef4444,stroke:#dc2626,color:#fff
+
+    class Main,TUI entryPoint
+    class LLM,Stream,Executor business
+    class ConfigFiles,SessionFiles,LocalStorage storage
+    class WttrIn,TarotAPI,VeniceAI,ExchangeRate,TwitchAPI,YouTubeAPI external
 ```
 
 ### Data Flow: User Message → Response
