@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -209,11 +210,14 @@ func TestSaveSkillsConfig(t *testing.T) {
 	err = SaveSkillsConfig(config)
 	require.NoError(t, err)
 
-	// Verify file exists with correct permissions
+	// Verify file exists with correct permissions (Unix-only check)
 	skillsFile := filepath.Join(configDir, "skills.json")
 	info, err := os.Stat(skillsFile)
 	require.NoError(t, err)
-	assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
+	// Skip permission check on Windows (Windows doesn't use Unix permission bits)
+	if runtime.GOOS != "windows" {
+		assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
+	}
 
 	// Load and verify
 	data, err := os.ReadFile(skillsFile)

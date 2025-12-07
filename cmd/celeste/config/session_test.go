@@ -24,7 +24,9 @@ func TestNewSessionManager(t *testing.T) {
 
 	manager := NewSessionManager()
 	require.NotNil(t, manager)
-	assert.Contains(t, manager.sessionsDir, ".celeste/sessions")
+	// Normalize path for Windows (use forward slashes for comparison)
+	normalizedPath := filepath.ToSlash(manager.sessionsDir)
+	assert.Contains(t, normalizedPath, ".celeste/sessions")
 
 	// Verify sessions directory was created
 	_, err := os.Stat(manager.sessionsDir)
