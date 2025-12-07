@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://s3.whykusanagi.xyz/art/hypnosis_expression_trans.png" alt="Celeste - Corrupted AI Assistant" width="300"/>
+<img src="https://s3.whykusanagi.xyz/optimized_assets/hypnosis_expression_trans_ghub.png" alt="Celeste - Corrupted AI Assistant" width="300"/>
 
 # 👁️ Celeste CLI - Interactive AI Assistant
 
