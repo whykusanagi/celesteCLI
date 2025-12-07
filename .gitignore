@@ -37,6 +37,10 @@ celeste
 *.so
 *.dylib
 
+# Test coverage reports
+coverage.txt
+coverage.out
+
 # Documentation with sensitive info
 *_CONFIGURATION.md
 *_SECRETS.md

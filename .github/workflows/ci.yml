@@ -41,7 +41,7 @@ jobs:
         test -z "$(gofmt -l .)"
 
     - name: Run tests
-      run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+      run: go test -v -race -coverprofile=coverage.txt -covermode=atomic $(go list ./... | grep -v '/test/')
 
     - name: Check coverage threshold
       if: matrix.os == 'ubuntu-latest' && matrix.go == '1.24.11'

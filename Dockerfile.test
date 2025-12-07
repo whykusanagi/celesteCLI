@@ -45,13 +45,15 @@ WORKDIR /app
 # Copy test binaries from builder
 COPY --from=builder /tmp/tests /app/tests
 
+# Create directories for test outputs first
+RUN mkdir -p /app/reports /app/coverage /app/fixtures /app/scripts
+
 # Copy test fixtures and scripts
 COPY test/fixtures /app/fixtures
 COPY test/scripts /app/scripts
 
-# Create directories for test outputs
-RUN mkdir -p /app/reports /app/coverage && \
-    chown -R celeste:celeste /app
+# Set ownership after all files are copied
+RUN chown -R celeste:celeste /app
 
 # Switch to non-root user
 USER celeste
