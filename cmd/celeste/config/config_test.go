@@ -88,6 +88,20 @@ func TestSaveAndLoad(t *testing.T) {
 	os.Setenv("HOME", homeDir)
 	os.Setenv("USERPROFILE", homeDir) // Windows uses USERPROFILE
 
+	// Unset environment variables to prevent Docker compose env vars from polluting tests
+	oldAPIKey := os.Getenv("CELESTE_API_KEY")
+	oldEndpoint := os.Getenv("CELESTE_API_ENDPOINT")
+	defer func() {
+		if oldAPIKey != "" {
+			os.Setenv("CELESTE_API_KEY", oldAPIKey)
+		}
+		if oldEndpoint != "" {
+			os.Setenv("CELESTE_API_ENDPOINT", oldEndpoint)
+		}
+	}()
+	os.Unsetenv("CELESTE_API_KEY")
+	os.Unsetenv("CELESTE_API_ENDPOINT")
+
 	// Create .celeste directory
 	configDir := filepath.Join(homeDir, ".celeste")
 	err := os.MkdirAll(configDir, 0755)
@@ -257,6 +271,20 @@ func TestLoadNamed(t *testing.T) {
 	os.Setenv("HOME", homeDir)
 	os.Setenv("USERPROFILE", homeDir)
 
+	// Unset environment variables to prevent Docker compose env vars from polluting tests
+	oldAPIKey := os.Getenv("CELESTE_API_KEY")
+	oldEndpoint := os.Getenv("CELESTE_API_ENDPOINT")
+	defer func() {
+		if oldAPIKey != "" {
+			os.Setenv("CELESTE_API_KEY", oldAPIKey)
+		}
+		if oldEndpoint != "" {
+			os.Setenv("CELESTE_API_ENDPOINT", oldEndpoint)
+		}
+	}()
+	os.Unsetenv("CELESTE_API_KEY")
+	os.Unsetenv("CELESTE_API_ENDPOINT")
+
 	// Create .celeste directory
 	configDir := filepath.Join(homeDir, ".celeste")
 	err := os.MkdirAll(configDir, 0755)
@@ -304,6 +332,30 @@ func TestLoadNamedWithSkillsMerge(t *testing.T) {
 	}()
 	os.Setenv("HOME", homeDir)
 	os.Setenv("USERPROFILE", homeDir)
+
+	// Unset environment variables to prevent Docker compose env vars from polluting tests
+	oldAPIKey := os.Getenv("CELESTE_API_KEY")
+	oldEndpoint := os.Getenv("CELESTE_API_ENDPOINT")
+	oldVeniceKey := os.Getenv("VENICE_API_KEY")
+	oldTarotToken := os.Getenv("TAROT_AUTH_TOKEN")
+	defer func() {
+		if oldAPIKey != "" {
+			os.Setenv("CELESTE_API_KEY", oldAPIKey)
+		}
+		if oldEndpoint != "" {
+			os.Setenv("CELESTE_API_ENDPOINT", oldEndpoint)
+		}
+		if oldVeniceKey != "" {
+			os.Setenv("VENICE_API_KEY", oldVeniceKey)
+		}
+		if oldTarotToken != "" {
+			os.Setenv("TAROT_AUTH_TOKEN", oldTarotToken)
+		}
+	}()
+	os.Unsetenv("CELESTE_API_KEY")
+	os.Unsetenv("CELESTE_API_ENDPOINT")
+	os.Unsetenv("VENICE_API_KEY")
+	os.Unsetenv("TAROT_AUTH_TOKEN")
 
 	// Create .celeste directory
 	configDir := filepath.Join(homeDir, ".celeste")
@@ -476,6 +528,20 @@ func TestConfigLoader(t *testing.T) {
 	}()
 	os.Setenv("HOME", homeDir)
 	os.Setenv("USERPROFILE", homeDir)
+
+	// Unset environment variables to prevent Docker compose env vars from polluting tests
+	oldVeniceKey := os.Getenv("VENICE_API_KEY")
+	oldTarotToken := os.Getenv("TAROT_AUTH_TOKEN")
+	defer func() {
+		if oldVeniceKey != "" {
+			os.Setenv("VENICE_API_KEY", oldVeniceKey)
+		}
+		if oldTarotToken != "" {
+			os.Setenv("TAROT_AUTH_TOKEN", oldTarotToken)
+		}
+	}()
+	os.Unsetenv("VENICE_API_KEY")
+	os.Unsetenv("TAROT_AUTH_TOKEN")
 
 	// Create .celeste directory
 	configDir := filepath.Join(homeDir, ".celeste")
