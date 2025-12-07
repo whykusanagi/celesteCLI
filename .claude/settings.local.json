@@ -101,7 +101,8 @@
       "Bash(tarot_cards.json )",
       "Bash(scaffolding.json)",
       "Bash(ls:*)",
-      "Bash(staticcheck:*)"
+      "Bash(staticcheck:*)",
+      "Bash(go list:*)"
     ],
     "deny": [],
     "ask": []

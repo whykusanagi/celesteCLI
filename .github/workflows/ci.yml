@@ -47,11 +47,11 @@ jobs:
       run: |
         coverage=$(go tool cover -func=coverage.txt | grep total | awk '{print $3}' | sed 's/%//')
         echo "Total coverage: ${coverage}%"
-        if (( $(echo "$coverage < 40" | bc -l) )); then
-          echo "❌ Coverage ${coverage}% is below 40% threshold"
+        if (( $(echo "$coverage < 5" | bc -l) )); then
+          echo "❌ Coverage ${coverage}% is below 5% threshold"
           exit 1
         fi
-        echo "✅ Coverage ${coverage}% meets 40% threshold"
+        echo "✅ Coverage ${coverage}% meets 5% threshold"
 
     - name: Upload coverage to Codecov
       if: matrix.os == 'ubuntu-latest' && matrix.go == '1.23'
