@@ -353,7 +353,6 @@ func (m SkillsModel) getContextualHelp(input string) string {
 	return ""
 }
 
-
 // AddSkill adds a skill definition.
 func (m SkillsModel) AddSkill(skill SkillDefinition) SkillsModel {
 	m.skills = append(m.skills, skill)

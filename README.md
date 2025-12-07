@@ -350,25 +350,26 @@ VENICE_API_KEY=your-key go test ./cmd/celeste/llm -run TestVeniceAI_FunctionCall
 Here's how skills work under the hood:
 
 ```mermaid
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#4a90e2','primaryTextColor':'#fff','primaryBorderColor':'#357abd','lineColor':'#6c757d','secondaryColor':'#7c3aed','tertiaryColor':'#10b981','noteBkgColor':'#fef3c7','noteTextColor':'#92400e'}}}%%
 sequenceDiagram
-    participant User
+    actor User
     participant CLI as CelesteCLI
     participant LLM as LLM Provider
     participant Skill as Skill Handler
     participant API as External API
 
-    User->>CLI: "What's the weather in NYC?"
-    CLI->>LLM: Send message + tools definition
-    Note over LLM: AI decides: need weather data
-    LLM-->>CLI: tool_call: get_weather(location="NYC")
-    CLI->>Skill: Execute get_weather handler
-    Skill->>API: Fetch weather data (wttr.in)
-    API-->>Skill: JSON weather response
-    Skill-->>CLI: Formatted weather data
-    CLI->>LLM: Send tool result back
-    Note over LLM: Generate natural response
-    LLM-->>CLI: "It's 45°F and cloudy in NYC..."
-    CLI->>User: Display response with typing animation
+    User->>+CLI: "What's the weather in NYC?"
+    CLI->>+LLM: Send message + tools definition
+    Note right of LLM: AI decides:<br/>need weather data
+    LLM-->>-CLI: tool_call: get_weather(location="NYC")
+    CLI->>+Skill: Execute get_weather handler
+    Skill->>+API: Fetch weather data (wttr.in)
+    API-->>-Skill: JSON weather response
+    Skill-->>-CLI: Formatted weather data
+    CLI->>+LLM: Send tool result back
+    Note right of LLM: Generate natural<br/>response
+    LLM-->>-CLI: "It's 45°F and cloudy in NYC..."
+    CLI->>-User: Display response with typing animation
 ```
 
 ### Key Points:
