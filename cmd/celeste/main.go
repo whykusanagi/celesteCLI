@@ -22,7 +22,7 @@ import (
 
 // Version information
 const (
-	Version = "3.0.0"
+	Version = "1.0.1"
 	Build   = "bubbletea-tui"
 )
 
@@ -263,8 +263,44 @@ func runChatTUI() {
 	}
 	defer tui.CloseLogging()
 
-	// Create and run TUI
+	// Initialize session management
+	sessionManager := config.NewSessionManager()
+	var currentSession *config.Session
+
+	// Try to load latest session for auto-resume
+	if latest, err := sessionManager.LoadLatest(); err == nil {
+		fmt.Fprintf(os.Stderr, "📂 Resuming session: %s (%d messages)\n",
+			latest.ID[:8], len(latest.Messages))
+		currentSession = latest
+	} else {
+		fmt.Fprintln(os.Stderr, "📝 Starting new session")
+		currentSession = sessionManager.NewSession()
+	}
+
+	// Create TUI with session management
 	app := tui.NewApp(tuiClient)
+
+	// Restore messages from session if available
+	if len(currentSession.Messages) > 0 {
+		// Convert config.SessionMessage to tui.ChatMessage
+		tuiMessages := make([]tui.ChatMessage, len(currentSession.Messages))
+		for i, msg := range currentSession.Messages {
+			tuiMessages[i] = tui.ChatMessage{
+				Role:      msg.Role,
+				Content:   msg.Content,
+				Timestamp: msg.Timestamp,
+			}
+		}
+		app = app.WithMessages(tuiMessages)
+	}
+
+	// Create session manager adapter for TUI
+	smAdapter := &SessionManagerAdapter{manager: sessionManager}
+
+	// Set session manager and current session
+	app = app.SetSessionManager(smAdapter, currentSession)
+
+	// Run the TUI
 	p := tea.NewProgram(app, tea.WithAltScreen(), tea.WithMouseCellMotion())
 
 	if _, err := p.Run(); err != nil {
@@ -1004,4 +1040,45 @@ func runSingleMessage(message string) {
 	}
 
 	fmt.Println(result.Content)
+}
+
+// SessionManagerAdapter adapts config.SessionManager to tui.SessionManager interface.
+type SessionManagerAdapter struct {
+	manager *config.SessionManager
+}
+
+func (a *SessionManagerAdapter) NewSession() interface{} {
+	return a.manager.NewSession()
+}
+
+func (a *SessionManagerAdapter) Save(session interface{}) error {
+	if s, ok := session.(*config.Session); ok {
+		return a.manager.Save(s)
+	}
+	return fmt.Errorf("invalid session type")
+}
+
+func (a *SessionManagerAdapter) Load(id string) (interface{}, error) {
+	return a.manager.Load(id)
+}
+
+func (a *SessionManagerAdapter) List() ([]interface{}, error) {
+	sessions, err := a.manager.List()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]interface{}, len(sessions))
+	for i := range sessions {
+		result[i] = &sessions[i]
+	}
+	return result, nil
+}
+
+func (a *SessionManagerAdapter) MergeSessions(session1, session2 interface{}) interface{} {
+	s1, ok1 := session1.(*config.Session)
+	s2, ok2 := session2.(*config.Session)
+	if !ok1 || !ok2 {
+		return nil
+	}
+	return a.manager.MergeSessions(s1, s2)
 }

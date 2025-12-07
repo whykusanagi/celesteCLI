@@ -13,13 +13,15 @@ import (
 
 // Session represents a saved conversation session.
 type Session struct {
-	ID        string           `json:"id"`
-	Name      string           `json:"name,omitempty"`
-	CreatedAt time.Time        `json:"created_at"`
-	UpdatedAt time.Time        `json:"updated_at"`
-	Messages  []SessionMessage `json:"messages"`
-	NSFWMode  bool             `json:"nsfw_mode,omitempty"`
-	Metadata  map[string]any   `json:"metadata,omitempty"`
+	ID         string           `json:"id"`
+	Name       string           `json:"name,omitempty"`
+	CreatedAt  time.Time        `json:"created_at"`
+	UpdatedAt  time.Time        `json:"updated_at"`
+	Messages   []SessionMessage `json:"messages"`
+	NSFWMode   bool             `json:"nsfw_mode,omitempty"`
+	Metadata   map[string]any   `json:"metadata,omitempty"`
+	TokenCount int              `json:"token_count,omitempty"` // Estimated token count
+	Model      string           `json:"model,omitempty"`       // Track model for limits
 }
 
 // SessionMessage represents a message in a session.
@@ -63,6 +65,7 @@ func (m *SessionManager) NewSession() *Session {
 // Save saves a session to disk.
 func (m *SessionManager) Save(session *Session) error {
 	session.UpdatedAt = time.Now()
+	session.TokenCount = EstimateSessionTokens(session)
 
 	data, err := json.MarshalIndent(session, "", "  ")
 	if err != nil {
@@ -169,6 +172,35 @@ func (m *SessionManager) AddMessage(session *Session, role, content string) {
 	session.UpdatedAt = time.Now()
 }
 
+// ClearMessages clears all messages from the session.
+func (s *Session) ClearMessages() {
+	s.Messages = []SessionMessage{}
+	s.UpdatedAt = time.Now()
+}
+
+// GetMessages returns all session messages.
+func (s *Session) GetMessages() []SessionMessage {
+	return s.Messages
+}
+
+// GetMessagesRaw returns messages as interface{} (for TUI interface compatibility).
+func (s *Session) GetMessagesRaw() interface{} {
+	return s.Messages
+}
+
+// SetMessagesRaw sets messages from interface{} (for TUI interface compatibility).
+func (s *Session) SetMessagesRaw(msgs interface{}) {
+	if sessionMsgs, ok := msgs.([]SessionMessage); ok {
+		s.Messages = sessionMsgs
+		s.UpdatedAt = time.Now()
+	}
+}
+
+// SummarizeRaw returns summary as interface{} (for TUI interface compatibility).
+func (s *Session) SummarizeRaw() interface{} {
+	return s.Summarize()
+}
+
 // SetEndpoint stores the current endpoint in session metadata.
 func (s *Session) SetEndpoint(endpoint string) {
 	if s.Metadata == nil {
@@ -262,4 +294,81 @@ func (s *Session) Summarize() SessionSummary {
 	}
 
 	return summary
+}
+
+// GetMessagesWithLimit returns messages with token limit applied.
+func (s *Session) GetMessagesWithLimit(systemPromptTokens int) []SessionMessage {
+	return TruncateToLimit(s.Messages, s.Model, systemPromptTokens)
+}
+
+// MergeSessions combines messages from two sessions chronologically.
+func (m *SessionManager) MergeSessions(session1, session2 *Session) *Session {
+	merged := &Session{
+		ID:        fmt.Sprintf("%d", time.Now().UnixNano()),
+		Name:      fmt.Sprintf("%s + %s", session1.Name, session2.Name),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		Messages:  []SessionMessage{},
+		NSFWMode:  session1.NSFWMode, // Inherit from primary
+		Metadata:  make(map[string]any),
+		Model:     session1.Model,
+	}
+
+	// Combine messages from both sessions
+	allMessages := append([]SessionMessage{}, session1.Messages...)
+	allMessages = append(allMessages, session2.Messages...)
+
+	// Sort by timestamp
+	sort.Slice(allMessages, func(i, j int) bool {
+		return allMessages[i].Timestamp.Before(allMessages[j].Timestamp)
+	})
+
+	merged.Messages = allMessages
+	merged.TokenCount = EstimateSessionTokens(merged)
+
+	return merged
+}
+
+// --- TUI Interface Compatibility Methods ---
+// These methods use interface{} to avoid circular imports with the TUI package.
+
+// NewSessionRaw returns a new session as interface{}.
+func (m *SessionManager) NewSessionRaw() interface{} {
+	return m.NewSession()
+}
+
+// SaveRaw saves a session (accepts interface{}).
+func (m *SessionManager) SaveRaw(session interface{}) error {
+	if s, ok := session.(*Session); ok {
+		return m.Save(s)
+	}
+	return fmt.Errorf("invalid session type")
+}
+
+// LoadRaw loads a session by ID (returns interface{}).
+func (m *SessionManager) LoadRaw(id string) (interface{}, error) {
+	return m.Load(id)
+}
+
+// ListRaw lists all sessions (returns []interface{}).
+func (m *SessionManager) ListRaw() ([]interface{}, error) {
+	sessions, err := m.List()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]interface{}, len(sessions))
+	for i := range sessions {
+		result[i] = &sessions[i]
+	}
+	return result, nil
+}
+
+// MergeSessionsRaw merges two sessions (accepts and returns interface{}).
+func (m *SessionManager) MergeSessionsRaw(session1, session2 interface{}) interface{} {
+	s1, ok1 := session1.(*Session)
+	s2, ok2 := session2.(*Session)
+	if !ok1 || !ok2 {
+		return nil
+	}
+	return m.MergeSessions(s1, s2)
 }

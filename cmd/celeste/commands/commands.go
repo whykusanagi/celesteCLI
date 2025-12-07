@@ -45,7 +45,15 @@ type StateChange struct {
 	Model          *string
 	ImageModel     *string
 	ClearHistory   bool
-	MenuState      *string // "status", "commands", "skills"
+	MenuState      *string        // "status", "commands", "skills"
+	SessionAction  *SessionAction // Session management operations
+}
+
+// SessionAction represents a session management operation.
+type SessionAction struct {
+	Action    string // "new", "resume", "list", "clear", "merge", "info"
+	SessionID string // For resume/merge operations
+	Name      string // For new session with name
 }
 
 // Parse parses a message to check if it's a command.
@@ -102,6 +110,8 @@ func Execute(cmd *Command, ctx *CommandContext) *CommandResult {
 		return handleMenu(cmd)
 	case "skills":
 		return handleSkills(cmd, ctx)
+	case "session":
+		return handleSession(cmd, ctx)
 	default:
 		return &CommandResult{
 			Success:      false,
@@ -769,5 +779,121 @@ func handleSkills(cmd *Command, ctx *CommandContext) *CommandResult {
 		StateChange: &StateChange{
 			MenuState: &menuState,
 		},
+	}
+}
+
+// handleSession handles the /session command for session management.
+func handleSession(cmd *Command, ctx *CommandContext) *CommandResult {
+	if len(cmd.Args) == 0 {
+		return &CommandResult{
+			Success:      false,
+			Message:      "Usage: /session <new|resume|list|clear|merge|info> [args]\n\nAvailable subcommands:\n  • new [name]       - Start a new session\n  • resume <id>      - Resume a previous session\n  • list             - List all saved sessions\n  • clear            - Clear current session\n  • merge <id>       - Merge another session into current\n  • info             - Show current session statistics\n\nExamples:\n  /session new \"Planning notes\"\n  /session resume 1733609876123\n  /session list\n  /session info",
+			ShouldRender: true,
+		}
+	}
+
+	action := strings.ToLower(cmd.Args[0])
+
+	switch action {
+	case "new":
+		name := ""
+		if len(cmd.Args) > 1 {
+			name = strings.Join(cmd.Args[1:], " ")
+		}
+		return &CommandResult{
+			Success:      true,
+			Message:      "📝 Creating new session...",
+			ShouldRender: true,
+			StateChange: &StateChange{
+				SessionAction: &SessionAction{
+					Action: "new",
+					Name:   name,
+				},
+			},
+		}
+
+	case "resume":
+		if len(cmd.Args) < 2 {
+			return &CommandResult{
+				Success:      false,
+				Message:      "Usage: /session resume <session-id>\n\nUse /session list to see available sessions.",
+				ShouldRender: true,
+			}
+		}
+		return &CommandResult{
+			Success:      true,
+			Message:      fmt.Sprintf("📂 Loading session %s...", cmd.Args[1]),
+			ShouldRender: true,
+			StateChange: &StateChange{
+				SessionAction: &SessionAction{
+					Action:    "resume",
+					SessionID: cmd.Args[1],
+				},
+			},
+		}
+
+	case "list":
+		return &CommandResult{
+			Success:      true,
+			Message:      "", // Will be populated by handler
+			ShouldRender: true,
+			StateChange: &StateChange{
+				SessionAction: &SessionAction{
+					Action: "list",
+				},
+			},
+		}
+
+	case "clear":
+		return &CommandResult{
+			Success:      true,
+			Message:      "🗑️  Clearing current session...",
+			ShouldRender: true,
+			StateChange: &StateChange{
+				ClearHistory: true,
+				SessionAction: &SessionAction{
+					Action: "clear",
+				},
+			},
+		}
+
+	case "merge":
+		if len(cmd.Args) < 2 {
+			return &CommandResult{
+				Success:      false,
+				Message:      "Usage: /session merge <session-id>\n\nThis will merge the specified session into the current one chronologically.\nUse /session list to see available sessions.",
+				ShouldRender: true,
+			}
+		}
+		return &CommandResult{
+			Success:      true,
+			Message:      fmt.Sprintf("🔀 Merging session %s...", cmd.Args[1]),
+			ShouldRender: true,
+			StateChange: &StateChange{
+				SessionAction: &SessionAction{
+					Action:    "merge",
+					SessionID: cmd.Args[1],
+				},
+			},
+		}
+
+	case "info":
+		return &CommandResult{
+			Success:      true,
+			Message:      "", // Will be populated by handler
+			ShouldRender: true,
+			StateChange: &StateChange{
+				SessionAction: &SessionAction{
+					Action: "info",
+				},
+			},
+		}
+
+	default:
+		return &CommandResult{
+			Success:      false,
+			Message:      fmt.Sprintf("Unknown session action: %s\n\nAvailable actions: new, resume, list, clear, merge, info", action),
+			ShouldRender: true,
+		}
 	}
 }

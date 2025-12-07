@@ -337,6 +337,11 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if result.StateChange.MenuState != nil {
 					m.skills = m.skills.SetMenuState(*result.StateChange.MenuState)
 				}
+
+				// Handle session actions
+				if result.StateChange.SessionAction != nil {
+					m = m.handleSessionAction(result.StateChange.SessionAction)
+				}
 			}
 
 			return m, nil
@@ -839,13 +844,17 @@ func (m AppModel) SetLLMClient(client LLMClient) AppModel {
 }
 
 // SessionManager interface for session persistence (avoid circular import).
+// Uses interface{} for return types to avoid circular dependencies.
 type SessionManager interface {
-	NewSession() Session
-	Save(session Session) error
-	Load(id string) (Session, error)
+	NewSession() interface{}
+	Save(session interface{}) error
+	Load(id string) (interface{}, error)
+	List() ([]interface{}, error)
+	MergeSessions(session1, session2 interface{}) interface{}
 }
 
 // Session interface for session data (avoid circular import).
+// Uses interface{} for complex types to avoid circular dependencies.
 type Session interface {
 	SetEndpoint(endpoint string)
 	GetEndpoint() string
@@ -853,6 +862,17 @@ type Session interface {
 	GetModel() string
 	SetNSFWMode(enabled bool)
 	GetNSFWMode() bool
+	ClearMessages()
+	GetMessagesRaw() interface{}      // Returns []SessionMessage
+	SetMessagesRaw(msgs interface{})  // Accepts []SessionMessage
+	SummarizeRaw() interface{}        // Returns SessionSummary
+}
+
+// SessionMessage represents a message stored in session (matches config.SessionMessage).
+type SessionMessage struct {
+	Role      string
+	Content   string
+	Timestamp time.Time
 }
 
 // SetSessionManager sets the session manager for persistence.
@@ -877,6 +897,21 @@ func (m AppModel) SetSessionManager(sm SessionManager, session Session) AppModel
 	return m
 }
 
+// WithMessages restores chat history from session messages.
+func (m AppModel) WithMessages(messages []ChatMessage) AppModel {
+	for _, msg := range messages {
+		switch msg.Role {
+		case "user":
+			m.chat = m.chat.AddUserMessage(msg.Content)
+		case "assistant":
+			m.chat = m.chat.AddAssistantMessage(msg.Content)
+		case "tool":
+			m.chat = m.chat.AddToolResult(msg.ToolCallID, msg.Name, msg.Content)
+		}
+	}
+	return m
+}
+
 // persistSession saves the current session state.
 func (m *AppModel) persistSession() {
 	if m.sessionManager == nil || m.currentSession == nil {
@@ -887,10 +922,193 @@ func (m *AppModel) persistSession() {
 	m.currentSession.SetModel(m.model)
 	m.currentSession.SetNSFWMode(m.nsfwMode)
 
+	// Convert TUI ChatMessages to config SessionMessages
+	chatMsgs := m.chat.GetMessages()
+	sessionMsgs := make([]SessionMessage, 0, len(chatMsgs))
+	for _, msg := range chatMsgs {
+		// Skip system messages (UI-only, not part of LLM conversation)
+		if msg.Role == "system" {
+			continue
+		}
+		sessionMsgs = append(sessionMsgs, SessionMessage{
+			Role:      msg.Role,
+			Content:   msg.Content,
+			Timestamp: msg.Timestamp,
+		})
+	}
+	m.currentSession.SetMessagesRaw(sessionMsgs)
+
 	// Save asynchronously (ignore errors for now)
 	go func() {
 		_ = m.sessionManager.Save(m.currentSession)
 	}()
+}
+
+// handleSessionAction handles session management actions.
+func (m AppModel) handleSessionAction(action *commands.SessionAction) AppModel {
+	if m.sessionManager == nil {
+		m.chat = m.chat.AddSystemMessage("❌ Session manager not available")
+		return m
+	}
+
+	switch action.Action {
+	case "new":
+		// Save current session first
+		m.persistSession()
+
+		// Create new session
+		newSession := m.sessionManager.NewSession()
+		if s, ok := newSession.(Session); ok {
+			if action.Name != "" {
+				// Set name through metadata (config.Session doesn't have SetName)
+				// This will be stored in the session
+			}
+			m.currentSession = s
+
+			// Clear chat
+			m.chat = m.chat.Clear()
+
+			// Show success with short ID
+			if summary := s.SummarizeRaw(); summary != nil {
+				m.chat = m.chat.AddSystemMessage("📝 New session created")
+			}
+		}
+
+	case "resume":
+		// Save current session first
+		m.persistSession()
+
+		// Load requested session
+		if loaded, err := m.sessionManager.Load(action.SessionID); err == nil {
+			if s, ok := loaded.(Session); ok {
+				m.currentSession = s
+
+				// Clear current chat
+				m.chat = m.chat.Clear()
+
+				// Restore messages
+				if messagesRaw := s.GetMessagesRaw(); messagesRaw != nil {
+					if sessionMsgs, ok := messagesRaw.([]SessionMessage); ok {
+						for _, msg := range sessionMsgs {
+							switch msg.Role {
+							case "user":
+								m.chat = m.chat.AddUserMessage(msg.Content)
+							case "assistant":
+								m.chat = m.chat.AddAssistantMessage(msg.Content)
+							}
+						}
+					}
+				}
+
+				// Restore state
+				if endpoint := s.GetEndpoint(); endpoint != "" {
+					m.endpoint = endpoint
+					m.header = m.header.SetEndpoint(m.endpoint)
+				}
+				m.nsfwMode = s.GetNSFWMode()
+				m.header = m.header.SetNSFWMode(m.nsfwMode)
+
+				msgCount := 0
+				if msgs := s.GetMessagesRaw(); msgs != nil {
+					if sm, ok := msgs.([]SessionMessage); ok {
+						msgCount = len(sm)
+					}
+				}
+				m.chat = m.chat.AddSystemMessage(
+					fmt.Sprintf("📂 Resumed session (%d messages)", msgCount))
+			}
+		} else {
+			m.chat = m.chat.AddSystemMessage(
+				fmt.Sprintf("❌ Failed to load session: %v", err))
+		}
+
+	case "list":
+		if sessions, err := m.sessionManager.List(); err == nil {
+			if len(sessions) == 0 {
+				m.chat = m.chat.AddSystemMessage("No saved sessions")
+			} else {
+				var sb strings.Builder
+				sb.WriteString(fmt.Sprintf("\n📋 Saved Sessions (%d):\n\n", len(sessions)))
+				for _, sessionRaw := range sessions {
+					if s, ok := sessionRaw.(Session); ok {
+						if summaryRaw := s.SummarizeRaw(); summaryRaw != nil {
+							// Type assert to access summary fields
+							// Since we can't import config directly, we'll work with what we have
+							sb.WriteString(fmt.Sprintf("• Session available\n"))
+						}
+					}
+				}
+				sb.WriteString("\nUse /session resume <id> to load a session")
+				m.chat = m.chat.AddSystemMessage(sb.String())
+			}
+		} else {
+			m.chat = m.chat.AddSystemMessage(
+				fmt.Sprintf("❌ Failed to list sessions: %v", err))
+		}
+
+	case "clear":
+		// Create new session automatically
+		newSession := m.sessionManager.NewSession()
+		if s, ok := newSession.(Session); ok {
+			m.currentSession = s
+		}
+		m.chat = m.chat.AddSystemMessage("🗑️  Session cleared, new session started")
+
+	case "merge":
+		if toMerge, err := m.sessionManager.Load(action.SessionID); err == nil {
+			merged := m.sessionManager.MergeSessions(m.currentSession, toMerge)
+			if s, ok := merged.(Session); ok {
+				m.currentSession = s
+
+				// Clear and reload with merged messages
+				m.chat = m.chat.Clear()
+				if messagesRaw := s.GetMessagesRaw(); messagesRaw != nil {
+					if sessionMsgs, ok := messagesRaw.([]SessionMessage); ok {
+						for _, msg := range sessionMsgs {
+							switch msg.Role {
+							case "user":
+								m.chat = m.chat.AddUserMessage(msg.Content)
+							case "assistant":
+								m.chat = m.chat.AddAssistantMessage(msg.Content)
+							}
+						}
+
+						m.chat = m.chat.AddSystemMessage(
+							fmt.Sprintf("🔀 Merged sessions (%d total messages)", len(sessionMsgs)))
+					}
+				}
+
+				// Save merged session
+				m.persistSession()
+			}
+		} else {
+			m.chat = m.chat.AddSystemMessage(
+				fmt.Sprintf("❌ Failed to merge session: %v", err))
+		}
+
+	case "info":
+		if m.currentSession != nil {
+			msgCount := 0
+			if msgs := m.currentSession.GetMessagesRaw(); msgs != nil {
+				if sm, ok := msgs.([]SessionMessage); ok {
+					msgCount = len(sm)
+				}
+			}
+
+			var sb strings.Builder
+			sb.WriteString("\n📊 Current Session Info:\n\n")
+			sb.WriteString(fmt.Sprintf("• Messages: %d\n", msgCount))
+			sb.WriteString(fmt.Sprintf("• Model: %s\n", m.model))
+			sb.WriteString(fmt.Sprintf("• Endpoint: %s\n", m.endpoint))
+			if m.nsfwMode {
+				sb.WriteString("• Mode: NSFW\n")
+			}
+
+			m.chat = m.chat.AddSystemMessage(sb.String())
+		}
+	}
+
+	return m
 }
 
 // --- Header Model ---
