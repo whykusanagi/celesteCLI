@@ -35,6 +35,7 @@ jobs:
       run: go vet ./...
 
     - name: Check formatting
+      if: matrix.os != 'windows-latest'
       run: |
         gofmt -l .
         test -z "$(gofmt -l .)"

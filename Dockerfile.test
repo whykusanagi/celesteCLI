@@ -3,7 +3,7 @@
 #        docker-compose -f docker-compose.test.yml up
 
 # Stage 1: Build test binaries
-FROM golang:1.21-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 LABEL maintainer="whykusanagi"
 LABEL description="CelesteCLI test environment"
@@ -22,9 +22,9 @@ RUN go mod download
 COPY . .
 
 # Build test binaries for all packages
-RUN go test -c -o /tmp/tests/skills_test ./cmd/Celeste/skills || true
-RUN go test -c -o /tmp/tests/config_test ./cmd/Celeste/config || true
-RUN go test -c -o /tmp/tests/llm_test ./cmd/Celeste/llm || true
+RUN go test -c -o /tmp/tests/skills_test ./cmd/celeste/skills || true
+RUN go test -c -o /tmp/tests/config_test ./cmd/celeste/config || true
+RUN go test -c -o /tmp/tests/llm_test ./cmd/celeste/llm || true
 
 # Verify at least one test binary exists
 RUN ls -la /tmp/tests/ && echo "Test binaries built successfully"
