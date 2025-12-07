@@ -17,9 +17,8 @@ services:
     depends_on:
       mock-api:
         condition: service_healthy
-    volumes:
-      - ./test/reports:/app/reports
-      - ./test/coverage:/app/coverage
+    # Note: No volume mounts for reports/coverage - use container's internal directories
+    # This preserves the celeste:celeste ownership set in Dockerfile
     networks:
       - test-network
     command: ["/bin/bash", "/app/scripts/run-all-tests.sh"]
