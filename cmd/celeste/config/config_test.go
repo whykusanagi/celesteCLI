@@ -77,10 +77,15 @@ func TestSaveAndLoad(t *testing.T) {
 	tmpDir := t.TempDir()
 	homeDir := tmpDir
 
-	// Override home directory for testing
+	// Override home directory for testing (set both HOME and USERPROFILE for Windows)
 	oldHomeDir := os.Getenv("HOME")
-	defer os.Setenv("HOME", oldHomeDir)
+	oldUserProfile := os.Getenv("USERPROFILE")
+	defer func() {
+		os.Setenv("HOME", oldHomeDir)
+		os.Setenv("USERPROFILE", oldUserProfile)
+	}()
 	os.Setenv("HOME", homeDir)
+	os.Setenv("USERPROFILE", homeDir) // Windows uses USERPROFILE
 
 	// Create .celeste directory
 	configDir := filepath.Join(homeDir, ".celeste")
@@ -124,8 +129,13 @@ func TestLoadSkillsConfig(t *testing.T) {
 	homeDir := tmpDir
 
 	oldHomeDir := os.Getenv("HOME")
-	defer os.Setenv("HOME", oldHomeDir)
+	oldUserProfile := os.Getenv("USERPROFILE")
+	defer func() {
+		os.Setenv("HOME", oldHomeDir)
+		os.Setenv("USERPROFILE", oldUserProfile)
+	}()
 	os.Setenv("HOME", homeDir)
+	os.Setenv("USERPROFILE", homeDir)
 
 	// Create .celeste directory
 	configDir := filepath.Join(homeDir, ".celeste")
@@ -170,8 +180,13 @@ func TestSaveSkillsConfig(t *testing.T) {
 	homeDir := tmpDir
 
 	oldHomeDir := os.Getenv("HOME")
-	defer os.Setenv("HOME", oldHomeDir)
+	oldUserProfile := os.Getenv("USERPROFILE")
+	defer func() {
+		os.Setenv("HOME", oldHomeDir)
+		os.Setenv("USERPROFILE", oldUserProfile)
+	}()
 	os.Setenv("HOME", homeDir)
+	os.Setenv("USERPROFILE", homeDir)
 
 	// Create .celeste directory
 	configDir := filepath.Join(homeDir, ".celeste")
@@ -230,8 +245,13 @@ func TestLoadNamed(t *testing.T) {
 	homeDir := tmpDir
 
 	oldHomeDir := os.Getenv("HOME")
-	defer os.Setenv("HOME", oldHomeDir)
+	oldUserProfile := os.Getenv("USERPROFILE")
+	defer func() {
+		os.Setenv("HOME", oldHomeDir)
+		os.Setenv("USERPROFILE", oldUserProfile)
+	}()
 	os.Setenv("HOME", homeDir)
+	os.Setenv("USERPROFILE", homeDir)
 
 	// Create .celeste directory
 	configDir := filepath.Join(homeDir, ".celeste")
@@ -273,8 +293,13 @@ func TestLoadNamedWithSkillsMerge(t *testing.T) {
 	homeDir := tmpDir
 
 	oldHomeDir := os.Getenv("HOME")
-	defer os.Setenv("HOME", oldHomeDir)
+	oldUserProfile := os.Getenv("USERPROFILE")
+	defer func() {
+		os.Setenv("HOME", oldHomeDir)
+		os.Setenv("USERPROFILE", oldUserProfile)
+	}()
 	os.Setenv("HOME", homeDir)
+	os.Setenv("USERPROFILE", homeDir)
 
 	// Create .celeste directory
 	configDir := filepath.Join(homeDir, ".celeste")
@@ -322,8 +347,13 @@ func TestEnvironmentVariableOverride(t *testing.T) {
 	homeDir := tmpDir
 
 	oldHomeDir := os.Getenv("HOME")
-	defer os.Setenv("HOME", oldHomeDir)
+	oldUserProfile := os.Getenv("USERPROFILE")
+	defer func() {
+		os.Setenv("HOME", oldHomeDir)
+		os.Setenv("USERPROFILE", oldUserProfile)
+	}()
 	os.Setenv("HOME", homeDir)
+	os.Setenv("USERPROFILE", homeDir)
 
 	// Set environment variables
 	oldAPIKey := os.Getenv("CELESTE_API_KEY")
@@ -380,8 +410,13 @@ func TestListConfigs(t *testing.T) {
 	homeDir := tmpDir
 
 	oldHomeDir := os.Getenv("HOME")
-	defer os.Setenv("HOME", oldHomeDir)
+	oldUserProfile := os.Getenv("USERPROFILE")
+	defer func() {
+		os.Setenv("HOME", oldHomeDir)
+		os.Setenv("USERPROFILE", oldUserProfile)
+	}()
 	os.Setenv("HOME", homeDir)
+	os.Setenv("USERPROFILE", homeDir)
 
 	// Create .celeste directory
 	configDir := filepath.Join(homeDir, ".celeste")
@@ -430,8 +465,13 @@ func TestConfigLoader(t *testing.T) {
 	homeDir := tmpDir
 
 	oldHomeDir := os.Getenv("HOME")
-	defer os.Setenv("HOME", oldHomeDir)
+	oldUserProfile := os.Getenv("USERPROFILE")
+	defer func() {
+		os.Setenv("HOME", oldHomeDir)
+		os.Setenv("USERPROFILE", oldUserProfile)
+	}()
 	os.Setenv("HOME", homeDir)
+	os.Setenv("USERPROFILE", homeDir)
 
 	// Create .celeste directory
 	configDir := filepath.Join(homeDir, ".celeste")

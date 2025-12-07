@@ -14,8 +14,13 @@ import (
 func TestNewSessionManager(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldHomeDir := os.Getenv("HOME")
-	defer os.Setenv("HOME", oldHomeDir)
+	oldUserProfile := os.Getenv("USERPROFILE")
+	defer func() {
+		os.Setenv("HOME", oldHomeDir)
+		os.Setenv("USERPROFILE", oldUserProfile)
+	}()
 	os.Setenv("HOME", tmpDir)
+	os.Setenv("USERPROFILE", tmpDir)
 
 	manager := NewSessionManager()
 	require.NotNil(t, manager)
@@ -30,8 +35,13 @@ func TestNewSessionManager(t *testing.T) {
 func TestNewSession(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldHomeDir := os.Getenv("HOME")
-	defer os.Setenv("HOME", oldHomeDir)
+	oldUserProfile := os.Getenv("USERPROFILE")
+	defer func() {
+		os.Setenv("HOME", oldHomeDir)
+		os.Setenv("USERPROFILE", oldUserProfile)
+	}()
 	os.Setenv("HOME", tmpDir)
+	os.Setenv("USERPROFILE", tmpDir)
 
 	manager := NewSessionManager()
 	session := manager.NewSession()
@@ -49,8 +59,13 @@ func TestNewSession(t *testing.T) {
 func TestSaveAndLoadSession(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldHomeDir := os.Getenv("HOME")
-	defer os.Setenv("HOME", oldHomeDir)
+	oldUserProfile := os.Getenv("USERPROFILE")
+	defer func() {
+		os.Setenv("HOME", oldHomeDir)
+		os.Setenv("USERPROFILE", oldUserProfile)
+	}()
 	os.Setenv("HOME", tmpDir)
+	os.Setenv("USERPROFILE", tmpDir)
 
 	manager := NewSessionManager()
 	session := manager.NewSession()
@@ -100,8 +115,13 @@ func TestSaveAndLoadSession(t *testing.T) {
 func TestAddMessage(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldHomeDir := os.Getenv("HOME")
-	defer os.Setenv("HOME", oldHomeDir)
+	oldUserProfile := os.Getenv("USERPROFILE")
+	defer func() {
+		os.Setenv("HOME", oldHomeDir)
+		os.Setenv("USERPROFILE", oldUserProfile)
+	}()
 	os.Setenv("HOME", tmpDir)
+	os.Setenv("USERPROFILE", tmpDir)
 
 	manager := NewSessionManager()
 	session := manager.NewSession()
@@ -130,8 +150,13 @@ func TestAddMessage(t *testing.T) {
 func TestListSessions(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldHomeDir := os.Getenv("HOME")
-	defer os.Setenv("HOME", oldHomeDir)
+	oldUserProfile := os.Getenv("USERPROFILE")
+	defer func() {
+		os.Setenv("HOME", oldHomeDir)
+		os.Setenv("USERPROFILE", oldUserProfile)
+	}()
 	os.Setenv("HOME", tmpDir)
+	os.Setenv("USERPROFILE", tmpDir)
 
 	manager := NewSessionManager()
 
@@ -179,8 +204,13 @@ func TestListSessions(t *testing.T) {
 func TestLoadLatest(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldHomeDir := os.Getenv("HOME")
-	defer os.Setenv("HOME", oldHomeDir)
+	oldUserProfile := os.Getenv("USERPROFILE")
+	defer func() {
+		os.Setenv("HOME", oldHomeDir)
+		os.Setenv("USERPROFILE", oldUserProfile)
+	}()
 	os.Setenv("HOME", tmpDir)
+	os.Setenv("USERPROFILE", tmpDir)
 
 	manager := NewSessionManager()
 
@@ -223,8 +253,13 @@ func TestLoadLatest(t *testing.T) {
 func TestDeleteSession(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldHomeDir := os.Getenv("HOME")
-	defer os.Setenv("HOME", oldHomeDir)
+	oldUserProfile := os.Getenv("USERPROFILE")
+	defer func() {
+		os.Setenv("HOME", oldHomeDir)
+		os.Setenv("USERPROFILE", oldUserProfile)
+	}()
 	os.Setenv("HOME", tmpDir)
+	os.Setenv("USERPROFILE", tmpDir)
 
 	manager := NewSessionManager()
 
@@ -257,8 +292,13 @@ func TestDeleteSession(t *testing.T) {
 func TestClearSessions(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldHomeDir := os.Getenv("HOME")
-	defer os.Setenv("HOME", oldHomeDir)
+	oldUserProfile := os.Getenv("USERPROFILE")
+	defer func() {
+		os.Setenv("HOME", oldHomeDir)
+		os.Setenv("USERPROFILE", oldUserProfile)
+	}()
 	os.Setenv("HOME", tmpDir)
+	os.Setenv("USERPROFILE", tmpDir)
 
 	manager := NewSessionManager()
 
@@ -411,8 +451,13 @@ func TestSessionSummarizeShortMessage(t *testing.T) {
 func TestSessionUpdateTime(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldHomeDir := os.Getenv("HOME")
-	defer os.Setenv("HOME", oldHomeDir)
+	oldUserProfile := os.Getenv("USERPROFILE")
+	defer func() {
+		os.Setenv("HOME", oldHomeDir)
+		os.Setenv("USERPROFILE", oldUserProfile)
+	}()
 	os.Setenv("HOME", tmpDir)
+	os.Setenv("USERPROFILE", tmpDir)
 
 	manager := NewSessionManager()
 	session := manager.NewSession()
@@ -432,8 +477,13 @@ func TestSessionUpdateTime(t *testing.T) {
 func TestSessionMetadata(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldHomeDir := os.Getenv("HOME")
-	defer os.Setenv("HOME", oldHomeDir)
+	oldUserProfile := os.Getenv("USERPROFILE")
+	defer func() {
+		os.Setenv("HOME", oldHomeDir)
+		os.Setenv("USERPROFILE", oldUserProfile)
+	}()
 	os.Setenv("HOME", tmpDir)
+	os.Setenv("USERPROFILE", tmpDir)
 
 	manager := NewSessionManager()
 	session := manager.NewSession()
