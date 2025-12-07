@@ -79,9 +79,56 @@ celeste chat
 
 ---
 
+## 🔒 Security & Verification
+
+All Celeste CLI releases are cryptographically signed with GPG to ensure authenticity and integrity.
+
+### Quick Verification
+
+Before using a downloaded binary, verify its authenticity:
+
+```bash
+# Download verification script
+curl -O https://raw.githubusercontent.com/whykusanagi/celesteCLI/main/scripts/verify.sh
+chmod +x verify.sh
+
+# Verify your download
+./verify.sh celeste-linux-amd64.tar.gz
+```
+
+### Manual Verification
+
+For manual verification or more details, see the complete [Verification Guide](VERIFICATION.md).
+
+**Release Signing:**
+- All commits are GPG-signed
+- All releases include GPG signatures
+- Checksums are signed with GPG
+- Complete manifest with build metadata
+
+**PGP Key Information:**
+- **Key ID**: `875849AB1D541C55`
+- **Fingerprint**: `9404 90EF 09DA 3132 2BF7  FD83 8758 49AB 1D54 1C55`
+- **Keybase**: [@whykusanagi](https://keybase.io/whykusanagi)
+- **GitHub**: [whykusanagi.gpg](https://github.com/whykusanagi.gpg)
+
+**Import Key**:
+```bash
+# From Keybase (recommended)
+curl https://keybase.io/whykusanagi/pgp_keys.asc | gpg --import
+
+# From GitHub
+curl https://github.com/whykusanagi.gpg | gpg --import
+```
+
+For security issues, see our [Security Policy](SECURITY.md) or contact security@whykusanagi.xyz.
+
+---
+
 ## 📚 Table of Contents
 
 - [Installation](#-quick-start)
+- [Security & Verification](#-security--verification)
 - [Features](#-features)
 - [Skills System (21 Skills)](#-skills-system-21-skills)
 - [LLM Provider Compatibility](#-llm-provider-compatibility)

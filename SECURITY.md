@@ -9,6 +9,90 @@ We release patches for security vulnerabilities. Currently supported versions:
 | 3.0.x   | :white_check_mark: |
 | < 3.0   | :x:                |
 
+## Release Signing & Verification
+
+All Celeste CLI releases are cryptographically signed to ensure authenticity and integrity.
+
+### Signing Policy
+
+**All releases include**:
+- GPG-signed commits (all commits to `main` branch)
+- GPG-signed release tags
+- GPG signatures on `manifest.json` (build metadata)
+- GPG signatures on `checksums.txt` (SHA256 hashes)
+- Complete manifest with artifact metadata
+
+### PGP Key Information
+
+- **Key ID**: `875849AB1D541C55`
+- **Fingerprint**: `9404 90EF 09DA 3132 2BF7  FD83 8758 49AB 1D54 1C55`
+- **Key Type**: RSA 4096-bit
+- **Created**: 2025-12-04
+- **Expires**: 2041-11-30
+- **Owner**: whykusanagi <me@whykusanagi.xyz>
+
+### Key Distribution
+
+The signing key is available from multiple trusted sources:
+
+**Primary Sources**:
+- **Keybase**: https://keybase.io/whykusanagi/pgp_keys.asc (recommended - with social proofs)
+- **GitHub**: https://github.com/whykusanagi.gpg (verified account)
+
+**Secondary Sources**:
+- **Key Servers**: `keys.openpgp.org`, `pgp.mit.edu`
+- **Repository**: `keys/public-key.asc` (in this repository)
+
+All sources serve the identical key with fingerprint `9404 90EF 09DA 3132 2BF7  FD83 8758 49AB 1D54 1C55`.
+
+### Verification
+
+**Always verify downloads before use**. See [VERIFICATION.md](VERIFICATION.md) for complete instructions.
+
+**Quick Verification**:
+```bash
+# Download verification script
+curl -O https://raw.githubusercontent.com/whykusanagi/celesteCLI/main/scripts/verify.sh
+chmod +x verify.sh
+
+# Verify your download
+./verify.sh celeste-linux-amd64.tar.gz
+```
+
+**Manual Verification Steps**:
+1. Import public key from Keybase or GitHub
+2. Verify key fingerprint matches exactly
+3. Verify GPG signature on `checksums.txt`: `gpg --verify checksums.txt.asc checksums.txt`
+4. Verify file checksum: `sha256sum --check --ignore-missing checksums.txt`
+
+### What Gets Signed
+
+| Artifact | Signature File | Contents |
+|----------|----------------|----------|
+| `manifest.json` | `manifest.json.asc` | Complete release metadata (version, commit, checksums, URLs) |
+| `checksums.txt` | `checksums.txt.asc` | SHA256 hashes of all binary archives |
+| Git commits | In git log | All commits to `main` branch |
+| Git tags | In git tags | All release tags (v*) |
+
+### Signature Verification Failures
+
+If signature verification fails:
+
+1. ❌ **DO NOT use the downloaded file**
+2. Re-download from official GitHub releases: https://github.com/whykusanagi/celesteCLI/releases
+3. Verify you imported the correct key (check fingerprint)
+4. If verification still fails, report immediately to security@whykusanagi.xyz
+
+### Key Rotation Policy
+
+- Current key expires: **2041-11-30**
+- Key will be extended or rotated at least 90 days before expiration
+- New keys will be signed by the old key (chain of trust)
+- Key changes will be announced via:
+  - GitHub security advisory
+  - Repository README update
+  - Keybase profile update
+
 ## Reporting a Vulnerability
 
 We take the security of CelesteCLI seriously. If you believe you have found a security vulnerability, please report it to us as described below.
