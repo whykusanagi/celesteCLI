@@ -2,11 +2,13 @@
 
 <img src="https://s3.whykusanagi.xyz/optimized_assets/hypnosis_expression_trans_ghub.png" alt="Celeste - Corrupted AI Assistant" width="300"/>
 
+<sub>Character artwork by [いかわさ (ikawasa23)](https://x.com/ikawasa23)</sub>
+
 # 👁️ Celeste CLI - Interactive AI Assistant
 
 **A premium, corruption-aesthetic command-line interface for CelesteAI**
 
-[![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?style=flat&logo=go)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go)](https://golang.org/)
 [![License](https://img.shields.io/badge/License-MIT-purple)](LICENSE)
 [![TUI Framework](https://img.shields.io/badge/TUI-Bubble%20Tea-d94f90)](https://github.com/charmbracelet/bubbletea)
 
