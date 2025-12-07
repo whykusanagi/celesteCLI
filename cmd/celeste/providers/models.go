@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/sashabaranov/go-openai"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 // ModelService handles model listing and metadata.
@@ -286,7 +288,9 @@ func (s *ModelService) getModelDisplayName(modelID string) string {
 
 	// Capitalize and format
 	name = strings.ReplaceAll(name, "-", " ")
-	name = strings.Title(name)
+	// Use cases.Title instead of deprecated strings.Title
+	caser := cases.Title(language.English)
+	name = caser.String(name)
 
 	return name
 }

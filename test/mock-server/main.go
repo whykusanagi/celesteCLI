@@ -43,7 +43,8 @@ func main() {
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	// Ignore encoding error as this is a simple test server health check
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":  "healthy",
 		"service": "celestecli-mock-api",
 		"time":    time.Now().Format(time.RFC3339),
@@ -100,7 +101,8 @@ func handleChatCompletions(config Config) http.HandlerFunc {
 		// Return response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(fixture)
+		// Ignore encoding error as test server responses are best-effort
+		_ = json.NewEncoder(w).Encode(fixture)
 
 		log.Printf("✅ Served OpenAI completion: %s", fixtureName)
 	}
@@ -125,7 +127,8 @@ func handleVeniceChat(config Config) http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(fixture)
+		// Ignore encoding error as test server responses are best-effort
+		_ = json.NewEncoder(w).Encode(fixture)
 
 		log.Printf("✅ Served Venice.ai response: %s", fixtureName)
 	}
@@ -154,7 +157,8 @@ func handleGeneric(config Config) http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(fixture)
+		// Ignore encoding error as test server responses are best-effort
+		_ = json.NewEncoder(w).Encode(fixture)
 
 		log.Printf("✅ Served generic response: %s", fixtureName)
 	}

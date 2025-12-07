@@ -353,44 +353,6 @@ func (m SkillsModel) getContextualHelp(input string) string {
 	return ""
 }
 
-// renderSkillCard renders a single skill card.
-func (m SkillsModel) renderSkillCard(skill SkillDefinition, width int) string {
-	// Status indicator
-	status, ok := m.executingSkills[skill.Name]
-	var renderedName string
-
-	if !ok {
-		renderedName = SkillNameStyle.Render(skill.Name)
-	} else {
-		switch status {
-		case "executing":
-			// Show corruption effect while executing
-			renderedName = RenderCorruptedSkill(skill.Name)
-		case "completed":
-			// Return to normal after completion
-			renderedName = SkillNameStyle.Render(skill.Name)
-		case "error":
-			renderedName = SkillErrorStyle.Render("✗" + skill.Name)
-		default:
-			renderedName = SkillNameStyle.Render(skill.Name)
-		}
-	}
-
-	// Truncate description
-	desc := skill.Description
-	if len(desc) > width-2 {
-		desc = desc[:width-5] + "..."
-	}
-
-	description := SkillDescStyle.Render(desc)
-
-	card := lipgloss.JoinVertical(lipgloss.Left, renderedName, description)
-
-	return lipgloss.NewStyle().
-		Width(width).
-		Margin(0, 1, 0, 0).
-		Render(card)
-}
 
 // AddSkill adds a skill definition.
 func (m SkillsModel) AddSkill(skill SkillDefinition) SkillsModel {

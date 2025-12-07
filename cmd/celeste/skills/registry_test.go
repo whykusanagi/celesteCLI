@@ -235,12 +235,10 @@ func TestBuiltinSkillsRegistration(t *testing.T) {
 	// Register builtin skills
 	RegisterBuiltinSkills(registry, mockConfig)
 
-	// List expected skill names
+	// List expected skill names (18 active skills)
+	// Note: nsfw_mode, generate_content, generate_image are disabled (unimplemented)
 	expectedSkills := []string{
 		"tarot_reading",
-		"nsfw_mode",
-		"generate_content",
-		"generate_image",
 		"get_weather",
 		"convert_units",
 		"convert_timezone",

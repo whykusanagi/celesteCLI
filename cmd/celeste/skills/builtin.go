@@ -1314,7 +1314,8 @@ func PasswordGeneratorHandler(args map[string]interface{}) (interface{}, error) 
 	password := make([]byte, length)
 	for i := range password {
 		b := make([]byte, 1)
-		rand.Read(b)
+		// rand.Read on crypto/rand never fails for fixed-size buffers
+		_, _ = rand.Read(b)
 		password[i] = charset[int(b[0])%len(charset)]
 	}
 
@@ -2007,7 +2008,8 @@ func SetReminderHandler(args map[string]interface{}) (interface{}, error) {
 	remindersPath := getRemindersPath()
 	var reminders []Reminder
 	if data, err := os.ReadFile(remindersPath); err == nil {
-		json.Unmarshal(data, &reminders)
+		// Ignore unmarshal error - if file is corrupt, start with empty list
+		_ = json.Unmarshal(data, &reminders)
 	}
 
 	// Add new reminder
@@ -2058,7 +2060,8 @@ func ListRemindersHandler(args map[string]interface{}) (interface{}, error) {
 	remindersPath := getRemindersPath()
 	var reminders []Reminder
 	if data, err := os.ReadFile(remindersPath); err == nil {
-		json.Unmarshal(data, &reminders)
+		// Ignore unmarshal error - if file is corrupt, return empty list
+		_ = json.Unmarshal(data, &reminders)
 	}
 
 	// Filter active reminders (future only)
@@ -2112,7 +2115,8 @@ func SaveNoteHandler(args map[string]interface{}) (interface{}, error) {
 	notesPath := getNotesPath()
 	var notes map[string]Note
 	if data, err := os.ReadFile(notesPath); err == nil {
-		json.Unmarshal(data, &notes)
+		// Ignore unmarshal error - if file is corrupt, start with empty map
+		_ = json.Unmarshal(data, &notes)
 	} else {
 		notes = make(map[string]Note)
 	}
@@ -2232,7 +2236,8 @@ func ListNotesHandler(args map[string]interface{}) (interface{}, error) {
 	notesPath := getNotesPath()
 	var notes map[string]Note
 	if data, err := os.ReadFile(notesPath); err == nil {
-		json.Unmarshal(data, &notes)
+		// Ignore unmarshal error - if file is corrupt, return empty map
+		_ = json.Unmarshal(data, &notes)
 	} else {
 		notes = make(map[string]Note)
 	}

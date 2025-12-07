@@ -567,7 +567,8 @@ func (a *TUIClientAdapter) ChangeModel(model string) error {
 
 func parseArgs(argsJSON string) map[string]any {
 	var args map[string]any
-	json.Unmarshal([]byte(argsJSON), &args)
+	// Ignore unmarshal error - if invalid JSON, return empty map
+	_ = json.Unmarshal([]byte(argsJSON), &args)
 	if args == nil {
 		args = make(map[string]any)
 	}
@@ -597,7 +598,8 @@ func runConfigCommand(args []string) {
 	setYouTubeKey := fs.String("set-youtube-key", "", "Set YouTube API key (saved to skills.json)")
 	setYouTubeChannel := fs.String("set-youtube-channel", "", "Set default YouTube channel (saved to skills.json)")
 
-	fs.Parse(args)
+	// Parse flags - exits on error due to ExitOnError flag
+	_ = fs.Parse(args)
 
 	// Handle --list
 	if *listConfigs {
@@ -868,7 +870,8 @@ func runSkillsCommand(args []string) {
 	fs := flag.NewFlagSet("skills", flag.ExitOnError)
 	list := fs.Bool("list", false, "List available skills")
 	init := fs.Bool("init", false, "Create default skill files")
-	fs.Parse(args)
+	// Parse flags - exits on error due to ExitOnError flag
+	_ = fs.Parse(args)
 
 	if *init {
 		if err := skills.CreateDefaultSkillFiles(); err != nil {
@@ -880,7 +883,8 @@ func runSkillsCommand(args []string) {
 	}
 
 	registry := skills.NewRegistry()
-	registry.LoadSkills()
+	// Load skills - ignore error as we'll still show built-in skills
+	_ = registry.LoadSkills()
 
 	// Register built-in skills (for display)
 	cfg, _ := config.Load()
@@ -904,7 +908,8 @@ func runSessionCommand(args []string) {
 	list := fs.Bool("list", false, "List saved sessions")
 	load := fs.String("load", "", "Load a session by ID")
 	clear := fs.Bool("clear", false, "Clear all sessions")
-	fs.Parse(args)
+	// Parse flags - exits on error due to ExitOnError flag
+	_ = fs.Parse(args)
 
 	manager := config.NewSessionManager()
 

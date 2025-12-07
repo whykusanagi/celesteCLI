@@ -888,7 +888,9 @@ func (m *AppModel) persistSession() {
 	m.currentSession.SetNSFWMode(m.nsfwMode)
 
 	// Save asynchronously (ignore errors for now)
-	go m.sessionManager.Save(m.currentSession)
+	go func() {
+		_ = m.sessionManager.Save(m.currentSession)
+	}()
 }
 
 // --- Header Model ---
@@ -1070,37 +1072,6 @@ func (m StatusModel) View() string {
 }
 
 // --- Helper functions ---
-
-func helpText() string {
-	return `
-Slash Commands:
-  /help              - Show this help
-  /clear             - Clear chat history
-  /nsfw              - Switch to NSFW mode (Venice.ai, uncensored)
-  /safe              - Switch to safe mode (OpenAI)
-  /endpoint <name>   - Switch endpoint (openai, venice, grok, elevenlabs, google)
-  /model <name>      - Change model (e.g., gpt-4o, llama-3.3-70b)
-  /config <name>     - Load a named config profile
-
-Legacy Commands:
-  help, clear, exit, quit, tools, skills, debug
-
-Keyboard shortcuts:
-  Ctrl+C     - Exit immediately
-  PgUp/PgDn  - Scroll chat history
-  Shift+↑/↓  - Scroll chat history
-  ↑/↓        - Navigate input history
-
-Auto-Routing:
-  Add keywords at the end of your message for automatic routing:
-  • "nsfw" or "#nsfw" - Routes to Venice.ai
-  • "uncensored" - Routes to Venice.ai
-  • "explicit" - Routes to Venice.ai
-
-  Example: "Generate an image of a dragon nsfw"
-           → Automatically routes to Venice.ai
-`
-}
 
 // Run starts the TUI application.
 func Run(llmClient LLMClient) error {
