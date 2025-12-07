@@ -87,7 +87,19 @@
       "Bash(gitleaks detect:*)",
       "WebFetch(domain:whykusanagi.xyz)",
       "Bash(curl:*)",
-      "Bash(identify:*)"
+      "Bash(identify:*)",
+      "Bash(python3:*)",
+      "Bash(s3cmd:*)",
+      "Bash(celeste_essence.json )",
+      "Bash(behavior_scoring.json )",
+      "Bash(Celeste_Capabilities.json )",
+      "Bash(content_archetypes.json )",
+      "Bash(insult_library.json )",
+      "Bash(response_templates.json )",
+      "Bash(platform_playbooks.json )",
+      "Bash(personality.yml )",
+      "Bash(tarot_cards.json )",
+      "Bash(scaffolding.json)"
     ],
     "deny": [],
     "ask": []

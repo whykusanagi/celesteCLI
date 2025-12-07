@@ -41,3 +41,13 @@ celeste
 *_CONFIGURATION.md
 *_SECRETS.md
 *_KEYS.md
+
+# Development and testing artifacts (local only, not for public repo)
+.dev/
+CLAUDE.md
+.claude/
+
+# Local test scripts and outputs
+test_*.sh
+*_test_output.txt
+*_test_output.json
