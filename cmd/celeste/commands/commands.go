@@ -28,6 +28,8 @@ type CommandContext struct {
 	APIKey        string // API key for model listing
 	BaseURL       string // Base URL for API calls
 	SkillsEnabled bool   // Whether skills/functions are currently enabled
+	Version       string // Application version
+	Build         string // Build identifier
 }
 
 // CommandResult represents the result of executing a command.
@@ -564,9 +566,19 @@ func handleClear(cmd *Command) *CommandResult {
 func handleHelp(cmd *Command, ctx *CommandContext) *CommandResult {
 	var helpText string
 
+	// Version header
+	versionHeader := ""
+	if ctx.Version != "" {
+		versionHeader = fmt.Sprintf("Celeste CLI v%s", ctx.Version)
+		if ctx.Build != "" {
+			versionHeader += fmt.Sprintf(" (%s)", ctx.Build)
+		}
+		versionHeader += "\n\n"
+	}
+
 	if ctx.NSFWMode {
 		// NSFW Mode Help
-		helpText = `🔥 NSFW Mode - Venice.ai Uncensored
+		helpText = versionHeader + `🔥 NSFW Mode - Venice.ai Uncensored
 
 Media Generation Commands:
   image: <prompt>              Generate images with current model
@@ -623,7 +635,7 @@ Tip: Ask the uncensored LLM to write detailed NSFW prompts, then use
 "image: [paste prompt]" to generate from that description!`
 	} else {
 		// Safe Mode Help
-		helpText = `Available Commands:
+		helpText = versionHeader + `Available Commands:
 
 Mode Control:
   /nsfw              Switch to NSFW mode (Venice.ai, uncensored)

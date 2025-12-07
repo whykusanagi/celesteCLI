@@ -280,6 +280,9 @@ func runChatTUI() {
 	// Create TUI with session management
 	app := tui.NewApp(tuiClient)
 
+	// Set version information
+	app = app.SetVersion(Version, Build)
+
 	// Restore messages from session if available
 	if len(currentSession.Messages) > 0 {
 		// Convert config.SessionMessage to tui.ChatMessage

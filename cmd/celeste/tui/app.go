@@ -40,6 +40,8 @@ type AppModel struct {
 	imageModel    string // Current image generation model (for NSFW mode)
 	provider      string // Current provider (grok, openai, venice, etc.) - detected from endpoint
 	skillsEnabled bool   // Whether skills/function calling is available
+	version       string // Application version (e.g., "1.0.1")
+	build         string // Build identifier (e.g., "bubbletea-tui")
 
 	// Simulated typing state
 	typingContent string // Full content to type
@@ -206,6 +208,8 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				APIKey:        "", // Will be populated if config accessible
 				BaseURL:       "", // Will be populated if config accessible
 				SkillsEnabled: m.skillsEnabled,
+				Version:       m.version,
+				Build:         m.build,
 			}
 			result := commands.Execute(cmd, ctx)
 
@@ -894,6 +898,13 @@ func (m AppModel) SetSessionManager(sm SessionManager, session Session) AppModel
 		m.header = m.header.SetNSFWMode(m.nsfwMode)
 	}
 
+	return m
+}
+
+// SetVersion sets the application version and build information.
+func (m AppModel) SetVersion(version, build string) AppModel {
+	m.version = version
+	m.build = build
 	return m
 }
 
