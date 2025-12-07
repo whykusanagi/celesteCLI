@@ -42,19 +42,19 @@ RUN addgroup -g 1000 celeste && \
 # Set working directory
 WORKDIR /app
 
-# Create directories for test outputs first
-RUN mkdir -p /app/reports /app/coverage /app/fixtures /app/scripts /app/tests
+# Create directories for test outputs and set ownership
+RUN mkdir -p /app/reports /app/coverage /app/fixtures /app/scripts /app/tests && \
+    chown -R celeste:celeste /app
 
-# Copy test binaries from builder
-COPY --from=builder /tmp/tests /app/tests
+# Copy test binaries from builder (as celeste user)
+COPY --chown=celeste:celeste --from=builder /tmp/tests /app/tests
 
-# Copy test fixtures and scripts
+# Copy test fixtures and scripts (as celeste user)
 COPY --chown=celeste:celeste test/fixtures /app/fixtures
 COPY --chown=celeste:celeste test/scripts /app/scripts
 
-# Set ownership and permissions
-RUN chown -R celeste:celeste /app && \
-    chmod +x /app/scripts/*.sh
+# Make scripts executable
+RUN chmod +x /app/scripts/*.sh
 
 # Switch to non-root user
 USER celeste
