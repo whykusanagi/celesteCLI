@@ -72,6 +72,8 @@ jobs:
         echo "GPG key imported successfully"
 
     - name: Sign manifest and checksums
+      env:
+        GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
       run: |
         cd dist
 
@@ -80,11 +82,11 @@ jobs:
         echo "allow-loopback-pinentry" > ~/.gnupg/gpg-agent.conf
         gpg-connect-agent reloadagent /bye
 
-        # Sign manifest (using pinentry-mode loopback for CI/CD)
-        gpg --detach-sign --armor --batch --yes --pinentry-mode loopback --local-user 940490EF09DA31322BF7FD83875849AB1D541C55 manifest.json
+        # Sign manifest (passing passphrase via stdin)
+        echo "$GPG_PASSPHRASE" | gpg --detach-sign --armor --batch --yes --passphrase-fd 0 --pinentry-mode loopback --local-user 940490EF09DA31322BF7FD83875849AB1D541C55 manifest.json
 
         # Sign checksums
-        gpg --detach-sign --armor --batch --yes --pinentry-mode loopback --local-user 940490EF09DA31322BF7FD83875849AB1D541C55 checksums.txt
+        echo "$GPG_PASSPHRASE" | gpg --detach-sign --armor --batch --yes --passphrase-fd 0 --pinentry-mode loopback --local-user 940490EF09DA31322BF7FD83875849AB1D541C55 checksums.txt
 
         # Create signatures info file
         cat > SIGNATURES.txt << 'EOF'
