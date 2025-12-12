@@ -327,6 +327,12 @@ func (c *Client) convertMessages(messages []tui.ChatMessage) []openai.ChatComple
 
 	// Convert messages
 	for _, msg := range messages {
+		// Skip messages with empty content (except tool calls which can have empty content)
+		if msg.Content == "" && len(msg.ToolCalls) == 0 && msg.Role != "tool" {
+			// Skip empty messages to prevent API errors (Grok requires content field)
+			continue
+		}
+
 		if msg.Role == "tool" {
 			// Tool messages need special format with tool_call_id
 			result = append(result, openai.ChatCompletionMessage{
@@ -347,9 +353,16 @@ func (c *Client) convertMessages(messages []tui.ChatMessage) []openai.ChatComple
 					},
 				}
 			}
+
+			// For tool-calling messages, ensure content is at least empty string (not nil)
+			content := msg.Content
+			if content == "" {
+				content = "" // Explicitly set to empty string for serialization
+			}
+
 			result = append(result, openai.ChatCompletionMessage{
 				Role:      msg.Role,
-				Content:   msg.Content,
+				Content:   content,
 				ToolCalls: toolCalls,
 			})
 		} else {

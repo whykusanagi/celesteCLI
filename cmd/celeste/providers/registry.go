@@ -7,6 +7,7 @@ type ProviderCapabilities struct {
 	BaseURL                 string
 	SupportsFunctionCalling bool
 	SupportsModelListing    bool
+	SupportsTokenTracking   bool   // Returns usage data with stream_options
 	DefaultModel            string
 	PreferredToolModel      string // Best model for function calling
 	RequiresAPIKey          bool
@@ -34,6 +35,7 @@ var Registry = map[string]ProviderCapabilities{
 		BaseURL:                 "https://api.openai.com/v1",
 		SupportsFunctionCalling: true,
 		SupportsModelListing:    true,
+		SupportsTokenTracking:   true, // Full support via stream_options
 		DefaultModel:            "gpt-4o-mini",
 		PreferredToolModel:      "gpt-4o-mini",
 		RequiresAPIKey:          true,
@@ -46,6 +48,7 @@ var Registry = map[string]ProviderCapabilities{
 		BaseURL:                 "https://api.x.ai/v1",
 		SupportsFunctionCalling: true,
 		SupportsModelListing:    true,
+		SupportsTokenTracking:   true, // OpenAI-compatible token tracking
 		DefaultModel:            "grok-4-1-fast",
 		PreferredToolModel:      "grok-4-1-fast", // Specifically trained for tool calling
 		RequiresAPIKey:          true,
@@ -58,6 +61,7 @@ var Registry = map[string]ProviderCapabilities{
 		BaseURL:                 "https://api.venice.ai/api/v1",
 		SupportsFunctionCalling: false, // venice-uncensored doesn't support it
 		SupportsModelListing:    true,
+		SupportsTokenTracking:   true, // Returns usage data
 		DefaultModel:            "venice-uncensored",
 		PreferredToolModel:      "", // No tool calling support in uncensored mode
 		RequiresAPIKey:          true,
@@ -72,6 +76,7 @@ var Registry = map[string]ProviderCapabilities{
 		BaseURL:                 "https://api.anthropic.com/v1",
 		SupportsFunctionCalling: true,
 		SupportsModelListing:    false, // Anthropic has fixed model list
+		SupportsTokenTracking:   false, // Uses native API with different usage format
 		DefaultModel:            "claude-sonnet-4-5-20250929",
 		PreferredToolModel:      "claude-sonnet-4-5-20250929",
 		RequiresAPIKey:          true,
@@ -84,6 +89,7 @@ var Registry = map[string]ProviderCapabilities{
 		BaseURL:                 "https://generativelanguage.googleapis.com/v1beta/openai",
 		SupportsFunctionCalling: true,
 		SupportsModelListing:    false,
+		SupportsTokenTracking:   true, // OpenAI-compatible endpoint
 		DefaultModel:            "gemini-2.0-flash",
 		PreferredToolModel:      "gemini-2.0-flash",
 		RequiresAPIKey:          true, // Simple API key from https://aistudio.google.com/apikey
@@ -96,6 +102,7 @@ var Registry = map[string]ProviderCapabilities{
 		BaseURL:                 "https://aiplatform.googleapis.com/v1/projects/PROJECT_ID/locations/LOCATION/endpoints/openapi",
 		SupportsFunctionCalling: true,
 		SupportsModelListing:    false,
+		SupportsTokenTracking:   true, // OpenAI-compatible endpoint
 		DefaultModel:            "gemini-2.0-flash",
 		PreferredToolModel:      "gemini-2.0-flash",
 		RequiresAPIKey:          true, // OAuth2 access tokens (ya29...), expire hourly
@@ -108,6 +115,7 @@ var Registry = map[string]ProviderCapabilities{
 		BaseURL:                 "https://openrouter.ai/api/v1",
 		SupportsFunctionCalling: true,
 		SupportsModelListing:    true,
+		SupportsTokenTracking:   true, // OpenAI-compatible
 		DefaultModel:            "openai/gpt-4o-mini",
 		PreferredToolModel:      "openai/gpt-4o-mini",
 		RequiresAPIKey:          true,
@@ -122,11 +130,12 @@ var Registry = map[string]ProviderCapabilities{
 		BaseURL:                 "",    // Agent-specific URL
 		SupportsFunctionCalling: false, // Requires cloud-hosted functions
 		SupportsModelListing:    false,
+		SupportsTokenTracking:   true, // Returns usage data with stream_options.include_usage
 		DefaultModel:            "gpt-4o-mini",
 		PreferredToolModel:      "",
 		RequiresAPIKey:          true,
 		IsOpenAICompatible:      true,
-		Notes:                   "Agent API requires cloud functions, not local execution. Skills unavailable.",
+		Notes:                   "Agent API with RAG capabilities. Token tracking supported via stream_options. Function calling requires cloud-hosted functions.",
 	},
 
 	"elevenlabs": {
@@ -134,6 +143,7 @@ var Registry = map[string]ProviderCapabilities{
 		BaseURL:                 "https://api.elevenlabs.io/v1",
 		SupportsFunctionCalling: false, // Voice AI focused, unclear tool support
 		SupportsModelListing:    false,
+		SupportsTokenTracking:   false, // Voice-focused API, no token tracking
 		DefaultModel:            "",
 		PreferredToolModel:      "",
 		RequiresAPIKey:          true,

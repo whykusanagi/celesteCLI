@@ -169,15 +169,15 @@ For security issues, see our [Security Policy](SECURITY.md) or contact security@
 - **Session Clearing** - Bulk delete sessions when needed
 
 ### Multi-Provider Support (8 Providers)
-- ✅ **OpenAI** (gpt-4o-mini, gpt-4o) - Full function calling with streaming
-- ✅ **Grok/xAI** (grok-4-1-fast) - Optimized for tool calling, 2M context
-- ✅ **Venice.ai** (venice-uncensored) - NSFW mode, image generation (no function calling)
-- ✅ **Anthropic Claude** (claude-sonnet-4-5) - Advanced tool use features
-- ✅ **Google Gemini AI** (gemini-2.0-flash) - **RECOMMENDED** - Simple API keys (AIza...), free tier, full streaming + function calling
-- ⚠️ **Google Vertex AI** (gemini-2.0-flash) - **ENTERPRISE** - OAuth2 tokens (ya29...), requires GCP project + billing
-- ✅ **OpenRouter** (multi-provider) - Parallel function calling support
-- ⚠️ **DigitalOcean** (gpt-4o-mini) - Cloud-only functions (no local skills)
-- ❓ **ElevenLabs** - Voice AI (function calling support unknown)
+- ✅ **OpenAI** (gpt-4o-mini, gpt-4o) - Full function calling with streaming • Token tracking ✓
+- ✅ **Grok/xAI** (grok-4-1-fast) - Optimized for tool calling, 2M context • Token tracking ✓
+- ✅ **Venice.ai** (venice-uncensored) - NSFW mode, image generation (no function calling) • Token tracking ✓
+- ✅ **Anthropic Claude** (claude-sonnet-4-5) - Advanced tool use features • Token tracking ✗
+- ✅ **Google Gemini AI** (gemini-2.0-flash) - **RECOMMENDED** - Simple API keys (AIza...), free tier, full streaming + function calling • Token tracking ✓
+- ⚠️ **Google Vertex AI** (gemini-2.0-flash) - **ENTERPRISE** - OAuth2 tokens (ya29...), requires GCP project + billing • Token tracking ✓
+- ✅ **OpenRouter** (multi-provider) - Parallel function calling support • Token tracking ✓
+- ⚠️ **DigitalOcean Gradient** (Agent API with RAG) - Cloud-only functions (no local skills) • Token tracking ✓
+- ❓ **ElevenLabs** - Voice AI (function calling support unknown) • Token tracking ✗
 
 **Dynamic Model Selection** - Auto-selects best tool-calling model per provider
 **Capability Indicators** - Visual feedback (✓ skills / ⚠️ no skills) in header
@@ -598,6 +598,48 @@ celeste -config grok chat
 # Switch to Gemini AI (AI Studio)
 /endpoint gemini
 ```
+
+#### Context Management & Analytics
+| Command | Action |
+|---------|--------|
+| `/context` | Show current token usage, cost estimation, and context window status |
+| `/stats` | Display usage analytics dashboard with provider/model breakdowns |
+| `/export [format]` | Export current session (formats: json, md, csv) |
+
+**Token Tracking Support by Provider:**
+
+✅ **Full Support** (Returns usage data with automatic token tracking):
+- OpenAI (gpt-4o, gpt-4o-mini, etc.)
+- xAI/Grok (grok-4-1-fast, grok-4-1, etc.)
+- Venice.ai (venice-uncensored, etc.)
+- Google Gemini AI Studio (gemini-2.0-flash, etc.)
+- Google Vertex AI (gemini models via OpenAI endpoint)
+- OpenRouter (all models)
+- **DigitalOcean Gradient** (Agent API with RAG - supports stream_options.include_usage)
+
+❌ **No Support** (Uses estimation only):
+- Anthropic Claude (Native API - different format, not yet implemented)
+- ElevenLabs (Voice-focused API)
+
+**Examples:**
+```bash
+# Check current context usage
+/context
+# Shows: Token usage (12.5K/128K), cost ($0.034), warning level
+
+# View analytics dashboard
+/stats
+# Shows: Lifetime usage, top models, provider breakdown, daily stats
+
+# Export conversation to Markdown
+/export md
+# Saves to: ~/.celeste/exports/session_<id>_<timestamp>.md
+
+# Export to JSON for programmatic access
+/export json
+```
+
+**Note:** When using providers without token tracking (Anthropic native API, ElevenLabs), CelesteCLI will estimate tokens based on character count (~4 chars = 1 token), but won't show exact API usage or costs. For accurate token tracking and context management features, use providers marked with ✅ above.
 
 ### Single Message Mode (Non-Interactive)
 

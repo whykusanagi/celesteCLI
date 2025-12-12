@@ -206,7 +206,9 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Handle Phase 4 commands that require app state (contextTracker, currentSession)
 			switch cmd.Name {
 			case "stats":
-				result := commands.HandleStatsCommand(cmd.Args, m.contextTracker)
+				// Pass animation frame for flickering corruption effects
+				argsWithFrame := append([]string{"--frame", fmt.Sprintf("%d", m.animFrame)}, cmd.Args...)
+				result := commands.HandleStatsCommand(argsWithFrame, m.contextTracker)
 				if result.ShouldRender {
 					m.chat = m.chat.AddSystemMessage(result.Message)
 				}
@@ -914,6 +916,17 @@ type SessionMessage struct {
 	Timestamp time.Time
 }
 
+// SessionSummary represents session metadata (matches config.SessionSummary).
+// Duplicated here to avoid circular import with config package.
+type SessionSummary struct {
+	ID           string
+	Name         string
+	MessageCount int
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	FirstMessage string
+}
+
 // SetSessionManager sets the session manager for persistence.
 func (m AppModel) SetSessionManager(sm SessionManager, session Session) AppModel {
 	m.sessionManager = sm
@@ -964,6 +977,17 @@ func (m AppModel) WithMessages(messages []ChatMessage) AppModel {
 		case "tool":
 			m.chat = m.chat.AddToolResult(msg.ToolCallID, msg.Name, msg.Content)
 		}
+	}
+	return m
+}
+
+// WithEndpoint restores the endpoint/provider from a loaded session.
+func (m AppModel) WithEndpoint(endpoint string) AppModel {
+	if endpoint != "" {
+		m.endpoint = endpoint
+		m.provider = endpoint // Provider matches endpoint name
+		m.header = m.header.SetEndpoint(endpoint)
+		LogInfo(fmt.Sprintf("✓ Restored endpoint from session: %s", endpoint))
 	}
 	return m
 }
@@ -1086,9 +1110,25 @@ func (m AppModel) handleSessionAction(action *commands.SessionAction) AppModel {
 				for _, sessionRaw := range sessions {
 					if s, ok := sessionRaw.(Session); ok {
 						if summaryRaw := s.SummarizeRaw(); summaryRaw != nil {
-							// Type assert to access summary fields
-							// Since we can't import config directly, we'll work with what we have
-							sb.WriteString("• Session available\n")
+							// Type assert the summary to our local struct
+							if summary, ok := summaryRaw.(SessionSummary); ok {
+								// Format session entry
+								preview := summary.FirstMessage
+								if preview == "" {
+									preview = "(empty session)"
+								} else if len(preview) > 40 {
+									preview = preview[:37] + "..."
+								}
+
+								// Show ID (last 8 chars), message count, and preview
+								shortID := summary.ID
+								if len(shortID) > 8 {
+									shortID = shortID[len(shortID)-8:]
+								}
+
+								sb.WriteString(fmt.Sprintf("• [%s] %d msgs - %s\n",
+									shortID, summary.MessageCount, preview))
+							}
 						}
 					}
 				}

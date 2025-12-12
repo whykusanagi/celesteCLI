@@ -16,6 +16,7 @@ import (
 	"github.com/whykusanagi/celesteCLI/cmd/celeste/config"
 	"github.com/whykusanagi/celesteCLI/cmd/celeste/llm"
 	"github.com/whykusanagi/celesteCLI/cmd/celeste/prompts"
+	"github.com/whykusanagi/celesteCLI/cmd/celeste/providers"
 	"github.com/whykusanagi/celesteCLI/cmd/celeste/skills"
 	"github.com/whykusanagi/celesteCLI/cmd/celeste/tui"
 )
@@ -295,6 +296,20 @@ func runChatTUI() {
 			}
 		}
 		app = app.WithMessages(tuiMessages)
+	}
+
+	// Restore endpoint/provider from session, or detect from config
+	if endpoint := currentSession.GetEndpoint(); endpoint != "" && endpoint != "default" {
+		// Use endpoint from session if it's valid
+		app = app.WithEndpoint(endpoint)
+	} else {
+		// Detect provider from base URL in config
+		detectedProvider := providers.DetectProvider(cfg.BaseURL)
+		if detectedProvider != "unknown" {
+			app = app.WithEndpoint(detectedProvider)
+			// Also update the session with the detected endpoint
+			currentSession.SetEndpoint(detectedProvider)
+		}
 	}
 
 	// Create session manager adapter for TUI
