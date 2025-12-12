@@ -78,7 +78,19 @@ func (m *SessionManager) Save(session *Session) error {
 	}
 
 	path := filepath.Join(m.sessionsDir, session.ID+".json")
-	return os.WriteFile(path, data, 0644)
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return err
+	}
+
+	// Update global analytics with this session's data
+	analytics, err := LoadGlobalAnalytics()
+	if err == nil && session.UsageMetrics != nil {
+		analytics.UpdateFromSession(session)
+		// Ignore errors from analytics save to not block session save
+		_ = analytics.Save()
+	}
+
+	return nil
 }
 
 // Load loads a session by ID.
@@ -95,6 +107,30 @@ func (m *SessionManager) Load(id string) (*Session, error) {
 	}
 
 	m.currentID = id
+	return &session, nil
+}
+
+// LoadSession is a global helper to load a session by numeric ID
+func LoadSession(sessionID int64) (*Session, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get home directory: %w", err)
+	}
+
+	sessionsDir := filepath.Join(homeDir, ".celeste", "sessions")
+	filename := fmt.Sprintf("%d.json", sessionID)
+	path := filepath.Join(sessionsDir, filename)
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read session: %w", err)
+	}
+
+	var session Session
+	if err := json.Unmarshal(data, &session); err != nil {
+		return nil, fmt.Errorf("failed to parse session: %w", err)
+	}
+
 	return &session, nil
 }
 

@@ -114,6 +114,30 @@ func Execute(cmd *Command, ctx *CommandContext) *CommandResult {
 		return handleSkills(cmd, ctx)
 	case "session":
 		return handleSession(cmd, ctx)
+	case "context":
+		// Note: HandleContextCommand requires contextTracker from app state
+		// This will be called from app.go with proper context
+		return &CommandResult{
+			Success:      false,
+			Message:      "⚠️ /context command requires app context - this should be handled by the TUI",
+			ShouldRender: true,
+		}
+	case "stats":
+		// Note: HandleStatsCommand requires contextTracker from app state
+		// This will be called from app.go with proper context
+		return &CommandResult{
+			Success:      false,
+			Message:      "⚠️ /stats command requires app context - this should be handled by the TUI",
+			ShouldRender: true,
+		}
+	case "export":
+		// Note: HandleExportCommand requires currentSession from app state
+		// This will be called from app.go with proper context
+		return &CommandResult{
+			Success:      false,
+			Message:      "⚠️ /export command requires app context - this should be handled by the TUI",
+			ShouldRender: true,
+		}
 	default:
 		return &CommandResult{
 			Success:      false,

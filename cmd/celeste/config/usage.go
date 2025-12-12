@@ -229,6 +229,23 @@ func FormatCost(cost float64) string {
 	return fmt.Sprintf("$%.2f", cost)
 }
 
+// FormatNumber formats a number with thousand separators
+func FormatNumber(n int) string {
+	if n < 1000 {
+		return fmt.Sprintf("%d", n)
+	}
+	// Add comma separators
+	s := fmt.Sprintf("%d", n)
+	result := ""
+	for i, digit := range s {
+		if i > 0 && (len(s)-i)%3 == 0 {
+			result += ","
+		}
+		result += string(digit)
+	}
+	return result
+}
+
 // GetCostPerMessage returns the average cost per message
 func (um *UsageMetrics) GetCostPerMessage() float64 {
 	if um.MessageCount == 0 {
