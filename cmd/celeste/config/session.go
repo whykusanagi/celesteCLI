@@ -22,6 +22,11 @@ type Session struct {
 	Metadata   map[string]any   `json:"metadata,omitempty"`
 	TokenCount int              `json:"token_count,omitempty"` // Estimated token count
 	Model      string           `json:"model,omitempty"`       // Track model for limits
+
+	// NEW: Enhanced tracking
+	UsageMetrics *UsageMetrics `json:"usage_metrics,omitempty"` // Detailed usage tracking
+	Provider     string        `json:"provider,omitempty"`      // Provider (openai, venice, etc)
+	MaxContext   int           `json:"max_context,omitempty"`   // Model's max context window
 }
 
 // SessionMessage represents a message in a session.
@@ -170,6 +175,45 @@ func (m *SessionManager) AddMessage(session *Session, role, content string) {
 		Timestamp: time.Now(),
 	})
 	session.UpdatedAt = time.Now()
+}
+
+// AddMessageWithTokens adds a message to the session with token tracking.
+func (m *SessionManager) AddMessageWithTokens(session *Session, role, content string, inputTokens, outputTokens int) {
+	// Add the message
+	session.Messages = append(session.Messages, SessionMessage{
+		Role:      role,
+		Content:   content,
+		Timestamp: time.Now(),
+	})
+	session.UpdatedAt = time.Now()
+
+	// Initialize UsageMetrics if needed
+	if session.UsageMetrics == nil {
+		session.UsageMetrics = NewUsageMetrics()
+	}
+
+	// Update usage metrics with token counts
+	if inputTokens > 0 || outputTokens > 0 {
+		session.UsageMetrics.Update(inputTokens, outputTokens, session.Model)
+	}
+
+	// Increment message count
+	session.UsageMetrics.IncrementMessageCount()
+}
+
+// UpdateUsageMetrics updates the session's usage metrics with new token data.
+func (s *Session) UpdateUsageMetrics(inputTokens, outputTokens int) {
+	if s.UsageMetrics == nil {
+		s.UsageMetrics = NewUsageMetrics()
+	}
+	s.UsageMetrics.Update(inputTokens, outputTokens, s.Model)
+}
+
+// InitializeUsageMetrics ensures the session has usage metrics initialized.
+func (s *Session) InitializeUsageMetrics() {
+	if s.UsageMetrics == nil {
+		s.UsageMetrics = NewUsageMetrics()
+	}
 }
 
 // ClearMessages clears all messages from the session.
