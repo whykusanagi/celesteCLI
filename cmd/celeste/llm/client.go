@@ -176,12 +176,20 @@ func (c *Client) SendMessageSync(ctx context.Context, messages []tui.ChatMessage
 type StreamCallback func(chunk StreamChunk)
 
 // StreamChunk represents a streaming chunk.
+// TokenUsage holds token usage information from API response
+type TokenUsage struct {
+	PromptTokens     int
+	CompletionTokens int
+	TotalTokens      int
+}
+
 type StreamChunk struct {
 	Content      string
 	IsFirst      bool
 	IsFinal      bool
 	FinishReason string
 	ToolCalls    []ToolCallResult
+	Usage        *TokenUsage // Only populated on final chunk with stream_options
 }
 
 // SendMessageStream sends a message with streaming callback.
@@ -197,6 +205,9 @@ func (c *Client) SendMessageStream(ctx context.Context, messages []tui.ChatMessa
 		Model:    c.config.Model,
 		Messages: openAIMessages,
 		Stream:   true,
+		StreamOptions: &openai.StreamOptions{
+			IncludeUsage: true,
+		},
 	}
 
 	if len(openAITools) > 0 {
@@ -211,21 +222,32 @@ func (c *Client) SendMessageStream(ctx context.Context, messages []tui.ChatMessa
 	defer stream.Close()
 
 	var toolCalls []openai.ToolCall
+	var usage *TokenUsage
 	isFirst := true
 
 	for {
 		response, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
-			// Send final chunk
+			// Send final chunk with usage data if available
 			callback(StreamChunk{
 				IsFinal:      true,
 				FinishReason: "stop",
 				ToolCalls:    convertToolCalls(toolCalls),
+				Usage:        usage,
 			})
 			return nil
 		}
 		if err != nil {
 			return err
+		}
+
+		// Capture usage data from response (only in final chunk with StreamOptions)
+		if response.Usage != nil {
+			usage = &TokenUsage{
+				PromptTokens:     response.Usage.PromptTokens,
+				CompletionTokens: response.Usage.CompletionTokens,
+				TotalTokens:      response.Usage.TotalTokens,
+			}
 		}
 
 		for _, choice := range response.Choices {
