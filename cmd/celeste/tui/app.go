@@ -1124,13 +1124,15 @@ func (m AppModel) handleSessionAction(action *commands.SessionAction) AppModel {
 
 // HeaderModel represents the header bar.
 type HeaderModel struct {
-	width         int
-	nsfwMode      bool
-	endpoint      string
-	model         string
-	imageModel    string // Image generation model (NSFW mode)
-	autoRouted    bool   // Whether the last message was auto-routed
-	skillsEnabled bool   // Whether skills/function calling is available
+	width           int
+	nsfwMode        bool
+	endpoint        string
+	model           string
+	imageModel      string // Image generation model (NSFW mode)
+	autoRouted      bool   // Whether the last message was auto-routed
+	skillsEnabled   bool   // Whether skills/function calling is available
+	contextIndicator ContextIndicator // Token usage display
+	showContext     bool   // Whether to show context usage
 }
 
 // NewHeaderModel creates a new header model.
@@ -1180,6 +1182,24 @@ func (m HeaderModel) SetAutoRouted(routed bool) HeaderModel {
 	return m
 }
 
+// SetContextUsage updates the context usage display.
+func (m HeaderModel) SetContextUsage(current, max int) HeaderModel {
+	m.contextIndicator = m.contextIndicator.SetUsage(current, max)
+	m.showContext = true
+	return m
+}
+
+// SetShowContext controls whether context usage is displayed.
+func (m HeaderModel) SetShowContext(show bool) HeaderModel {
+	m.showContext = show
+	return m
+}
+
+// GetContextWarningLevel returns the current context warning level.
+func (m HeaderModel) GetContextWarningLevel() string {
+	return m.contextIndicator.GetWarningLevel()
+}
+
 // View renders the header.
 func (m HeaderModel) View() string {
 	title := HeaderTitleStyle.Render("✨ Celeste CLI")
@@ -1225,9 +1245,18 @@ func (m HeaderModel) View() string {
 		endpointInfo += ModelStyle.Render(modelDisplay)
 	}
 
+	// Add context usage indicator if available
+	var contextInfo string
+	if m.showContext {
+		contextInfo = m.contextIndicator.ViewCompact()
+	}
+
 	info := HeaderInfoStyle.Render("Press Ctrl+C to exit")
 	if endpointInfo != "" {
 		info = endpointInfo + " • " + info
+	}
+	if contextInfo != "" {
+		info = info + " • " + contextInfo
 	}
 
 	// Calculate gap
@@ -1246,10 +1275,13 @@ func (m HeaderModel) View() string {
 
 // StatusModel represents the status bar.
 type StatusModel struct {
-	width     int
-	text      string
-	streaming bool
-	frame     int
+	width            int
+	text             string
+	streaming        bool
+	frame            int
+	warningMessage   string // Context warning message
+	warningLevel     string // "warn", "caution", "critical"
+	showWarning      bool   // Whether to show warning
 }
 
 // NewStatusModel creates a new status model.
@@ -1275,6 +1307,22 @@ func (m StatusModel) SetStreaming(streaming bool) StatusModel {
 	return m
 }
 
+// ShowContextWarning displays a context warning message.
+func (m StatusModel) ShowContextWarning(level string, message string) StatusModel {
+	m.warningLevel = level
+	m.warningMessage = message
+	m.showWarning = true
+	return m
+}
+
+// ClearContextWarning clears the context warning.
+func (m StatusModel) ClearContextWarning() StatusModel {
+	m.showWarning = false
+	m.warningMessage = ""
+	m.warningLevel = ""
+	return m
+}
+
 // Update handles tick messages for animation.
 func (m StatusModel) Update(msg tea.Msg) (StatusModel, tea.Cmd) {
 	if _, ok := msg.(TickMsg); ok {
@@ -1286,7 +1334,13 @@ func (m StatusModel) Update(msg tea.Msg) (StatusModel, tea.Cmd) {
 // View renders the status bar.
 func (m StatusModel) View() string {
 	var status string
-	if m.streaming {
+
+	// Priority: warnings > streaming > normal text
+	if m.showWarning {
+		// Show context warning with appropriate color
+		warningStyle := m.getWarningStyle()
+		status = warningStyle.Render(m.warningMessage)
+	} else if m.streaming {
 		// Animated spinner
 		frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 		spinner := StatusStreamingStyle.Render(frames[m.frame%len(frames)])
@@ -1296,6 +1350,20 @@ func (m StatusModel) View() string {
 	}
 
 	return StatusBarStyle.Width(m.width).Render(status)
+}
+
+// getWarningStyle returns the appropriate style for the warning level.
+func (m StatusModel) getWarningStyle() lipgloss.Style {
+	switch m.warningLevel {
+	case "critical":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true) // Bright red, bold
+	case "caution":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("208")).Bold(true) // Orange, bold
+	case "warn":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("226")) // Yellow
+	default:
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("82")) // Green
+	}
 }
 
 // --- Helper functions ---
