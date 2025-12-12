@@ -203,6 +203,36 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Check if it's a slash command first
 		if cmd := commands.Parse(content); cmd != nil {
+			// Handle Phase 4 commands that require app state (contextTracker, currentSession)
+			switch cmd.Name {
+			case "stats":
+				result := commands.HandleStatsCommand(cmd.Args, m.contextTracker)
+				if result.ShouldRender {
+					m.chat = m.chat.AddSystemMessage(result.Message)
+				}
+				return m, nil
+
+			case "export":
+				// Get pointer to current session for export
+				var sessionPtr *config.Session
+				if sess, ok := m.currentSession.(*config.Session); ok {
+					sessionPtr = sess
+				}
+				result := commands.HandleExportCommand(cmd.Args, sessionPtr)
+				if result.ShouldRender {
+					m.chat = m.chat.AddSystemMessage(result.Message)
+				}
+				return m, nil
+
+			case "context":
+				result := commands.HandleContextCommand(cmd.Args, m.contextTracker)
+				if result.ShouldRender {
+					m.chat = m.chat.AddSystemMessage(result.Message)
+				}
+				return m, nil
+			}
+
+			// For other commands, use normal execution flow
 			// Create context with current state (needed for model listing/validation)
 			// Try to get config from LLMClient (available if it's the adapter from main.go)
 			// If not available, commands will fall back to static model lists
