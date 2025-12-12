@@ -135,6 +135,12 @@ type MediaResultMsg struct {
 	MediaType string
 }
 
+// ShowSelectorMsg triggers the interactive selector.
+type ShowSelectorMsg struct {
+	Title string
+	Items []SelectorItem
+}
+
 // --- Commands ---
 
 // Tick returns a command that sends a tick message after a delay.

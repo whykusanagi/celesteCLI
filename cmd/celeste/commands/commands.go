@@ -40,6 +40,20 @@ type CommandResult struct {
 	StateChange  *StateChange
 }
 
+// SelectorItem represents an item in the interactive selector.
+type SelectorItem struct {
+	ID          string
+	DisplayName string
+	Description string
+	Badge       string
+}
+
+// SelectorData holds data for showing the interactive selector.
+type SelectorData struct {
+	Title string
+	Items []SelectorItem
+}
+
 // StateChange represents a change in application state.
 type StateChange struct {
 	EndpointChange *string
@@ -49,6 +63,7 @@ type StateChange struct {
 	ClearHistory   bool
 	MenuState      *string        // "status", "commands", "skills"
 	SessionAction  *SessionAction // Session management operations
+	ShowSelector   *SelectorData  // Show interactive selector
 }
 
 // SessionAction represents a session management operation.
@@ -386,21 +401,38 @@ func listAvailableModels(ctx *CommandContext, caps providers.ProviderCapabilitie
 		}
 	}
 
-	// Format model list with capability indicators
-	formattedList := providers.FormatModelList(models, true)
+	// Convert models to selector items
+	selectorItems := make([]SelectorItem, len(models))
+	for i, model := range models {
+		badge := ""
+		if model.SupportsTools {
+			badge = "✓"
+		}
 
-	// Add header and usage
-	message := fmt.Sprintf("Available Models for %s:\n\n%s\nUsage: /set-model <model-id>", caps.Name, formattedList)
+		selectorItems[i] = SelectorItem{
+			ID:          model.ID,
+			DisplayName: model.Name,
+			Description: model.Description,
+			Badge:       badge,
+		}
+	}
 
-	// Add recommendation
+	// Create selector data
+	title := fmt.Sprintf("📋 Available Models for %s", caps.Name)
 	if caps.PreferredToolModel != "" {
-		message += fmt.Sprintf("\n\n💡 Recommended: %s (optimized for skills)", caps.PreferredToolModel)
+		title += fmt.Sprintf(" (💡 Recommended: %s)", caps.PreferredToolModel)
 	}
 
 	return &CommandResult{
 		Success:      true,
-		Message:      message,
-		ShouldRender: true,
+		Message:      "", // No message, using selector instead
+		ShouldRender: false,
+		StateChange: &StateChange{
+			ShowSelector: &SelectorData{
+				Title: title,
+				Items: selectorItems,
+			},
+		},
 	}
 }
 

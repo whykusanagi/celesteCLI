@@ -62,6 +62,10 @@ type AppModel struct {
 	contextTracker     *config.ContextTracker
 	showContextWarning bool
 	lastWarningLevel   string
+
+	// Interactive selector
+	selector       SelectorModel
+	selectorActive bool
 }
 
 // LLMClient interface for sending messages to the LLM.
@@ -148,6 +152,13 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// If selector is active, route all keys to it
+		if m.selectorActive {
+			var cmd tea.Cmd
+			m.selector, cmd = m.selector.Update(msg)
+			return m, cmd
+		}
+
 		switch msg.String() {
 		case "ctrl+c":
 			return m, tea.Quit
@@ -382,6 +393,26 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Handle session actions
 				if result.StateChange.SessionAction != nil {
 					m = m.handleSessionAction(result.StateChange.SessionAction)
+				}
+
+				// Handle selector request
+				if result.StateChange.ShowSelector != nil {
+					// Convert commands.SelectorItem to tui.SelectorItem
+					tuiItems := make([]SelectorItem, len(result.StateChange.ShowSelector.Items))
+					for i, item := range result.StateChange.ShowSelector.Items {
+						tuiItems[i] = SelectorItem{
+							ID:          item.ID,
+							DisplayName: item.DisplayName,
+							Description: item.Description,
+							Badge:       item.Badge,
+						}
+					}
+
+					// Activate selector
+					m.selector = NewSelectorModel(result.StateChange.ShowSelector.Title, tuiItems)
+					m.selector = m.selector.SetHeight(m.height - 4)
+					m.selector = m.selector.SetWidth(m.width)
+					m.selectorActive = true
 				}
 			}
 
@@ -769,6 +800,42 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+	case ShowSelectorMsg:
+		// Activate the selector
+		m.selector = NewSelectorModel(msg.Title, msg.Items)
+		m.selector = m.selector.SetHeight(m.height - 4) // Leave room for borders/footer
+		m.selector = m.selector.SetWidth(m.width)
+		m.selectorActive = true
+
+	case SelectorResultMsg:
+		// Handle selector result
+		m.selectorActive = false
+
+		if msg.Cancelled {
+			// User cancelled - show cancellation message
+			m.chat = m.chat.AddSystemMessage("Selection cancelled")
+			m.status = m.status.SetText("Selection cancelled")
+		} else if msg.Selected != nil {
+			// User selected an item - trigger model change
+			modelName := msg.Selected.ID
+
+			// Use the switcher interface to change model
+			if switcher, ok := m.llmClient.(EndpointSwitcher); ok {
+				if err := switcher.ChangeModel(modelName); err != nil {
+					m.chat = m.chat.AddSystemMessage(fmt.Sprintf("❌ Failed to change model: %v", err))
+					m.status = m.status.SetText(fmt.Sprintf("Error: %v", err))
+				} else {
+					m.model = modelName
+					m.header = m.header.SetModel(modelName)
+					m.chat = m.chat.AddSystemMessage(fmt.Sprintf("🤖 Model changed to: %s", modelName))
+					m.status = m.status.SetText(fmt.Sprintf("Model changed to: %s", modelName))
+
+					// Persist the change
+					m.persistSession()
+				}
+			}
+		}
+
 	case SimulateTypingMsg:
 		// For simulated streaming (when endpoint dumps all at once)
 		displayed := msg.Content[:msg.CharsToShow]
@@ -840,6 +907,11 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m AppModel) View() string {
 	if !m.ready {
 		return "\n  Initializing..."
+	}
+
+	// If selector is active, show it full-screen
+	if m.selectorActive {
+		return m.selector.View()
 	}
 
 	// Build the layout vertically
