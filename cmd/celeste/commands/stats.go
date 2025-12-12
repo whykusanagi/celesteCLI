@@ -51,10 +51,16 @@ func HandleStatsCommand(args []string, contextTracker *config.ContextTracker) Co
 		}
 	}
 
+	// Animation frame from args (optional, for flickering)
+	animFrame := 0
+	if len(args) > 0 && args[0] == "--frame" && len(args) > 1 {
+		fmt.Sscanf(args[1], "%d", &animFrame)
+	}
+
 	var output strings.Builder
 
 	// Corrupted header with random Japanese/romanji/English phrase
-	output.WriteString(renderCorruptedHeader())
+	output.WriteString(renderCorruptedHeader(animFrame))
 
 	// Lifetime statistics
 	output.WriteString(renderSectionHeader("LIFETIME CORRUPTION"))
@@ -67,7 +73,8 @@ func HandleStatsCommand(args []string, contextTracker *config.ContextTracker) Co
 	// Top models section
 	if len(analytics.ModelUsage) > 0 {
 		phrase := modelPhrases[rand.Intn(len(modelPhrases))]
-		output.WriteString(renderSectionHeader(fmt.Sprintf("TOP MODELS ⟨ %s ⟩", phrase)))
+		phraseFlickered := corruptTextFlicker(phrase, animFrame)
+		output.WriteString(renderSectionHeader(fmt.Sprintf("TOP MODELS ⟨ %s ⟩", phraseFlickered)))
 
 		topModels := analytics.GetTopModelNames(5)
 		for i, model := range topModels {
@@ -85,7 +92,8 @@ func HandleStatsCommand(args []string, contextTracker *config.ContextTracker) Co
 	// Provider breakdown with progress bars
 	if len(analytics.ProviderUsage) > 0 {
 		phrase := providerPhrases[rand.Intn(len(providerPhrases))]
-		output.WriteString(renderSectionHeader(fmt.Sprintf("PROVIDER BREAKDOWN ⟨ %s ⟩", phrase)))
+		phraseFlickered := corruptTextFlicker(phrase, animFrame)
+		output.WriteString(renderSectionHeader(fmt.Sprintf("PROVIDER BREAKDOWN ⟨ %s ⟩", phraseFlickered)))
 
 		providers := analytics.GetTopProviders()
 		maxSessions := 0
@@ -169,20 +177,32 @@ func HandleStatsCommand(args []string, contextTracker *config.ContextTracker) Co
 	}
 }
 
-// renderCorruptedHeader creates a corruption-themed header with random phrase
-func renderCorruptedHeader() string {
+// renderCorruptedHeader creates a corruption-themed header with random phrase and flickering
+func renderCorruptedHeader(frame int) string {
 	phrase := statsPhrases[rand.Intn(len(statsPhrases))]
 
-	// Apply corruption effect to title
+	// Apply corruption effect to title with flickering
 	title := corruptTextSimple("USAGE ANALYTICS", 0.40)
+	titleFlickered := corruptTextFlicker(title, frame)
+
+	// Add flickering to phrase as well
+	phraseFlickered := corruptTextFlicker(phrase, frame)
 
 	style := lipgloss.NewStyle().Foreground(lipgloss.Color(colorPink))
 	phraseStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(colorPurpleNeon))
 
+	// Flicker the eyes based on frame
+	eyes := "👁️"
+	if frame%3 == 0 {
+		eyes = "◉"
+	} else if frame%3 == 1 {
+		eyes = "●"
+	}
+
 	var sb strings.Builder
 	sb.WriteString("▓▒░ ═══════════════════════════════════════════════════════════ ░▒▓\n")
-	sb.WriteString(style.Render(fmt.Sprintf("                   👁️  %s  👁️\n", title)))
-	sb.WriteString(phraseStyle.Render(fmt.Sprintf("           ⟨ %s ⟩\n", phrase)))
+	sb.WriteString(style.Render(fmt.Sprintf("                   %s  %s  %s\n", eyes, titleFlickered, eyes)))
+	sb.WriteString(phraseStyle.Render(fmt.Sprintf("           ⟨ %s ⟩\n", phraseFlickered)))
 	sb.WriteString("▓▒░ ═══════════════════════════════════════════════════════════ ░▒▓\n\n")
 	return sb.String()
 }
@@ -219,7 +239,7 @@ func renderDataRow(label, value string) string {
 	return fmt.Sprintf("  ▓ %-20s %s\n", label+":", style.Render(value))
 }
 
-// renderProgressBar creates a corruption-themed progress bar
+// renderProgressBar creates a corruption-themed progress bar with optional glitch effect
 func renderProgressBar(filled int, total int, width int) string {
 	if total == 0 {
 		total = 1 // Avoid division by zero
@@ -232,9 +252,12 @@ func renderProgressBar(filled int, total int, width int) string {
 
 	var bar strings.Builder
 
-	// Filled portion (█ and ▓)
+	// Filled portion (█ and ▓) with occasional glitch
 	for i := 0; i < filledWidth; i++ {
-		if i < filledWidth-2 && filledWidth > 2 {
+		// Random glitch: 10% chance of corruption character
+		if rand.Float64() < 0.1 {
+			bar.WriteString("▒")
+		} else if i < filledWidth-2 && filledWidth > 2 {
 			bar.WriteString("█")
 		} else if filledWidth > 0 {
 			bar.WriteString("▓")
