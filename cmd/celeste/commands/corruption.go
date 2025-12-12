@@ -12,19 +12,48 @@ const (
 	colorCyan       = "#00d4ff"
 )
 
-// Japanese/English glitch words for language corruption (cyberpunk style)
+// Contextual corruption fragments - romanji, incomplete kanji, cyberpunk terms
+// These make semantic sense in context of stats/analytics/data
 var (
-	corruptionGlitches = []string{
-		"データ", "エラー", "破損", "消去", "上書き", "接続", "切断", "異常",
-		"data", "error", "corrupt", "delete", "overwrite", "connect", "disconnect", "anomaly",
-		"デジタル", "記憶", "忘却", "混沌", "虚無", "深淵", "崩壊", "変異",
-		"digital", "memory", "forget", "chaos", "void", "abyss", "collapse", "mutation",
+	// Data/analytics related corruption
+	dataCorruption = []string{
+		"dēta", "デー", "情報", "jōhō", "統計", "tōkei", "数値", "sūchi",
+		"kaiseki", "解析", "kei", "測定", "sokutei", "kiroku", "記録",
+	}
+
+	// System/technical corruption
+	systemCorruption = []string{
+		"shisutemu", "システ", "処理", "shori", "jikkou", "実行", "sōsa", "操作",
+		"seigyo", "制御", "kanri", "管理", "dendō", "伝導",
+	}
+
+	// State/status corruption
+	statusCorruption = []string{
+		"jōtai", "状態", "sutēta", "ステ", "reberu", "レベ", "shinkō", "進行",
+		"kanryō", "完了", "shori-chū", "処理中", "taiki", "待機",
+	}
+
+	// Existential/void corruption (Celeste theme)
+	voidCorruption = []string{
+		"shin'en", "深淵", "kyomu", "虚無", "konton", "混沌", "zetsubō", "絶望",
+		"shōmetsu", "消滅", "hōkai", "崩壊", "fuhai", "腐敗", "oshiete", "教えて",
+	}
+
+	// Memory/time corruption
+	memoryCorruption = []string{
+		"kioku", "記憶", "wasureru", "忘れ", "kako", "過去", "genzai", "現在",
+		"mirai", "未来", "toki", "時", "eien", "永遠", "ichiji", "一時",
+	}
+
+	// Glitch fragments - incomplete words/characters
+	glitchFragments = []string{
+		"エラ", "デー", "破", "消", "記", "忘", "混", "虚", "深", "崩",
+		"dat", "err", "cor", "del", "mem", "voi", "cha", "sys",
 	}
 )
 
-// corruptTextSimple creates language corruption (Japanese/English glitching)
-// This is cyberpunk-style corruption - words breaking into fragments,
-// languages bleeding together, not l33t speak
+// corruptTextSimple creates contextual language corruption
+// Uses romanji, incomplete kanji, and context-appropriate glitches
 func corruptTextSimple(text string, intensity float64) string {
 	words := strings.Fields(text)
 	if len(words) == 0 {
@@ -33,17 +62,44 @@ func corruptTextSimple(text string, intensity float64) string {
 
 	result := make([]string, len(words))
 	for i, word := range words {
+		lowerWord := strings.ToLower(word)
+
+		// Context-aware corruption based on word meaning
 		if rand.Float64() < intensity {
-			// Corrupt this word: replace with glitch fragment
-			glitch := corruptionGlitches[rand.Intn(len(corruptionGlitches))]
-			result[i] = glitch
-		} else if rand.Float64() < intensity*0.5 {
-			// Partial corruption: break the word
+			var replacement string
+
+			// Choose contextually appropriate corruption
+			switch {
+			case containsAny(lowerWord, []string{"data", "usage", "stat", "analytic", "metric", "token", "count"}):
+				replacement = dataCorruption[rand.Intn(len(dataCorruption))]
+			case containsAny(lowerWord, []string{"system", "process", "execute", "operation", "control"}):
+				replacement = systemCorruption[rand.Intn(len(systemCorruption))]
+			case containsAny(lowerWord, []string{"status", "state", "level", "progress", "complete"}):
+				replacement = statusCorruption[rand.Intn(len(statusCorruption))]
+			case containsAny(lowerWord, []string{"cost", "session", "provider", "model"}):
+				replacement = dataCorruption[rand.Intn(len(dataCorruption))]
+			case containsAny(lowerWord, []string{"time", "day", "week", "history", "past"}):
+				replacement = memoryCorruption[rand.Intn(len(memoryCorruption))]
+			case containsAny(lowerWord, []string{"void", "abyss", "corrupt", "consume", "decay"}):
+				replacement = voidCorruption[rand.Intn(len(voidCorruption))]
+			default:
+				// Generic corruption - use glitch fragments
+				if len(word) > 4 {
+					// Partial word corruption
+					fragment := word[:len(word)/2]
+					glitch := glitchFragments[rand.Intn(len(glitchFragments))]
+					replacement = fragment + glitch
+				} else {
+					replacement = glitchFragments[rand.Intn(len(glitchFragments))]
+				}
+			}
+
+			result[i] = replacement
+		} else if rand.Float64() < intensity*0.4 {
+			// Subtle corruption: append fragment
 			if len(word) > 3 {
-				// Fragment the word with Japanese glitch
-				fragment := word[:len(word)/2]
-				glitchChar := []string{"エ", "データ", "破", "異"}[rand.Intn(4)]
-				result[i] = fragment + glitchChar
+				glitch := glitchFragments[rand.Intn(len(glitchFragments))]
+				result[i] = word + glitch
 			} else {
 				result[i] = word
 			}
@@ -53,4 +109,29 @@ func corruptTextSimple(text string, intensity float64) string {
 	}
 
 	return strings.Join(result, " ")
+}
+
+// containsAny checks if text contains any of the given substrings
+func containsAny(text string, substrings []string) bool {
+	for _, sub := range substrings {
+		if strings.Contains(text, sub) {
+			return true
+		}
+	}
+	return false
+}
+
+// corruptTextFlicker adds flickering corruption (like Celeste's animation)
+// Returns text with random corruption artifacts that appear/disappear
+func corruptTextFlicker(text string, frame int) string {
+	// Flicker intensity based on frame
+	flickerIntensity := 0.1 + float64(frame%4)*0.05
+
+	if rand.Float64() < flickerIntensity {
+		// Add trailing glitch
+		glitch := glitchFragments[rand.Intn(len(glitchFragments))]
+		return text + " " + glitch
+	}
+
+	return text
 }

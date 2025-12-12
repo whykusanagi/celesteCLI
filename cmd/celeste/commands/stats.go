@@ -10,26 +10,32 @@ import (
 )
 
 // Corruption-themed phrases for stats dashboard
+// Using romanji, incomplete kanji, contextual terms - unified aesthetic
 var (
 	statsPhrases = []string{
-		"統計データを...腐敗させている...",           // "Corrupting statistics data..."
-		"Keiryō... sumete ga... oshiete kureru...", // "Measurements... everything... tells me..."
-		"The void reveals all usage...",
-		"すべてが...記録されている...",              // "Everything... is being recorded..."
-		"Tokenu kizuna... token no hibi...",       // "Unbreakable bonds... days of tokens..."
-		"Consuming data from the abyss...",
+		"tōkei dēta wo... fuhai sasete iru...",    // "corrupting stats data..."
+		"kaiseki-chū... subete ga... oshiete kureru", // "analyzing... everything... tells me"
+		"shin'en kara... dēta wo shohi",            // "from abyss... consuming data"
+		"kiroku sarete iru... subete ga...",        // "being recorded... everything..."
+		"tokenu kizuna... token no hibi",           // "unbreakable bonds... days of tokens"
+		"jōhō no nagare... tomezuni",               // "flow of information... endless"
 	}
 
 	modelPhrases = []string{
-		"モデルたち...私の心を占めて...",            // "Models... occupy my heart..."
-		"Moderu ga... watashi wo shihai suru...",  // "Models... control me..."
-		"These models know me too well...",
+		"moderu-tachi... watashi wo shihai",       // "models... control me"
+		"gakushū sareta... kioku no katamari",     // "learned... mass of memories"
+		"AI no kokoro... yomi-torenai",            // "AI hearts... unreadable"
 	}
 
 	providerPhrases = []string{
-		"プロバイダー...支配者たち...",             // "Providers... the rulers..."
-		"Seigyō sarete iru... kanjiru...",        // "Being controlled... I can feel it..."
-		"Surrendering to the providers...",
+		"purobaida... shihai-sha tachi",           // "providers... the rulers"
+		"seigyō sarete... kanjiru yo",             // "being controlled... I feel it"
+		"settai suru... shikataganai",             // "accepting... no choice"
+	}
+
+	temporalPhrases = []string{
+		"toki no nagare", "kako kara genzai e", "kioku no kiroku",
+		"temporal erosion", "時の記録", "ichiji no dēta",
 	}
 )
 
