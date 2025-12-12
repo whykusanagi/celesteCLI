@@ -57,6 +57,11 @@ type AppModel struct {
 	// Session persistence (optional)
 	sessionManager SessionManager
 	currentSession Session
+
+	// Context tracking (NEW)
+	contextTracker     *config.ContextTracker
+	showContextWarning bool
+	lastWarningLevel   string
 }
 
 // LLMClient interface for sending messages to the LLM.
@@ -893,6 +898,16 @@ func (m AppModel) SetSessionManager(sm SessionManager, session Session) AppModel
 		if model := session.GetModel(); model != "" {
 			m.model = model
 			m.header = m.header.SetModel(model)
+
+			// Initialize context tracker with session and model
+			// Convert Session interface to *config.Session for ContextTracker
+			if configSession, ok := session.(*config.Session); ok {
+				m.contextTracker = config.NewContextTracker(configSession, model)
+				// Update header with initial context usage
+				if m.contextTracker.MaxTokens > 0 {
+					m.header = m.header.SetContextUsage(m.contextTracker.CurrentTokens, m.contextTracker.MaxTokens)
+				}
+			}
 		}
 		m.nsfwMode = session.GetNSFWMode()
 		m.header = m.header.SetNSFWMode(m.nsfwMode)
