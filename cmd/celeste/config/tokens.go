@@ -7,12 +7,17 @@ var ModelLimits = map[string]int{
 	"gpt-4":             8192,
 	"gpt-4-turbo":       128000,
 	"gpt-4o":            128000,
+	"gpt-4o-mini":       128000, // Standard GPT-4o mini context window
 	"gpt-3.5-turbo":     16385,
 	"claude-3-opus":     200000,
 	"claude-3-sonnet":   200000,
 	"claude-3-haiku":    200000,
+	"claude-sonnet-4":   200000,
+	"claude-opus-4.5":   200000,
 	"venice-uncensored": 8192,
 	"llama-3.3-70b":     8192,
+	"grok-4-1":          128000,
+	"grok-4-1-fast":     128000,
 	"default":           8192,
 }
 
@@ -45,6 +50,16 @@ func GetModelLimit(model string) int {
 		return limit
 	}
 	return ModelLimits["default"]
+}
+
+// GetModelLimitWithOverride returns token limit for a model, with optional config override
+func GetModelLimitWithOverride(model string, configOverride int) int {
+	// If config has explicit context_limit, use that
+	if configOverride > 0 {
+		return configOverride
+	}
+	// Otherwise use model default
+	return GetModelLimit(model)
 }
 
 // TruncateToLimit removes oldest messages to fit within token limit

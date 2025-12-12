@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -284,6 +285,9 @@ func runChatTUI() {
 	// Set version information
 	app = app.SetVersion(Version, Build)
 
+	// Set configuration (for context limits, etc.)
+	app = app.SetConfig(cfg)
+
 	// Restore messages from session if available
 	if len(currentSession.Messages) > 0 {
 		// Convert config.SessionMessage to tui.ChatMessage
@@ -299,16 +303,40 @@ func runChatTUI() {
 	}
 
 	// Restore endpoint/provider from session, or detect from config
-	if endpoint := currentSession.GetEndpoint(); endpoint != "" && endpoint != "default" {
+	sessionEndpoint := currentSession.GetEndpoint()
+	tui.LogInfo(fmt.Sprintf("Session endpoint from file: '%s'", sessionEndpoint))
+	tui.LogInfo(fmt.Sprintf("Config BaseURL: '%s'", cfg.BaseURL))
+
+	if sessionEndpoint != "" && sessionEndpoint != "default" {
 		// Use endpoint from session if it's valid
-		app = app.WithEndpoint(endpoint)
+		tui.LogInfo(fmt.Sprintf("✓ Using endpoint from session: %s", sessionEndpoint))
+		app = app.WithEndpoint(sessionEndpoint)
 	} else {
 		// Detect provider from base URL in config
 		detectedProvider := providers.DetectProvider(cfg.BaseURL)
+		tui.LogInfo(fmt.Sprintf("DetectProvider() returned: '%s'", detectedProvider))
 		if detectedProvider != "unknown" {
+			tui.LogInfo(fmt.Sprintf("✓ Setting endpoint to detected provider: %s", detectedProvider))
 			app = app.WithEndpoint(detectedProvider)
 			// Also update the session with the detected endpoint
 			currentSession.SetEndpoint(detectedProvider)
+			// Save the session with the detected endpoint
+			if err := sessionManager.Save(currentSession); err != nil {
+				log.Printf("Warning: Failed to save session with detected endpoint: %v", err)
+			} else {
+				tui.LogInfo(fmt.Sprintf("✓ Saved session with endpoint: %s", detectedProvider))
+			}
+		} else {
+			tui.LogInfo("⚠ Could not detect provider from BaseURL")
+		}
+	}
+
+	// Set model from config if not set by session
+	if currentSession.GetModel() == "" {
+		tui.LogInfo(fmt.Sprintf("Setting model from config: %s", cfg.Model))
+		currentSession.SetModel(cfg.Model)
+		if err := sessionManager.Save(currentSession); err != nil {
+			log.Printf("Warning: Failed to save session with model: %v", err)
 		}
 	}
 

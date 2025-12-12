@@ -26,8 +26,14 @@ type ContextTracker struct {
 }
 
 // NewContextTracker creates a new context tracker for a session
-func NewContextTracker(session *Session, model string) *ContextTracker {
-	maxTokens := GetModelLimit(model)
+func NewContextTracker(session *Session, model string, contextLimitOverride ...int) *ContextTracker {
+	// Use override if provided, otherwise use model default
+	var maxTokens int
+	if len(contextLimitOverride) > 0 && contextLimitOverride[0] > 0 {
+		maxTokens = contextLimitOverride[0]
+	} else {
+		maxTokens = GetModelLimit(model)
+	}
 
 	return &ContextTracker{
 		Session:           session,

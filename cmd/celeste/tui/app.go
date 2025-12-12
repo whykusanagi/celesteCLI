@@ -58,6 +58,9 @@ type AppModel struct {
 	sessionManager SessionManager
 	currentSession Session
 
+	// Configuration (for context limits, etc.)
+	config *config.Config
+
 	// Context tracking (NEW)
 	contextTracker     *config.ContextTracker
 	showContextWarning bool
@@ -486,6 +489,9 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.chat = m.chat.AddAssistantMessage(fmt.Sprintf("🎨 Generating %s... please wait", mediaType))
 				m.status = m.status.SetText(fmt.Sprintf("⏳ Venice.ai %s generation in progress...", mediaType))
 
+				// Persist media generation request
+				m.persistSession()
+
 				// Trigger async media generation
 				cmds = append(cmds, func() tea.Msg {
 					return GenerateMediaMsg{
@@ -506,6 +512,9 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.streaming = true
 		m.status = m.status.SetStreaming(true)
 		m.status = m.status.SetText(StreamingSpinner(0) + " " + ThinkingAnimation(0))
+
+		// Persist user message immediately (in case of crash before response)
+		m.persistSession()
 
 		// Send to LLM and start animation
 		if m.llmClient != nil {
@@ -639,11 +648,17 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Update the last assistant message with the result
 			m.chat = m.chat.SetLastAssistantContent(resultText)
 			m.status = m.status.SetText(fmt.Sprintf("✓ %s complete", msg.MediaType))
+
+			// Persist media generation result
+			m.persistSession()
 		} else {
 			LogInfo(fmt.Sprintf("✗ Media generation FAILED: %s", msg.Error))
 			errorText := fmt.Sprintf("❌ %s generation failed: %s", msg.MediaType, msg.Error)
 			m.chat = m.chat.SetLastAssistantContent(errorText)
 			m.status = m.status.SetText(fmt.Sprintf("✗ %s failed", msg.MediaType))
+
+			// Persist error message
+			m.persistSession()
 		}
 		m.streaming = false
 		m.status = m.status.SetStreaming(false)
@@ -767,9 +782,11 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.Name == "nsfw_mode" && strings.Contains(msg.Result, "enabled") {
 				m.nsfwMode = true
 				m.header = m.header.SetNSFWMode(true)
+				m.persistSession()
 			} else if msg.Name == "nsfw_mode" && strings.Contains(msg.Result, "disabled") {
 				m.nsfwMode = false
 				m.header = m.header.SetNSFWMode(false)
+				m.persistSession()
 			}
 
 			// For successful skill results, send result back to LLM for interpretation
@@ -883,6 +900,9 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.streaming = false
 				m.status = m.status.SetStreaming(false)
 				m.status = m.status.SetText("Ready")
+
+				// Persist session now that the message is complete
+				m.persistSession()
 			}
 		} else if m.streaming {
 			// Just streaming (waiting for response) - show animated status
@@ -895,6 +915,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case NSFWToggleMsg:
 		m.nsfwMode = msg.Enabled
 		m.header = m.header.SetNSFWMode(msg.Enabled)
+		m.persistSession()
 
 	case ErrorMsg:
 		m.status = m.status.SetText(fmt.Sprintf("Error: %v", msg.Err))
@@ -1017,7 +1038,12 @@ func (m AppModel) SetSessionManager(sm SessionManager, session Session) AppModel
 			// Initialize context tracker with session and model
 			// Convert Session interface to *config.Session for ContextTracker
 			if configSession, ok := session.(*config.Session); ok {
-				m.contextTracker = config.NewContextTracker(configSession, model)
+				// Pass config's ContextLimit as override if available
+				if m.config != nil && m.config.ContextLimit > 0 {
+					m.contextTracker = config.NewContextTracker(configSession, model, m.config.ContextLimit)
+				} else {
+					m.contextTracker = config.NewContextTracker(configSession, model)
+				}
 				// Update header with initial context usage
 				if m.contextTracker.MaxTokens > 0 {
 					m.header = m.header.SetContextUsage(m.contextTracker.CurrentTokens, m.contextTracker.MaxTokens)
@@ -1035,6 +1061,12 @@ func (m AppModel) SetSessionManager(sm SessionManager, session Session) AppModel
 func (m AppModel) SetVersion(version, build string) AppModel {
 	m.version = version
 	m.build = build
+	return m
+}
+
+// SetConfig sets the configuration for accessing context limits and other settings.
+func (m AppModel) SetConfig(cfg *config.Config) AppModel {
+	m.config = cfg
 	return m
 }
 

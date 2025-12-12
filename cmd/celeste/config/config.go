@@ -14,10 +14,11 @@ import (
 // Config holds all configuration for Celeste CLI.
 type Config struct {
 	// API settings
-	APIKey  string `json:"api_key"`
-	BaseURL string `json:"base_url"`
-	Model   string `json:"model"`
-	Timeout int    `json:"timeout"` // seconds
+	APIKey       string `json:"api_key"`
+	BaseURL      string `json:"base_url"`
+	Model        string `json:"model"`
+	Timeout      int    `json:"timeout"`        // seconds
+	ContextLimit int    `json:"context_limit,omitempty"` // Optional: Override context window size
 
 	// Persona settings
 	SkipPersonaPrompt bool `json:"skip_persona_prompt"`

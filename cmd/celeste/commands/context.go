@@ -15,8 +15,10 @@ import (
 func HandleContextCommand(args []string, contextTracker *config.ContextTracker) CommandResult {
 	if contextTracker == nil {
 		return CommandResult{
-			Success:      false,
-			Message:      "❌ Context tracking not available (no active session)",
+			Success:      true,
+			Message:      "📭 No messages in this session yet\n\n" +
+				"Context tracking will begin after your first message.\n" +
+				"Send a message to start tracking token usage.",
 			ShouldRender: true,
 		}
 	}
