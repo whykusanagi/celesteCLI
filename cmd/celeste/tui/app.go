@@ -489,6 +489,22 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.chat = m.chat.AddAssistantMessage(fmt.Sprintf("🎨 Generating %s... please wait", mediaType))
 				m.status = m.status.SetText(fmt.Sprintf("⏳ Venice.ai %s generation in progress...", mediaType))
 
+				// Add messages to session for persistence
+				if m.currentSession != nil {
+					if configSession, ok := m.currentSession.(*config.Session); ok {
+						configSession.Messages = append(configSession.Messages, config.SessionMessage{
+							Role:      "user",
+							Content:   content,
+							Timestamp: time.Now(),
+						})
+						configSession.Messages = append(configSession.Messages, config.SessionMessage{
+							Role:      "assistant",
+							Content:   fmt.Sprintf("🎨 Generating %s... please wait", mediaType),
+							Timestamp: time.Now(),
+						})
+					}
+				}
+
 				// Persist media generation request
 				m.persistSession()
 
@@ -512,6 +528,17 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.streaming = true
 		m.status = m.status.SetStreaming(true)
 		m.status = m.status.SetText(StreamingSpinner(0) + " " + ThinkingAnimation(0))
+
+		// Add user message to session for persistence
+		if m.currentSession != nil {
+			if configSession, ok := m.currentSession.(*config.Session); ok {
+				configSession.Messages = append(configSession.Messages, config.SessionMessage{
+					Role:      "user",
+					Content:   content,
+					Timestamp: time.Now(),
+				})
+			}
+		}
 
 		// Persist user message immediately (in case of crash before response)
 		m.persistSession()
@@ -895,6 +922,18 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				// Typing complete - show final content without corruption
 				m.chat = m.chat.SetLastAssistantContent(m.typingContent)
+
+				// Add assistant message to session for persistence
+				if m.currentSession != nil {
+					if configSession, ok := m.currentSession.(*config.Session); ok {
+						configSession.Messages = append(configSession.Messages, config.SessionMessage{
+							Role:      "assistant",
+							Content:   m.typingContent,
+							Timestamp: time.Now(),
+						})
+					}
+				}
+
 				m.typingContent = ""
 				m.typingPos = 0
 				m.streaming = false
