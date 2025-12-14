@@ -4,6 +4,7 @@ package tui
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -57,6 +58,18 @@ type AppModel struct {
 	// Session persistence (optional)
 	sessionManager SessionManager
 	currentSession Session
+
+	// Configuration (for context limits, etc.)
+	config *config.Config
+
+	// Context tracking (NEW)
+	contextTracker     *config.ContextTracker
+	showContextWarning bool
+	lastWarningLevel   string
+
+	// Interactive selector
+	selector       SelectorModel
+	selectorActive bool
 }
 
 // LLMClient interface for sending messages to the LLM.
@@ -143,6 +156,13 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// If selector is active, route all keys to it
+		if m.selectorActive {
+			var cmd tea.Cmd
+			m.selector, cmd = m.selector.Update(msg)
+			return m, cmd
+		}
+
 		switch msg.String() {
 		case "ctrl+c":
 			return m, tea.Quit
@@ -198,6 +218,38 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Check if it's a slash command first
 		if cmd := commands.Parse(content); cmd != nil {
+			// Handle Phase 4 commands that require app state (contextTracker, currentSession)
+			switch cmd.Name {
+			case "stats":
+				// Pass animation frame for flickering corruption effects
+				argsWithFrame := append([]string{"--frame", fmt.Sprintf("%d", m.animFrame)}, cmd.Args...)
+				result := commands.HandleStatsCommand(argsWithFrame, m.contextTracker)
+				if result.ShouldRender {
+					m.chat = m.chat.AddSystemMessage(result.Message)
+				}
+				return m, nil
+
+			case "export":
+				// Get pointer to current session for export
+				var sessionPtr *config.Session
+				if sess, ok := m.currentSession.(*config.Session); ok {
+					sessionPtr = sess
+				}
+				result := commands.HandleExportCommand(cmd.Args, sessionPtr)
+				if result.ShouldRender {
+					m.chat = m.chat.AddSystemMessage(result.Message)
+				}
+				return m, nil
+
+			case "context":
+				result := commands.HandleContextCommand(cmd.Args, m.contextTracker)
+				if result.ShouldRender {
+					m.chat = m.chat.AddSystemMessage(result.Message)
+				}
+				return m, nil
+			}
+
+			// For other commands, use normal execution flow
 			// Create context with current state (needed for model listing/validation)
 			// Try to get config from LLMClient (available if it's the adapter from main.go)
 			// If not available, commands will fall back to static model lists
@@ -346,6 +398,26 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if result.StateChange.SessionAction != nil {
 					m = m.handleSessionAction(result.StateChange.SessionAction)
 				}
+
+				// Handle selector request
+				if result.StateChange.ShowSelector != nil {
+					// Convert commands.SelectorItem to tui.SelectorItem
+					tuiItems := make([]SelectorItem, len(result.StateChange.ShowSelector.Items))
+					for i, item := range result.StateChange.ShowSelector.Items {
+						tuiItems[i] = SelectorItem{
+							ID:          item.ID,
+							DisplayName: item.DisplayName,
+							Description: item.Description,
+							Badge:       item.Badge,
+						}
+					}
+
+					// Activate selector
+					m.selector = NewSelectorModel(result.StateChange.ShowSelector.Title, tuiItems)
+					m.selector = m.selector.SetHeight(m.height - 4)
+					m.selector = m.selector.SetWidth(m.width)
+					m.selectorActive = true
+				}
 			}
 
 			return m, nil
@@ -418,6 +490,25 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.chat = m.chat.AddAssistantMessage(fmt.Sprintf("🎨 Generating %s... please wait", mediaType))
 				m.status = m.status.SetText(fmt.Sprintf("⏳ Venice.ai %s generation in progress...", mediaType))
 
+				// Add messages to session for persistence
+				if m.currentSession != nil {
+					if configSession, ok := m.currentSession.(*config.Session); ok {
+						configSession.Messages = append(configSession.Messages, config.SessionMessage{
+							Role:      "user",
+							Content:   content,
+							Timestamp: time.Now(),
+						})
+						configSession.Messages = append(configSession.Messages, config.SessionMessage{
+							Role:      "assistant",
+							Content:   fmt.Sprintf("🎨 Generating %s... please wait", mediaType),
+							Timestamp: time.Now(),
+						})
+					}
+				}
+
+				// Persist media generation request
+				m.persistSession()
+
 				// Trigger async media generation
 				cmds = append(cmds, func() tea.Msg {
 					return GenerateMediaMsg{
@@ -438,6 +529,20 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.streaming = true
 		m.status = m.status.SetStreaming(true)
 		m.status = m.status.SetText(StreamingSpinner(0) + " " + ThinkingAnimation(0))
+
+		// Add user message to session for persistence
+		if m.currentSession != nil {
+			if configSession, ok := m.currentSession.(*config.Session); ok {
+				configSession.Messages = append(configSession.Messages, config.SessionMessage{
+					Role:      "user",
+					Content:   content,
+					Timestamp: time.Now(),
+				})
+			}
+		}
+
+		// Persist user message immediately (in case of crash before response)
+		m.persistSession()
 
 		// Send to LLM and start animation
 		if m.llmClient != nil {
@@ -571,11 +676,17 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Update the last assistant message with the result
 			m.chat = m.chat.SetLastAssistantContent(resultText)
 			m.status = m.status.SetText(fmt.Sprintf("✓ %s complete", msg.MediaType))
+
+			// Persist media generation result
+			m.persistSession()
 		} else {
 			LogInfo(fmt.Sprintf("✗ Media generation FAILED: %s", msg.Error))
 			errorText := fmt.Sprintf("❌ %s generation failed: %s", msg.MediaType, msg.Error)
 			m.chat = m.chat.SetLastAssistantContent(errorText)
 			m.status = m.status.SetText(fmt.Sprintf("✗ %s failed", msg.MediaType))
+
+			// Persist error message
+			m.persistSession()
 		}
 		m.streaming = false
 		m.status = m.status.SetStreaming(false)
@@ -588,6 +699,17 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, nil) // Keep processing
 
 	case StreamDoneMsg:
+		// Update token counts from API response
+		if msg.Usage != nil && m.contextTracker != nil {
+			m.contextTracker.UpdateTokens(
+				msg.Usage.PromptTokens,
+				msg.Usage.CompletionTokens,
+				msg.Usage.TotalTokens,
+			)
+			// Update header with new token counts
+			m.header = m.header.SetContextUsage(m.contextTracker.CurrentTokens, m.contextTracker.MaxTokens)
+		}
+
 		if msg.FullContent != "" {
 			// Check for content policy refusal
 			if commands.IsContentPolicyRefusal(msg.FullContent) && m.endpoint != "venice" {
@@ -699,9 +821,11 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.Name == "nsfw_mode" && strings.Contains(msg.Result, "enabled") {
 				m.nsfwMode = true
 				m.header = m.header.SetNSFWMode(true)
+				m.persistSession()
 			} else if msg.Name == "nsfw_mode" && strings.Contains(msg.Result, "disabled") {
 				m.nsfwMode = false
 				m.header = m.header.SetNSFWMode(false)
+				m.persistSession()
 			}
 
 			// For successful skill results, send result back to LLM for interpretation
@@ -729,6 +853,42 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				// Clear pending tool call ID
 				m.pendingToolCallID = ""
+			}
+		}
+
+	case ShowSelectorMsg:
+		// Activate the selector
+		m.selector = NewSelectorModel(msg.Title, msg.Items)
+		m.selector = m.selector.SetHeight(m.height - 4) // Leave room for borders/footer
+		m.selector = m.selector.SetWidth(m.width)
+		m.selectorActive = true
+
+	case SelectorResultMsg:
+		// Handle selector result
+		m.selectorActive = false
+
+		if msg.Cancelled {
+			// User cancelled - show cancellation message
+			m.chat = m.chat.AddSystemMessage("Selection cancelled")
+			m.status = m.status.SetText("Selection cancelled")
+		} else if msg.Selected != nil {
+			// User selected an item - trigger model change
+			modelName := msg.Selected.ID
+
+			// Use the switcher interface to change model
+			if switcher, ok := m.llmClient.(EndpointSwitcher); ok {
+				if err := switcher.ChangeModel(modelName); err != nil {
+					m.chat = m.chat.AddSystemMessage(fmt.Sprintf("❌ Failed to change model: %v", err))
+					m.status = m.status.SetText(fmt.Sprintf("Error: %v", err))
+				} else {
+					m.model = modelName
+					m.header = m.header.SetModel(modelName)
+					m.chat = m.chat.AddSystemMessage(fmt.Sprintf("🤖 Model changed to: %s", modelName))
+					m.status = m.status.SetText(fmt.Sprintf("Model changed to: %s", modelName))
+
+					// Persist the change
+					m.persistSession()
+				}
 			}
 		}
 
@@ -774,11 +934,26 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				// Typing complete - show final content without corruption
 				m.chat = m.chat.SetLastAssistantContent(m.typingContent)
+
+				// Add assistant message to session for persistence
+				if m.currentSession != nil {
+					if configSession, ok := m.currentSession.(*config.Session); ok {
+						configSession.Messages = append(configSession.Messages, config.SessionMessage{
+							Role:      "assistant",
+							Content:   m.typingContent,
+							Timestamp: time.Now(),
+						})
+					}
+				}
+
 				m.typingContent = ""
 				m.typingPos = 0
 				m.streaming = false
 				m.status = m.status.SetStreaming(false)
 				m.status = m.status.SetText("Ready")
+
+				// Persist session now that the message is complete
+				m.persistSession()
 			}
 		} else if m.streaming {
 			// Just streaming (waiting for response) - show animated status
@@ -791,6 +966,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case NSFWToggleMsg:
 		m.nsfwMode = msg.Enabled
 		m.header = m.header.SetNSFWMode(msg.Enabled)
+		m.persistSession()
 
 	case ErrorMsg:
 		m.status = m.status.SetText(fmt.Sprintf("Error: %v", msg.Err))
@@ -803,6 +979,11 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m AppModel) View() string {
 	if !m.ready {
 		return "\n  Initializing..."
+	}
+
+	// If selector is active, show it full-screen
+	if m.selectorActive {
+		return m.selector.View()
 	}
 
 	// Build the layout vertically
@@ -854,6 +1035,7 @@ type SessionManager interface {
 	Save(session interface{}) error
 	Load(id string) (interface{}, error)
 	List() ([]interface{}, error)
+	Delete(id string) error
 	MergeSessions(session1, session2 interface{}) interface{}
 }
 
@@ -866,6 +1048,7 @@ type Session interface {
 	GetModel() string
 	SetNSFWMode(enabled bool)
 	GetNSFWMode() bool
+	SetName(name string)
 	ClearMessages()
 	GetMessagesRaw() interface{}     // Returns []SessionMessage
 	SetMessagesRaw(msgs interface{}) // Accepts []SessionMessage
@@ -877,6 +1060,18 @@ type SessionMessage struct {
 	Role      string
 	Content   string
 	Timestamp time.Time
+}
+
+// SessionSummary represents session metadata (matches config.SessionSummary).
+// Duplicated here to avoid circular import with config package.
+type SessionSummary struct {
+	ID           string
+	Name         string
+	MessageCount int
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	FirstMessage string
+	Metadata     map[string]interface{}
 }
 
 // SetSessionManager sets the session manager for persistence.
@@ -893,6 +1088,21 @@ func (m AppModel) SetSessionManager(sm SessionManager, session Session) AppModel
 		if model := session.GetModel(); model != "" {
 			m.model = model
 			m.header = m.header.SetModel(model)
+
+			// Initialize context tracker with session and model
+			// Convert Session interface to *config.Session for ContextTracker
+			if configSession, ok := session.(*config.Session); ok {
+				// Pass config's ContextLimit as override if available
+				if m.config != nil && m.config.ContextLimit > 0 {
+					m.contextTracker = config.NewContextTracker(configSession, model, m.config.ContextLimit)
+				} else {
+					m.contextTracker = config.NewContextTracker(configSession, model)
+				}
+				// Update header with initial context usage
+				if m.contextTracker.MaxTokens > 0 {
+					m.header = m.header.SetContextUsage(m.contextTracker.CurrentTokens, m.contextTracker.MaxTokens)
+				}
+			}
 		}
 		m.nsfwMode = session.GetNSFWMode()
 		m.header = m.header.SetNSFWMode(m.nsfwMode)
@@ -908,8 +1118,15 @@ func (m AppModel) SetVersion(version, build string) AppModel {
 	return m
 }
 
+// SetConfig sets the configuration for accessing context limits and other settings.
+func (m AppModel) SetConfig(cfg *config.Config) AppModel {
+	m.config = cfg
+	return m
+}
+
 // WithMessages restores chat history from session messages.
 func (m AppModel) WithMessages(messages []ChatMessage) AppModel {
+	// Restore all messages first
 	for _, msg := range messages {
 		switch msg.Role {
 		case "user":
@@ -919,6 +1136,23 @@ func (m AppModel) WithMessages(messages []ChatMessage) AppModel {
 		case "tool":
 			m.chat = m.chat.AddToolResult(msg.ToolCallID, msg.Name, msg.Content)
 		}
+	}
+
+	// Add a system message at the end indicating session was resumed
+	if len(messages) > 0 {
+		m.chat = m.chat.AddSystemMessage(fmt.Sprintf("📂 Resumed session (%d messages)", len(messages)))
+	}
+
+	return m
+}
+
+// WithEndpoint restores the endpoint/provider from a loaded session.
+func (m AppModel) WithEndpoint(endpoint string) AppModel {
+	if endpoint != "" {
+		m.endpoint = endpoint
+		m.provider = endpoint // Provider matches endpoint name
+		m.header = m.header.SetEndpoint(endpoint)
+		LogInfo(fmt.Sprintf("✓ Restored endpoint from session: %s", endpoint))
 	}
 	return m
 }
@@ -987,8 +1221,30 @@ func (m AppModel) handleSessionAction(action *commands.SessionAction) AppModel {
 		// Save current session first
 		m.persistSession()
 
+		// Try to load by ID first
+		loaded, err := m.sessionManager.Load(action.SessionID)
+
+		// If not found by ID, search by name
+		if err != nil {
+			if sessions, listErr := m.sessionManager.List(); listErr == nil {
+				for _, sessionRaw := range sessions {
+					if s, ok := sessionRaw.(Session); ok {
+						if summaryRaw := s.SummarizeRaw(); summaryRaw != nil {
+							if summary, ok := summaryRaw.(SessionSummary); ok {
+								if strings.EqualFold(summary.Name, action.SessionID) {
+									loaded = s
+									err = nil
+									break
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
 		// Load requested session
-		if loaded, err := m.sessionManager.Load(action.SessionID); err == nil {
+		if err == nil {
 			if s, ok := loaded.(Session); ok {
 				m.currentSession = s
 
@@ -1036,18 +1292,98 @@ func (m AppModel) handleSessionAction(action *commands.SessionAction) AppModel {
 			if len(sessions) == 0 {
 				m.chat = m.chat.AddSystemMessage("No saved sessions")
 			} else {
-				var sb strings.Builder
-				sb.WriteString(fmt.Sprintf("\n📋 Saved Sessions (%d):\n\n", len(sessions)))
+				// Convert to SessionSummary slice for sorting
+				summaries := make([]SessionSummary, 0, len(sessions))
 				for _, sessionRaw := range sessions {
 					if s, ok := sessionRaw.(Session); ok {
 						if summaryRaw := s.SummarizeRaw(); summaryRaw != nil {
-							// Type assert to access summary fields
-							// Since we can't import config directly, we'll work with what we have
-							sb.WriteString("• Session available\n")
+							// Convert config.SessionSummary to tui.SessionSummary
+							if configSummary, ok := summaryRaw.(config.SessionSummary); ok {
+								tuiSummary := SessionSummary{
+									ID:           configSummary.ID,
+									Name:         configSummary.Name,
+									MessageCount: configSummary.MessageCount,
+									CreatedAt:    configSummary.CreatedAt,
+									UpdatedAt:    configSummary.UpdatedAt,
+									FirstMessage: configSummary.FirstMessage,
+									Metadata:     make(map[string]interface{}),
+								}
+								// Copy metadata
+								for k, v := range configSummary.Metadata {
+									tuiSummary.Metadata[k] = v
+								}
+								summaries = append(summaries, tuiSummary)
+							}
 						}
 					}
 				}
-				sb.WriteString("\nUse /session resume <id> to load a session")
+
+				// Sort by UpdatedAt descending (most recent first)
+				sort.Slice(summaries, func(i, j int) bool {
+					return summaries[i].UpdatedAt.After(summaries[j].UpdatedAt)
+				})
+
+				var sb strings.Builder
+				sb.WriteString(fmt.Sprintf("\n📋 Saved Sessions (%d):\n\n", len(summaries)))
+
+				// Get current session ID for comparison
+				var currentSessionID string
+				if m.currentSession != nil {
+					if currentSummaryRaw := m.currentSession.SummarizeRaw(); currentSummaryRaw != nil {
+						if configSummary, ok := currentSummaryRaw.(config.SessionSummary); ok {
+							currentSessionID = configSummary.ID
+						}
+					}
+				}
+
+				for _, summary := range summaries {
+					// Display name if set, otherwise "Untitled"
+					displayName := summary.Name
+					if displayName == "" {
+						displayName = "Untitled Session"
+					}
+
+					// Mark current session with ★
+					currentMarker := ""
+					if currentSessionID != "" && currentSessionID == summary.ID {
+						currentMarker = "★ "
+					}
+
+					// Relative timestamp
+					relativeTime := humanizeTime(summary.UpdatedAt)
+
+					// Get endpoint/model from metadata
+					endpoint := ""
+					model := ""
+					if summary.Metadata != nil {
+						if e, ok := summary.Metadata["endpoint"].(string); ok {
+							endpoint = e
+						}
+						if m, ok := summary.Metadata["model"].(string); ok {
+							model = m
+						}
+					}
+
+					// Format output
+					sb.WriteString(fmt.Sprintf("• %s%s (%s)\n", currentMarker, displayName, summary.ID))
+					if model != "" && endpoint != "" {
+						sb.WriteString(fmt.Sprintf("  %s • %d msgs • %s @ %s\n",
+							relativeTime, summary.MessageCount, model, endpoint))
+					} else {
+						sb.WriteString(fmt.Sprintf("  %s • %d msgs\n",
+							relativeTime, summary.MessageCount))
+					}
+					if summary.FirstMessage != "" {
+						sb.WriteString(fmt.Sprintf("  \"%s\"\n", summary.FirstMessage))
+					}
+					sb.WriteString("\n")
+				}
+
+				sb.WriteString("Commands:\n")
+				sb.WriteString("  /session resume <id>       - Load session by ID\n")
+				sb.WriteString("  /session resume \"<name>\"   - Load session by name\n")
+				sb.WriteString("  /session rename <id> <name> - Rename a session\n")
+				sb.WriteString("  /session delete <id>       - Delete a session\n")
 				m.chat = m.chat.AddSystemMessage(sb.String())
 			}
 		} else {
@@ -1095,6 +1431,50 @@ func (m AppModel) handleSessionAction(action *commands.SessionAction) AppModel {
 				fmt.Sprintf("❌ Failed to merge session: %v", err))
 		}
 
+	case "rename":
+		if loaded, err := m.sessionManager.Load(action.SessionID); err == nil {
+			if s, ok := loaded.(Session); ok {
+				// Update the name
+				s.SetName(action.Name)
+
+				// Save the session
+				if saveErr := m.sessionManager.Save(s); saveErr == nil {
+					m.chat = m.chat.AddSystemMessage(
+						fmt.Sprintf("✓ Renamed session to: %s", action.Name))
+				} else {
+					m.chat = m.chat.AddSystemMessage(
+						fmt.Sprintf("❌ Failed to save renamed session: %v", saveErr))
+				}
+			}
+		} else {
+			m.chat = m.chat.AddSystemMessage(
+				fmt.Sprintf("❌ Failed to load session: %v", err))
+		}
+
+	case "delete", "rm":
+		// Prevent deleting current session
+		currentID := ""
+		if m.currentSession != nil {
+			if summaryRaw := m.currentSession.SummarizeRaw(); summaryRaw != nil {
+				if summary, ok := summaryRaw.(SessionSummary); ok {
+					currentID = summary.ID
+				}
+			}
+		}
+
+		if currentID == action.SessionID {
+			m.chat = m.chat.AddSystemMessage(
+				"❌ Cannot delete current session. Switch to another session first.")
+		} else {
+			if err := m.sessionManager.Delete(action.SessionID); err == nil {
+				m.chat = m.chat.AddSystemMessage(
+					fmt.Sprintf("✓ Deleted session: %s", action.SessionID))
+			} else {
+				m.chat = m.chat.AddSystemMessage(
+					fmt.Sprintf("❌ Failed to delete session: %v", err))
+			}
+		}
+
 	case "info":
 		if m.currentSession != nil {
 			msgCount := 0
@@ -1124,13 +1504,15 @@ func (m AppModel) handleSessionAction(action *commands.SessionAction) AppModel {
 
 // HeaderModel represents the header bar.
 type HeaderModel struct {
-	width         int
-	nsfwMode      bool
-	endpoint      string
-	model         string
-	imageModel    string // Image generation model (NSFW mode)
-	autoRouted    bool   // Whether the last message was auto-routed
-	skillsEnabled bool   // Whether skills/function calling is available
+	width           int
+	nsfwMode        bool
+	endpoint        string
+	model           string
+	imageModel      string // Image generation model (NSFW mode)
+	autoRouted      bool   // Whether the last message was auto-routed
+	skillsEnabled   bool   // Whether skills/function calling is available
+	contextIndicator ContextIndicator // Token usage display
+	showContext     bool   // Whether to show context usage
 }
 
 // NewHeaderModel creates a new header model.
@@ -1180,6 +1562,24 @@ func (m HeaderModel) SetAutoRouted(routed bool) HeaderModel {
 	return m
 }
 
+// SetContextUsage updates the context usage display.
+func (m HeaderModel) SetContextUsage(current, max int) HeaderModel {
+	m.contextIndicator = m.contextIndicator.SetUsage(current, max)
+	m.showContext = true
+	return m
+}
+
+// SetShowContext controls whether context usage is displayed.
+func (m HeaderModel) SetShowContext(show bool) HeaderModel {
+	m.showContext = show
+	return m
+}
+
+// GetContextWarningLevel returns the current context warning level.
+func (m HeaderModel) GetContextWarningLevel() string {
+	return m.contextIndicator.GetWarningLevel()
+}
+
 // View renders the header.
 func (m HeaderModel) View() string {
 	title := HeaderTitleStyle.Render("✨ Celeste CLI")
@@ -1225,9 +1625,18 @@ func (m HeaderModel) View() string {
 		endpointInfo += ModelStyle.Render(modelDisplay)
 	}
 
+	// Add context usage indicator if available
+	var contextInfo string
+	if m.showContext {
+		contextInfo = m.contextIndicator.ViewCompact()
+	}
+
 	info := HeaderInfoStyle.Render("Press Ctrl+C to exit")
 	if endpointInfo != "" {
 		info = endpointInfo + " • " + info
+	}
+	if contextInfo != "" {
+		info = info + " • " + contextInfo
 	}
 
 	// Calculate gap
@@ -1246,10 +1655,13 @@ func (m HeaderModel) View() string {
 
 // StatusModel represents the status bar.
 type StatusModel struct {
-	width     int
-	text      string
-	streaming bool
-	frame     int
+	width            int
+	text             string
+	streaming        bool
+	frame            int
+	warningMessage   string // Context warning message
+	warningLevel     string // "warn", "caution", "critical"
+	showWarning      bool   // Whether to show warning
 }
 
 // NewStatusModel creates a new status model.
@@ -1275,6 +1687,22 @@ func (m StatusModel) SetStreaming(streaming bool) StatusModel {
 	return m
 }
 
+// ShowContextWarning displays a context warning message.
+func (m StatusModel) ShowContextWarning(level string, message string) StatusModel {
+	m.warningLevel = level
+	m.warningMessage = message
+	m.showWarning = true
+	return m
+}
+
+// ClearContextWarning clears the context warning.
+func (m StatusModel) ClearContextWarning() StatusModel {
+	m.showWarning = false
+	m.warningMessage = ""
+	m.warningLevel = ""
+	return m
+}
+
 // Update handles tick messages for animation.
 func (m StatusModel) Update(msg tea.Msg) (StatusModel, tea.Cmd) {
 	if _, ok := msg.(TickMsg); ok {
@@ -1286,7 +1714,13 @@ func (m StatusModel) Update(msg tea.Msg) (StatusModel, tea.Cmd) {
 // View renders the status bar.
 func (m StatusModel) View() string {
 	var status string
-	if m.streaming {
+
+	// Priority: warnings > streaming > normal text
+	if m.showWarning {
+		// Show context warning with appropriate color
+		warningStyle := m.getWarningStyle()
+		status = warningStyle.Render(m.warningMessage)
+	} else if m.streaming {
 		// Animated spinner
 		frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 		spinner := StatusStreamingStyle.Render(frames[m.frame%len(frames)])
@@ -1298,7 +1732,50 @@ func (m StatusModel) View() string {
 	return StatusBarStyle.Width(m.width).Render(status)
 }
 
+// getWarningStyle returns the appropriate style for the warning level.
+func (m StatusModel) getWarningStyle() lipgloss.Style {
+	switch m.warningLevel {
+	case "critical":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true) // Bright red, bold
+	case "caution":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("208")).Bold(true) // Orange, bold
+	case "warn":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("226")) // Yellow
+	default:
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("82")) // Green
+	}
+}
+
 // --- Helper functions ---
+
+// humanizeTime converts a timestamp to a human-readable relative time.
+func humanizeTime(t time.Time) string {
+	duration := time.Since(t)
+
+	if duration < time.Minute {
+		return "just now"
+	} else if duration < time.Hour {
+		mins := int(duration.Minutes())
+		if mins == 1 {
+			return "1 min ago"
+		}
+		return fmt.Sprintf("%d mins ago", mins)
+	} else if duration < 24*time.Hour {
+		hours := int(duration.Hours())
+		if hours == 1 {
+			return "1 hour ago"
+		}
+		return fmt.Sprintf("%d hours ago", hours)
+	} else if duration < 7*24*time.Hour {
+		days := int(duration.Hours() / 24)
+		if days == 1 {
+			return "1 day ago"
+		}
+		return fmt.Sprintf("%d days ago", days)
+	} else {
+		return t.Format("Jan 2, 2006")
+	}
+}
 
 // Run starts the TUI application.
 func Run(llmClient LLMClient) error {

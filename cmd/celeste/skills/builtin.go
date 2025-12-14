@@ -723,10 +723,23 @@ func WeatherHandler(args map[string]interface{}, configLoader ConfigLoader) (int
 		config = WeatherConfig{}
 	}
 
-	// Get zip code using unified helper: user-provided first, then default
-	zipCode, found := getUserOrDefault(args, "zip_code", func() string {
-		return config.DefaultZipCode
-	})
+	// Get zip code - accept both string and number types
+	var zipCode string
+	var found bool
+
+	// Try string first
+	if val, ok := args["zip_code"].(string); ok && val != "" {
+		zipCode = val
+		found = true
+	} else if val, ok := args["zip_code"].(float64); ok {
+		// Convert number to string (for CLI numeric conversion)
+		zipCode = fmt.Sprintf("%.0f", val)
+		found = true
+	} else {
+		// Fall back to config default
+		zipCode = config.DefaultZipCode
+		found = zipCode != ""
+	}
 
 	// Only return error/info if BOTH user-provided zip AND default are missing
 	if !found {

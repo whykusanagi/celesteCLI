@@ -40,6 +40,20 @@ type CommandResult struct {
 	StateChange  *StateChange
 }
 
+// SelectorItem represents an item in the interactive selector.
+type SelectorItem struct {
+	ID          string
+	DisplayName string
+	Description string
+	Badge       string
+}
+
+// SelectorData holds data for showing the interactive selector.
+type SelectorData struct {
+	Title string
+	Items []SelectorItem
+}
+
 // StateChange represents a change in application state.
 type StateChange struct {
 	EndpointChange *string
@@ -49,6 +63,7 @@ type StateChange struct {
 	ClearHistory   bool
 	MenuState      *string        // "status", "commands", "skills"
 	SessionAction  *SessionAction // Session management operations
+	ShowSelector   *SelectorData  // Show interactive selector
 }
 
 // SessionAction represents a session management operation.
@@ -114,6 +129,30 @@ func Execute(cmd *Command, ctx *CommandContext) *CommandResult {
 		return handleSkills(cmd, ctx)
 	case "session":
 		return handleSession(cmd, ctx)
+	case "context":
+		// Note: HandleContextCommand requires contextTracker from app state
+		// This will be called from app.go with proper context
+		return &CommandResult{
+			Success:      false,
+			Message:      "⚠️ /context command requires app context - this should be handled by the TUI",
+			ShouldRender: true,
+		}
+	case "stats":
+		// Note: HandleStatsCommand requires contextTracker from app state
+		// This will be called from app.go with proper context
+		return &CommandResult{
+			Success:      false,
+			Message:      "⚠️ /stats command requires app context - this should be handled by the TUI",
+			ShouldRender: true,
+		}
+	case "export":
+		// Note: HandleExportCommand requires currentSession from app state
+		// This will be called from app.go with proper context
+		return &CommandResult{
+			Success:      false,
+			Message:      "⚠️ /export command requires app context - this should be handled by the TUI",
+			ShouldRender: true,
+		}
 	default:
 		return &CommandResult{
 			Success:      false,
@@ -362,21 +401,38 @@ func listAvailableModels(ctx *CommandContext, caps providers.ProviderCapabilitie
 		}
 	}
 
-	// Format model list with capability indicators
-	formattedList := providers.FormatModelList(models, true)
+	// Convert models to selector items
+	selectorItems := make([]SelectorItem, len(models))
+	for i, model := range models {
+		badge := ""
+		if model.SupportsTools {
+			badge = "✓"
+		}
 
-	// Add header and usage
-	message := fmt.Sprintf("Available Models for %s:\n\n%s\nUsage: /set-model <model-id>", caps.Name, formattedList)
+		selectorItems[i] = SelectorItem{
+			ID:          model.ID,
+			DisplayName: model.Name,
+			Description: model.Description,
+			Badge:       badge,
+		}
+	}
 
-	// Add recommendation
+	// Create selector data
+	title := fmt.Sprintf("📋 Available Models for %s", caps.Name)
 	if caps.PreferredToolModel != "" {
-		message += fmt.Sprintf("\n\n💡 Recommended: %s (optimized for skills)", caps.PreferredToolModel)
+		title += fmt.Sprintf(" (💡 Recommended: %s)", caps.PreferredToolModel)
 	}
 
 	return &CommandResult{
 		Success:      true,
-		Message:      message,
-		ShouldRender: true,
+		Message:      "", // No message, using selector instead
+		ShouldRender: false,
+		StateChange: &StateChange{
+			ShowSelector: &SelectorData{
+				Title: title,
+				Items: selectorItems,
+			},
+		},
 	}
 }
 
@@ -799,7 +855,7 @@ func handleSession(cmd *Command, ctx *CommandContext) *CommandResult {
 	if len(cmd.Args) == 0 {
 		return &CommandResult{
 			Success:      false,
-			Message:      "Usage: /session <new|resume|list|clear|merge|info> [args]\n\nAvailable subcommands:\n  • new [name]       - Start a new session\n  • resume <id>      - Resume a previous session\n  • list             - List all saved sessions\n  • clear            - Clear current session\n  • merge <id>       - Merge another session into current\n  • info             - Show current session statistics\n\nExamples:\n  /session new \"Planning notes\"\n  /session resume 1733609876123\n  /session list\n  /session info",
+			Message:      "Usage: /session <action> [args]\n\nAvailable actions:\n  • new [name]         - Start a new session\n  • resume <id|name>   - Resume a previous session by ID or name\n  • list               - List all saved sessions\n  • clear              - Clear current session\n  • merge <id>         - Merge another session into current\n  • info               - Show current session statistics\n  • rename <id> <name> - Rename a session\n  • delete <id>        - Delete a session\n\nExamples:\n  /session new \"Planning notes\"\n  /session resume 1733609876123\n  /session resume \"Planning notes\"\n  /session rename 1733609876123 \"New name\"\n  /session delete 1733609876123\n  /session list",
 			ShouldRender: true,
 		}
 	}
@@ -901,10 +957,53 @@ func handleSession(cmd *Command, ctx *CommandContext) *CommandResult {
 			},
 		}
 
+	case "rename":
+		if len(cmd.Args) < 3 {
+			return &CommandResult{
+				Success:      false,
+				Message:      "Usage: /session rename <session-id> <new-name>\n\nExample:\n  /session rename 1733609876123 \"My Session\"",
+				ShouldRender: true,
+			}
+		}
+		sessionID := cmd.Args[1]
+		newName := strings.Join(cmd.Args[2:], " ")
+		return &CommandResult{
+			Success:      true,
+			Message:      "", // Will be populated by handler
+			ShouldRender: true,
+			StateChange: &StateChange{
+				SessionAction: &SessionAction{
+					Action:    "rename",
+					SessionID: sessionID,
+					Name:      newName,
+				},
+			},
+		}
+
+	case "delete", "rm":
+		if len(cmd.Args) < 2 {
+			return &CommandResult{
+				Success:      false,
+				Message:      "Usage: /session delete <session-id>\n\nUse /session list to see available sessions.",
+				ShouldRender: true,
+			}
+		}
+		return &CommandResult{
+			Success:      true,
+			Message:      "", // Will be populated by handler
+			ShouldRender: true,
+			StateChange: &StateChange{
+				SessionAction: &SessionAction{
+					Action:    "delete",
+					SessionID: cmd.Args[1],
+				},
+			},
+		}
+
 	default:
 		return &CommandResult{
 			Success:      false,
-			Message:      fmt.Sprintf("Unknown session action: %s\n\nAvailable actions: new, resume, list, clear, merge, info", action),
+			Message:      fmt.Sprintf("Unknown session action: %s\n\nAvailable actions: new, resume, list, clear, merge, info, rename, delete", action),
 			ShouldRender: true,
 		}
 	}

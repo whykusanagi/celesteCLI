@@ -507,3 +507,231 @@ func TestSessionMetadata(t *testing.T) {
 	assert.Equal(t, 0.7, loaded.Metadata["temperature"])
 	assert.Equal(t, "test", loaded.Metadata["custom_field"])
 }
+
+// TestSessionWithUsageMetrics tests adding messages with token tracking
+func TestSessionWithUsageMetrics(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldHomeDir := os.Getenv("HOME")
+	oldUserProfile := os.Getenv("USERPROFILE")
+	defer func() {
+		os.Setenv("HOME", oldHomeDir)
+		os.Setenv("USERPROFILE", oldUserProfile)
+	}()
+	os.Setenv("HOME", tmpDir)
+	os.Setenv("USERPROFILE", tmpDir)
+
+	manager := NewSessionManager()
+	session := manager.NewSession()
+	session.Model = "gpt-4o"
+
+	// Add messages with token tracking
+	manager.AddMessageWithTokens(session, "user", "Hello", 10, 0)
+	manager.AddMessageWithTokens(session, "assistant", "Hi there!", 0, 20)
+
+	// Verify usage metrics were initialized
+	require.NotNil(t, session.UsageMetrics)
+
+	// Verify token counts
+	assert.Equal(t, 10, session.UsageMetrics.TotalInputTokens)
+	assert.Equal(t, 20, session.UsageMetrics.TotalOutputTokens)
+	assert.Equal(t, 30, session.UsageMetrics.TotalTokens)
+
+	// Verify message count
+	assert.Equal(t, 2, session.UsageMetrics.MessageCount)
+
+	// Verify cost calculation
+	// gpt-4o: $2.50/M input, $10.00/M output
+	// (10/1M * 2.50) + (20/1M * 10.00) = 0.000025 + 0.0002 = 0.000225
+	expectedCost := 0.000225
+	assert.InDelta(t, expectedCost, session.UsageMetrics.EstimatedCost, 0.000001)
+}
+
+// TestUpdateUsageMetrics tests direct usage metrics updates
+func TestUpdateUsageMetrics(t *testing.T) {
+	session := &Session{
+		ID:    "test",
+		Model: "gpt-4o",
+	}
+
+	// Update usage metrics
+	session.UpdateUsageMetrics(100, 50)
+
+	require.NotNil(t, session.UsageMetrics)
+	assert.Equal(t, 100, session.UsageMetrics.TotalInputTokens)
+	assert.Equal(t, 50, session.UsageMetrics.TotalOutputTokens)
+
+	// Update again (should accumulate)
+	session.UpdateUsageMetrics(50, 25)
+
+	assert.Equal(t, 150, session.UsageMetrics.TotalInputTokens)
+	assert.Equal(t, 75, session.UsageMetrics.TotalOutputTokens)
+}
+
+// TestInitializeUsageMetrics tests usage metrics initialization
+func TestInitializeUsageMetrics(t *testing.T) {
+	session := &Session{
+		ID: "test",
+	}
+
+	// Should be nil initially
+	assert.Nil(t, session.UsageMetrics)
+
+	// Initialize
+	session.InitializeUsageMetrics()
+
+	require.NotNil(t, session.UsageMetrics)
+
+	// Should not panic or reset if called again
+	session.UsageMetrics.TotalTokens = 100
+	session.InitializeUsageMetrics()
+
+	assert.Equal(t, 100, session.UsageMetrics.TotalTokens)
+}
+
+// TestSessionBackwardCompatibility tests loading old sessions without usage metrics
+func TestSessionBackwardCompatibility(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldHomeDir := os.Getenv("HOME")
+	oldUserProfile := os.Getenv("USERPROFILE")
+	defer func() {
+		os.Setenv("HOME", oldHomeDir)
+		os.Setenv("USERPROFILE", oldUserProfile)
+	}()
+	os.Setenv("HOME", tmpDir)
+	os.Setenv("USERPROFILE", tmpDir)
+
+	manager := NewSessionManager()
+
+	// Create session without usage metrics (old format)
+	oldSession := &Session{
+		ID:        "old-session",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		Messages: []SessionMessage{
+			{Role: "user", Content: "test", Timestamp: time.Now()},
+		},
+		Model: "gpt-4o",
+		// UsageMetrics intentionally nil
+	}
+
+	// Save it
+	err := manager.Save(oldSession)
+	require.NoError(t, err)
+
+	// Load it back
+	loaded, err := manager.Load("old-session")
+	require.NoError(t, err)
+
+	// Should load successfully with nil UsageMetrics
+	assert.Nil(t, loaded.UsageMetrics)
+
+	// Should be able to add messages with token tracking
+	manager.AddMessageWithTokens(loaded, "assistant", "response", 10, 20)
+
+	// Now UsageMetrics should be initialized
+	require.NotNil(t, loaded.UsageMetrics)
+	assert.Equal(t, 30, loaded.UsageMetrics.TotalTokens)
+}
+
+// TestSessionWithProviderAndMaxContext tests new provider/context fields
+func TestSessionWithProviderAndMaxContext(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldHomeDir := os.Getenv("HOME")
+	oldUserProfile := os.Getenv("USERPROFILE")
+	defer func() {
+		os.Setenv("HOME", oldHomeDir)
+		os.Setenv("USERPROFILE", oldUserProfile)
+	}()
+	os.Setenv("HOME", tmpDir)
+	os.Setenv("USERPROFILE", tmpDir)
+
+	manager := NewSessionManager()
+	session := manager.NewSession()
+	session.Model = "gpt-4o"
+	session.Provider = "openai"
+	session.MaxContext = 128000
+
+	// Verify fields are set
+	assert.Equal(t, "openai", session.Provider)
+	assert.Equal(t, 128000, session.MaxContext)
+
+	// Save and load
+	err := manager.Save(session)
+	require.NoError(t, err)
+
+	loaded, err := manager.Load(session.ID)
+	require.NoError(t, err)
+
+	// Verify fields persist
+	assert.Equal(t, "openai", loaded.Provider)
+	assert.Equal(t, 128000, loaded.MaxContext)
+}
+
+// TestAddMessageWithoutTokens tests backward compatibility of AddMessage
+func TestAddMessageWithoutTokens(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldHomeDir := os.Getenv("HOME")
+	oldUserProfile := os.Getenv("USERPROFILE")
+	defer func() {
+		os.Setenv("HOME", oldHomeDir)
+		os.Setenv("USERPROFILE", oldUserProfile)
+	}()
+	os.Setenv("HOME", tmpDir)
+	os.Setenv("USERPROFILE", tmpDir)
+
+	manager := NewSessionManager()
+	session := manager.NewSession()
+
+	// Use old AddMessage method (no token tracking)
+	manager.AddMessage(session, "user", "Hello")
+
+	// UsageMetrics should still be nil (backward compatibility)
+	assert.Nil(t, session.UsageMetrics)
+	assert.Len(t, session.Messages, 1)
+}
+
+// TestSessionSaveWithUsageMetrics tests persistence of usage metrics
+func TestSessionSaveWithUsageMetrics(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldHomeDir := os.Getenv("HOME")
+	oldUserProfile := os.Getenv("USERPROFILE")
+	defer func() {
+		os.Setenv("HOME", oldHomeDir)
+		os.Setenv("USERPROFILE", oldUserProfile)
+	}()
+	os.Setenv("HOME", tmpDir)
+	os.Setenv("USERPROFILE", tmpDir)
+
+	manager := NewSessionManager()
+	session := manager.NewSession()
+	session.Model = "gpt-4o"
+	session.Provider = "openai"
+	session.MaxContext = 128000
+
+	// Add messages with tokens
+	manager.AddMessageWithTokens(session, "user", "Hello", 10, 0)
+	manager.AddMessageWithTokens(session, "assistant", "Hi!", 0, 5)
+
+	// Save
+	err := manager.Save(session)
+	require.NoError(t, err)
+
+	// Verify file exists
+	path := filepath.Join(manager.sessionsDir, session.ID+".json")
+	_, err = os.Stat(path)
+	require.NoError(t, err)
+
+	// Load back
+	loaded, err := manager.Load(session.ID)
+	require.NoError(t, err)
+
+	// Verify UsageMetrics persisted
+	require.NotNil(t, loaded.UsageMetrics)
+	assert.Equal(t, 10, loaded.UsageMetrics.TotalInputTokens)
+	assert.Equal(t, 5, loaded.UsageMetrics.TotalOutputTokens)
+	assert.Equal(t, 2, loaded.UsageMetrics.MessageCount)
+
+	// Verify other fields
+	assert.Equal(t, "openai", loaded.Provider)
+	assert.Equal(t, 128000, loaded.MaxContext)
+}

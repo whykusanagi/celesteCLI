@@ -8,18 +8,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **One-shot CLI commands** for all features (context, stats, export, session, config, skills)
+  - Execute any command without entering TUI: `./celeste context`, `./celeste stats`
+  - Direct skill execution: `./celeste skill <name> [--args]`
+  - Comprehensive skill testing with `./celeste skill generate_uuid`, etc.
+- **Context Management System**
+  - Token usage tracking with input/output breakdown
+  - Retroactive token calculation for session history
+  - Context window monitoring and warnings
+  - Auto-summarization when approaching limits
+- **Enhanced Session Persistence**
+  - Message persistence across sessions
+  - Session metadata tracking (token counts, model info)
+  - Improved session loading and restoration
+- Interactive model selector with arrow key navigation
+- Flickering corruption animation for stats dashboard
 - GitHub Actions CI/CD pipeline
 - Comprehensive test coverage
 - Security vulnerability scanning
 - Cross-platform build support
 
+### Fixed
+- **Token counting** - Now correctly displays input/output token breakdown
+- **All 18 skills** - 100% functional from CLI one-shot commands:
+  - Type conversion for numeric arguments (length, value, amount)
+  - Parameter name corrections (encoded, text, from_timezone, etc.)
+  - Weather skill accepts both string and numeric zip codes
+- Session persistence and provider detection issues
+- Code formatting issues
+- Dependency version compatibility
+
 ### Changed
 - Improved documentation structure
 - Enhanced error handling
+- Model selector with arrow key navigation
+- Stats dashboard with corruption animation effects
 
-### Fixed
-- Code formatting issues
-- Dependency version compatibility
+### Documentation
+- Added `ONESHOT_COMMANDS.md` - Complete CLI command reference
+- Added `docs/TEST_RESULTS.md` - Test verification results for all skills
+- Added corruption aesthetic validation guides
+- Added brand system documentation (migrated to corrupted-theme package)
 
 ## [3.0.0] - 2025-12-03
 

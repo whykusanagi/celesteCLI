@@ -55,3 +55,7 @@ CLAUDE.md
 test_*.sh
 *_test_output.txt
 *_test_output.json
+
+# Brand system documentation (lives in ../corrupted-theme)
+# Reference brand docs from corrupted-theme package
+../corrupted-theme/

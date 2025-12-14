@@ -227,8 +227,9 @@ func GetRandomCorruptionPlain() string {
 	}
 }
 
-// CorruptText adds corruption effects to a string.
+// CorruptText adds block character corruption effects to a string.
 // Used for loading states and other animated text.
+// For character-level Japanese mixing, use CorruptTextJapanese instead.
 func CorruptText(text string, intensity float64) string {
 	if intensity <= 0 {
 		return text
@@ -242,6 +243,54 @@ func CorruptText(text string, intensity float64) string {
 			result[i] = corruptChars[rand.Intn(len(corruptChars))]
 		} else {
 			result[i] = r
+		}
+	}
+
+	return string(result)
+}
+
+// CorruptTextJapanese mixes Japanese characters INTO English words
+// This creates the classic translation-failure aesthetic: "loaディング", "pro理cessing"
+// Use this for dashboard titles and headers where you want readable corruption.
+func CorruptTextJapanese(text string, intensity float64) string {
+	if intensity <= 0 {
+		return text
+	}
+
+	// Japanese character sets for character-level mixing
+	katakana := []rune("アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン")
+	kanjiFragments := []rune("壊虚深淵闇処理分析監視接続統計使用読込実行")
+
+	runes := []rune(text)
+	result := make([]rune, 0, len(runes)*2) // Pre-allocate extra space for insertions
+
+	for i, r := range runes {
+		// Skip spaces and punctuation
+		if r == ' ' || r < 'A' || (r > 'Z' && r < 'a') || r > 'z' {
+			result = append(result, r)
+			continue
+		}
+
+		// Decide corruption type based on intensity
+		if rand.Float64() < intensity {
+			roll := rand.Float64()
+
+			if roll < 0.5 {
+				// Replace character with Katakana (50%)
+				result = append(result, katakana[rand.Intn(len(katakana))])
+			} else if roll < 0.75 {
+				// Replace with Kanji fragment (25%)
+				result = append(result, kanjiFragments[rand.Intn(len(kanjiFragments))])
+			} else {
+				// Keep original and maybe insert after (25%)
+				result = append(result, r)
+				if i < len(runes)-1 && rand.Float64() < 0.3 {
+					// Insert Katakana after
+					result = append(result, katakana[rand.Intn(len(katakana))])
+				}
+			}
+		} else {
+			result = append(result, r)
 		}
 	}
 

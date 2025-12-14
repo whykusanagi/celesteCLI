@@ -7,22 +7,26 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/whykusanagi/celesteCLI/cmd/celeste/commands"
 	"github.com/whykusanagi/celesteCLI/cmd/celeste/config"
 	"github.com/whykusanagi/celesteCLI/cmd/celeste/llm"
 	"github.com/whykusanagi/celesteCLI/cmd/celeste/prompts"
+	"github.com/whykusanagi/celesteCLI/cmd/celeste/providers"
 	"github.com/whykusanagi/celesteCLI/cmd/celeste/skills"
 	"github.com/whykusanagi/celesteCLI/cmd/celeste/tui"
 )
 
 // Version information
 const (
-	Version = "1.0.1"
+	Version = "1.1.0-dev"
 	Build   = "bubbletea-tui"
 )
 
@@ -111,6 +115,15 @@ func main() {
 			os.Exit(1)
 		}
 		runSingleMessage(strings.Join(cmdArgs, " "))
+	case "context":
+		runContextCommand(cmdArgs)
+	case "stats":
+		runStatsCommand(cmdArgs)
+	case "export":
+		runExportCommand(cmdArgs)
+	case "skill":
+		// Execute a single skill: celeste skill <name> [args...]
+		runSkillExecuteCommand(cmdArgs)
 	case "skills":
 		runSkillsCommand(cmdArgs)
 	case "session", "sessions":
@@ -283,6 +296,9 @@ func runChatTUI() {
 	// Set version information
 	app = app.SetVersion(Version, Build)
 
+	// Set configuration (for context limits, etc.)
+	app = app.SetConfig(cfg)
+
 	// Restore messages from session if available
 	if len(currentSession.Messages) > 0 {
 		// Convert config.SessionMessage to tui.ChatMessage
@@ -295,6 +311,44 @@ func runChatTUI() {
 			}
 		}
 		app = app.WithMessages(tuiMessages)
+	}
+
+	// Restore endpoint/provider from session, or detect from config
+	sessionEndpoint := currentSession.GetEndpoint()
+	tui.LogInfo(fmt.Sprintf("Session endpoint from file: '%s'", sessionEndpoint))
+	tui.LogInfo(fmt.Sprintf("Config BaseURL: '%s'", cfg.BaseURL))
+
+	if sessionEndpoint != "" && sessionEndpoint != "default" {
+		// Use endpoint from session if it's valid
+		tui.LogInfo(fmt.Sprintf("✓ Using endpoint from session: %s", sessionEndpoint))
+		app = app.WithEndpoint(sessionEndpoint)
+	} else {
+		// Detect provider from base URL in config
+		detectedProvider := providers.DetectProvider(cfg.BaseURL)
+		tui.LogInfo(fmt.Sprintf("DetectProvider() returned: '%s'", detectedProvider))
+		if detectedProvider != "unknown" {
+			tui.LogInfo(fmt.Sprintf("✓ Setting endpoint to detected provider: %s", detectedProvider))
+			app = app.WithEndpoint(detectedProvider)
+			// Also update the session with the detected endpoint
+			currentSession.SetEndpoint(detectedProvider)
+			// Save the session with the detected endpoint
+			if err := sessionManager.Save(currentSession); err != nil {
+				log.Printf("Warning: Failed to save session with detected endpoint: %v", err)
+			} else {
+				tui.LogInfo(fmt.Sprintf("✓ Saved session with endpoint: %s", detectedProvider))
+			}
+		} else {
+			tui.LogInfo("⚠ Could not detect provider from BaseURL")
+		}
+	}
+
+	// Set model from config if not set by session
+	if currentSession.GetModel() == "" {
+		tui.LogInfo(fmt.Sprintf("Setting model from config: %s", cfg.Model))
+		currentSession.SetModel(cfg.Model)
+		if err := sessionManager.Save(currentSession); err != nil {
+			log.Printf("Warning: Failed to save session with model: %v", err)
+		}
 	}
 
 	// Create session manager adapter for TUI
@@ -350,11 +404,13 @@ func (a *TUIClientAdapter) SendMessage(messages []tui.ChatMessage, tools []tui.S
 
 		var fullContent string
 		var toolCalls []llm.ToolCallResult
+		var usage *llm.TokenUsage
 
 		err := a.client.SendMessageStream(ctx, messages, tools, func(chunk llm.StreamChunk) {
 			fullContent += chunk.Content
 			if chunk.IsFinal {
 				toolCalls = chunk.ToolCalls
+				usage = chunk.Usage // Capture token usage from final chunk
 			}
 		})
 
@@ -420,9 +476,20 @@ func (a *TUIClientAdapter) SendMessage(messages []tui.ChatMessage, tools []tui.S
 			}
 		}
 
+		// Convert llm.TokenUsage to tui.TokenUsage
+		var tuiUsage *tui.TokenUsage
+		if usage != nil {
+			tuiUsage = &tui.TokenUsage{
+				PromptTokens:     usage.PromptTokens,
+				CompletionTokens: usage.CompletionTokens,
+				TotalTokens:      usage.TotalTokens,
+			}
+		}
+
 		return tui.StreamDoneMsg{
 			FullContent:  fullContent,
 			FinishReason: "stop",
+			Usage:        tuiUsage,
 		}
 	}
 }
@@ -904,11 +971,104 @@ func maskKey(key string) string {
 	return key[:4] + "..." + key[len(key)-4:]
 }
 
+// runSkillExecuteCommand executes a single skill from the command line.
+// Usage: celeste skill <name> [--arg1 value1] [--arg2 value2]
+func runSkillExecuteCommand(args []string) {
+	if len(args) < 1 {
+		fmt.Fprintln(os.Stderr, "Usage: celeste skill <skill-name> [args...]")
+		fmt.Fprintln(os.Stderr, "\nExamples:")
+		fmt.Fprintln(os.Stderr, "  celeste skill generate_uuid")
+		fmt.Fprintln(os.Stderr, "  celeste skill get_weather --zip 90210")
+		fmt.Fprintln(os.Stderr, "  celeste skill generate_password --length 20")
+		fmt.Fprintln(os.Stderr, "\nUse 'celeste skills --list' to see available skills")
+		os.Exit(1)
+	}
+
+	skillName := args[0]
+
+	// Parse remaining args as key-value pairs
+	skillArgs := make(map[string]any)
+	for i := 1; i < len(args); i++ {
+		if strings.HasPrefix(args[i], "--") {
+			key := strings.TrimPrefix(args[i], "--")
+			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "--") {
+				value := args[i+1]
+
+				// Try to parse as number (int or float)
+				if intVal, err := strconv.Atoi(value); err == nil {
+					skillArgs[key] = float64(intVal) // Use float64 for consistency with JSON numbers
+				} else if floatVal, err := strconv.ParseFloat(value, 64); err == nil {
+					skillArgs[key] = floatVal
+				} else {
+					// Keep as string
+					skillArgs[key] = value
+				}
+
+				i++ // Skip next arg since we consumed it
+			} else {
+				// Boolean flag
+				skillArgs[key] = true
+			}
+		}
+	}
+
+	// Set up registry and executor
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	registry := skills.NewRegistry()
+	_ = registry.LoadSkills()
+
+	configLoader := config.NewConfigLoader(cfg)
+	skills.RegisterBuiltinSkills(registry, configLoader)
+
+	executor := skills.NewExecutor(registry)
+
+	// Convert args to JSON
+	argsJSON, err := json.Marshal(skillArgs)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error encoding arguments: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Execute skill
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	result, err := executor.Execute(ctx, skillName, string(argsJSON))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error executing skill '%s': %v\n", skillName, err)
+		os.Exit(1)
+	}
+
+	// Display result
+	if result.Success {
+		// Format result based on type
+		switch v := result.Result.(type) {
+		case string:
+			fmt.Println(v)
+		case map[string]interface{}:
+			// Pretty print JSON objects
+			jsonOut, _ := json.MarshalIndent(v, "", "  ")
+			fmt.Println(string(jsonOut))
+		default:
+			fmt.Printf("%v\n", v)
+		}
+	} else {
+		fmt.Fprintf(os.Stderr, "Skill '%s' failed: %s\n", skillName, result.Error)
+		os.Exit(1)
+	}
+}
+
 // runSkillsCommand handles skill-related commands.
 func runSkillsCommand(args []string) {
 	fs := flag.NewFlagSet("skills", flag.ExitOnError)
 	list := fs.Bool("list", false, "List available skills")
 	init := fs.Bool("init", false, "Create default skill files")
+	exec := fs.String("exec", "", "Execute a skill by name")
 	// Parse flags - exits on error due to ExitOnError flag
 	_ = fs.Parse(args)
 
@@ -929,6 +1089,15 @@ func runSkillsCommand(args []string) {
 	cfg, _ := config.Load()
 	configLoader := config.NewConfigLoader(cfg)
 	skills.RegisterBuiltinSkills(registry, configLoader)
+
+	// Execute skill if --exec provided
+	if *exec != "" {
+		// Collect remaining args after flags
+		remainingArgs := fs.Args()
+		allArgs := append([]string{*exec}, remainingArgs...)
+		runSkillExecuteCommand(allArgs)
+		return
+	}
 
 	if *list || len(args) == 0 {
 		allSkills := registry.GetAllSkills()
@@ -1077,6 +1246,10 @@ func (a *SessionManagerAdapter) List() ([]interface{}, error) {
 	return result, nil
 }
 
+func (a *SessionManagerAdapter) Delete(id string) error {
+	return a.manager.Delete(id)
+}
+
 func (a *SessionManagerAdapter) MergeSessions(session1, session2 interface{}) interface{} {
 	s1, ok1 := session1.(*config.Session)
 	s2, ok2 := session2.(*config.Session)
@@ -1084,4 +1257,101 @@ func (a *SessionManagerAdapter) MergeSessions(session1, session2 interface{}) in
 		return nil
 	}
 	return a.manager.MergeSessions(s1, s2)
+}
+
+// runContextCommand handles standalone context status display.
+func runContextCommand(args []string) {
+	// Load config to get model info
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Load most recent session
+	manager := config.NewSessionManager()
+	sessions, err := manager.List()
+	if err != nil || len(sessions) == 0 {
+		fmt.Println("No active sessions found. Start a chat to begin tracking context.")
+		os.Exit(0)
+	}
+
+	// Get most recent session (sessions are sorted by UpdatedAt descending)
+	session := &sessions[0]
+
+	// Create context tracker from session
+	contextLimit := cfg.ContextLimit
+	if contextLimit == 0 {
+		contextLimit = config.GetModelLimit(cfg.Model)
+	}
+	contextTracker := config.NewContextTracker(session, cfg.Model, contextLimit)
+
+	// Handle subcommand
+	result := commands.HandleContextCommand(args, contextTracker)
+	if result.Message != "" {
+		fmt.Println(result.Message)
+	}
+	if !result.Success {
+		os.Exit(1)
+	}
+}
+
+// runStatsCommand handles standalone stats dashboard display.
+func runStatsCommand(args []string) {
+	// Load config
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Load most recent session
+	manager := config.NewSessionManager()
+	sessions, err := manager.List()
+	if err != nil || len(sessions) == 0 {
+		fmt.Println("No sessions found. Start a chat to generate usage statistics.")
+		os.Exit(0)
+	}
+
+	// Get most recent session
+	session := &sessions[0]
+
+	// Create context tracker from session
+	contextLimit := cfg.ContextLimit
+	if contextLimit == 0 {
+		contextLimit = config.GetModelLimit(cfg.Model)
+	}
+	contextTracker := config.NewContextTracker(session, cfg.Model, contextLimit)
+
+	// Generate stats output
+	result := commands.HandleStatsCommand(args, contextTracker)
+	if result.Message != "" {
+		fmt.Println(result.Message)
+	}
+	if !result.Success {
+		os.Exit(1)
+	}
+}
+
+// runExportCommand handles standalone data export.
+func runExportCommand(args []string) {
+	// Load most recent session if exporting current session
+	manager := config.NewSessionManager()
+	sessions, err := manager.List()
+	if err != nil || len(sessions) == 0 {
+		fmt.Println("No sessions found to export.")
+		os.Exit(0)
+	}
+
+	// Get most recent session as "current"
+	session := &sessions[0]
+
+	// Handle export
+	result := commands.HandleExportCommand(args, session)
+	if result.Message != "" {
+		fmt.Println(result.Message)
+	}
+	if !result.Success {
+		os.Exit(1)
+	}
 }
