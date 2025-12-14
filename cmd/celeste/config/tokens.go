@@ -44,6 +44,28 @@ func EstimateSessionTokens(session *Session) int {
 	return total
 }
 
+// EstimateSessionTokensByRole calculates separate input/output token counts from message history.
+// Returns (promptTokens, completionTokens, totalTokens)
+// - promptTokens: tokens in user messages + system messages
+// - completionTokens: tokens in assistant messages
+// This is useful for calculating historical sessions or when API doesn't provide breakdown.
+func EstimateSessionTokensByRole(session *Session) (int, int, int) {
+	promptTokens := 0
+	completionTokens := 0
+
+	for _, msg := range session.Messages {
+		msgTokens := EstimateMessageTokens(msg)
+		switch msg.Role {
+		case "user", "system":
+			promptTokens += msgTokens
+		case "assistant":
+			completionTokens += msgTokens
+		}
+	}
+
+	return promptTokens, completionTokens, promptTokens + completionTokens
+}
+
 // GetModelLimit returns token limit for a model
 func GetModelLimit(model string) int {
 	if limit, ok := ModelLimits[model]; ok {

@@ -35,13 +35,24 @@ func NewContextTracker(session *Session, model string, contextLimitOverride ...i
 		maxTokens = GetModelLimit(model)
 	}
 
+	// Calculate token breakdown from message history
+	// This provides input/output estimates for sessions without API tracking
+	promptTokens, completionTokens, totalTokens := EstimateSessionTokensByRole(session)
+
+	// Use session's TokenCount if it's higher (from API tracking)
+	// Otherwise use our estimate
+	currentTokens := session.TokenCount
+	if currentTokens == 0 {
+		currentTokens = totalTokens
+	}
+
 	return &ContextTracker{
 		Session:           session,
 		Model:             model,
 		MaxTokens:         maxTokens,
-		CurrentTokens:     session.TokenCount,
-		PromptTokens:      0,
-		CompletionTokens:  0,
+		CurrentTokens:     currentTokens,
+		PromptTokens:      promptTokens,
+		CompletionTokens:  completionTokens,
 		WarnThreshold:     0.75,
 		CautionThreshold:  0.85,
 		CriticalThreshold: 0.95,

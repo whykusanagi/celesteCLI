@@ -14,6 +14,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/whykusanagi/celesteCLI/cmd/celeste/commands"
 	"github.com/whykusanagi/celesteCLI/cmd/celeste/config"
 	"github.com/whykusanagi/celesteCLI/cmd/celeste/llm"
 	"github.com/whykusanagi/celesteCLI/cmd/celeste/prompts"
@@ -113,6 +114,12 @@ func main() {
 			os.Exit(1)
 		}
 		runSingleMessage(strings.Join(cmdArgs, " "))
+	case "context":
+		runContextCommand(cmdArgs)
+	case "stats":
+		runStatsCommand(cmdArgs)
+	case "export":
+		runExportCommand(cmdArgs)
 	case "skills":
 		runSkillsCommand(cmdArgs)
 	case "session", "sessions":
@@ -393,11 +400,13 @@ func (a *TUIClientAdapter) SendMessage(messages []tui.ChatMessage, tools []tui.S
 
 		var fullContent string
 		var toolCalls []llm.ToolCallResult
+		var usage *llm.TokenUsage
 
 		err := a.client.SendMessageStream(ctx, messages, tools, func(chunk llm.StreamChunk) {
 			fullContent += chunk.Content
 			if chunk.IsFinal {
 				toolCalls = chunk.ToolCalls
+				usage = chunk.Usage // Capture token usage from final chunk
 			}
 		})
 
@@ -463,9 +472,20 @@ func (a *TUIClientAdapter) SendMessage(messages []tui.ChatMessage, tools []tui.S
 			}
 		}
 
+		// Convert llm.TokenUsage to tui.TokenUsage
+		var tuiUsage *tui.TokenUsage
+		if usage != nil {
+			tuiUsage = &tui.TokenUsage{
+				PromptTokens:     usage.PromptTokens,
+				CompletionTokens: usage.CompletionTokens,
+				TotalTokens:      usage.TotalTokens,
+			}
+		}
+
 		return tui.StreamDoneMsg{
 			FullContent:  fullContent,
 			FinishReason: "stop",
+			Usage:        tuiUsage,
 		}
 	}
 }
@@ -1131,4 +1151,101 @@ func (a *SessionManagerAdapter) MergeSessions(session1, session2 interface{}) in
 		return nil
 	}
 	return a.manager.MergeSessions(s1, s2)
+}
+
+// runContextCommand handles standalone context status display.
+func runContextCommand(args []string) {
+	// Load config to get model info
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Load most recent session
+	manager := config.NewSessionManager()
+	sessions, err := manager.List()
+	if err != nil || len(sessions) == 0 {
+		fmt.Println("No active sessions found. Start a chat to begin tracking context.")
+		os.Exit(0)
+	}
+
+	// Get most recent session (sessions are sorted by UpdatedAt descending)
+	session := &sessions[0]
+
+	// Create context tracker from session
+	contextLimit := cfg.ContextLimit
+	if contextLimit == 0 {
+		contextLimit = config.GetModelLimit(cfg.Model)
+	}
+	contextTracker := config.NewContextTracker(session, cfg.Model, contextLimit)
+
+	// Handle subcommand
+	result := commands.HandleContextCommand(args, contextTracker)
+	if result.Message != "" {
+		fmt.Println(result.Message)
+	}
+	if !result.Success {
+		os.Exit(1)
+	}
+}
+
+// runStatsCommand handles standalone stats dashboard display.
+func runStatsCommand(args []string) {
+	// Load config
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Load most recent session
+	manager := config.NewSessionManager()
+	sessions, err := manager.List()
+	if err != nil || len(sessions) == 0 {
+		fmt.Println("No sessions found. Start a chat to generate usage statistics.")
+		os.Exit(0)
+	}
+
+	// Get most recent session
+	session := &sessions[0]
+
+	// Create context tracker from session
+	contextLimit := cfg.ContextLimit
+	if contextLimit == 0 {
+		contextLimit = config.GetModelLimit(cfg.Model)
+	}
+	contextTracker := config.NewContextTracker(session, cfg.Model, contextLimit)
+
+	// Generate stats output
+	result := commands.HandleStatsCommand(args, contextTracker)
+	if result.Message != "" {
+		fmt.Println(result.Message)
+	}
+	if !result.Success {
+		os.Exit(1)
+	}
+}
+
+// runExportCommand handles standalone data export.
+func runExportCommand(args []string) {
+	// Load most recent session if exporting current session
+	manager := config.NewSessionManager()
+	sessions, err := manager.List()
+	if err != nil || len(sessions) == 0 {
+		fmt.Println("No sessions found to export.")
+		os.Exit(0)
+	}
+
+	// Get most recent session as "current"
+	session := &sessions[0]
+
+	// Handle export
+	result := commands.HandleExportCommand(args, session)
+	if result.Message != "" {
+		fmt.Println(result.Message)
+	}
+	if !result.Success {
+		os.Exit(1)
+	}
 }

@@ -699,6 +699,17 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, nil) // Keep processing
 
 	case StreamDoneMsg:
+		// Update token counts from API response
+		if msg.Usage != nil && m.contextTracker != nil {
+			m.contextTracker.UpdateTokens(
+				msg.Usage.PromptTokens,
+				msg.Usage.CompletionTokens,
+				msg.Usage.TotalTokens,
+			)
+			// Update header with new token counts
+			m.header = m.header.SetContextUsage(m.contextTracker.CurrentTokens, m.contextTracker.MaxTokens)
+		}
+
 		if msg.FullContent != "" {
 			// Check for content policy refusal
 			if commands.IsContentPolicyRefusal(msg.FullContent) && m.endpoint != "venice" {

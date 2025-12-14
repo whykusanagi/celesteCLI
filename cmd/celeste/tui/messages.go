@@ -49,10 +49,18 @@ type StreamChunkMsg struct {
 	Chunk StreamChunk
 }
 
+// TokenUsage holds token usage information from API response
+type TokenUsage struct {
+	PromptTokens     int
+	CompletionTokens int
+	TotalTokens      int
+}
+
 // StreamDoneMsg is sent when streaming is complete.
 type StreamDoneMsg struct {
 	FullContent  string
 	FinishReason string
+	Usage        *TokenUsage // Token usage from API (if available)
 }
 
 // StreamErrorMsg is sent when streaming encounters an error.
