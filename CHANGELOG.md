@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2025-12-14
+
 ### Added
 - **One-shot CLI commands** for all features (context, stats, export, session, config, skills)
   - Execute any command without entering TUI: `./celeste context`, `./celeste stats`
@@ -50,7 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added corruption aesthetic validation guides
 - Added brand system documentation (migrated to corrupted-theme package)
 
-## [3.0.0] - 2025-12-03
+## [1.0.2] - 2025-12-03
 
 ### Added
 - **Bubble Tea TUI**: Complete rewrite with flicker-free terminal UI
@@ -130,12 +132,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Release Links
 
-- [Unreleased](https://github.com/whykusanagi/celesteCLI/compare/v3.0.0...HEAD)
-- [3.0.0](https://github.com/whykusanagi/celesteCLI/releases/tag/v3.0.0)
+- [Unreleased](https://github.com/whykusanagi/celesteCLI/compare/v1.1.0...HEAD)
+- [1.1.0](https://github.com/whykusanagi/celesteCLI/compare/v1.0.2...v1.1.0)
+- [1.0.2](https://github.com/whykusanagi/celesteCLI/releases/tag/v1.0.2)
+- [1.0.0](https://github.com/whykusanagi/celesteCLI/releases/tag/v1.0.0)
 
 ## How to Update
 
-### From 2.x to 3.0
+### From 0.x to 1.0+
 
 The configuration format has changed:
 
@@ -165,7 +169,7 @@ base_url=https://api.openai.com/v1
 4. Verify settings: `celeste config --show`
 5. Test: `celeste chat`
 
-### Breaking Changes in 3.0
+### Breaking Changes in 1.0+
 
 - Command name changed from `celestecli` to `Celeste`
 - Config file location changed to `~/.celeste/`

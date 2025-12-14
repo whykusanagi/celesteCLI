@@ -61,7 +61,10 @@
       "Bash(./celeste skills:*)",
       "Bash(./celeste skill:*)",
       "Bash(./celeste session:*)",
-      "Bash(./celeste config:*)"
+      "Bash(./celeste config:*)",
+      "Bash(./celeste:*)",
+      "Bash(git push:*)",
+      "Bash(git tag:*)"
     ],
     "deny": [],
     "ask": []
