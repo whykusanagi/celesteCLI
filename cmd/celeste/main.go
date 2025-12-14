@@ -120,6 +120,9 @@ func main() {
 		runStatsCommand(cmdArgs)
 	case "export":
 		runExportCommand(cmdArgs)
+	case "skill":
+		// Execute a single skill: celeste skill <name> [args...]
+		runSkillExecuteCommand(cmdArgs)
 	case "skills":
 		runSkillsCommand(cmdArgs)
 	case "session", "sessions":
@@ -967,11 +970,93 @@ func maskKey(key string) string {
 	return key[:4] + "..." + key[len(key)-4:]
 }
 
+// runSkillExecuteCommand executes a single skill from the command line.
+// Usage: celeste skill <name> [--arg1 value1] [--arg2 value2]
+func runSkillExecuteCommand(args []string) {
+	if len(args) < 1 {
+		fmt.Fprintln(os.Stderr, "Usage: celeste skill <skill-name> [args...]")
+		fmt.Fprintln(os.Stderr, "\nExamples:")
+		fmt.Fprintln(os.Stderr, "  celeste skill generate_uuid")
+		fmt.Fprintln(os.Stderr, "  celeste skill get_weather --zip 90210")
+		fmt.Fprintln(os.Stderr, "  celeste skill generate_password --length 20")
+		fmt.Fprintln(os.Stderr, "\nUse 'celeste skills --list' to see available skills")
+		os.Exit(1)
+	}
+
+	skillName := args[0]
+
+	// Parse remaining args as key-value pairs
+	skillArgs := make(map[string]any)
+	for i := 1; i < len(args); i++ {
+		if strings.HasPrefix(args[i], "--") {
+			key := strings.TrimPrefix(args[i], "--")
+			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "--") {
+				skillArgs[key] = args[i+1]
+				i++ // Skip next arg since we consumed it
+			} else {
+				// Boolean flag
+				skillArgs[key] = true
+			}
+		}
+	}
+
+	// Set up registry and executor
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	registry := skills.NewRegistry()
+	_ = registry.LoadSkills()
+
+	configLoader := config.NewConfigLoader(cfg)
+	skills.RegisterBuiltinSkills(registry, configLoader)
+
+	executor := skills.NewExecutor(registry)
+
+	// Convert args to JSON
+	argsJSON, err := json.Marshal(skillArgs)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error encoding arguments: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Execute skill
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	result, err := executor.Execute(ctx, skillName, string(argsJSON))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error executing skill '%s': %v\n", skillName, err)
+		os.Exit(1)
+	}
+
+	// Display result
+	if result.Success {
+		// Format result based on type
+		switch v := result.Result.(type) {
+		case string:
+			fmt.Println(v)
+		case map[string]interface{}:
+			// Pretty print JSON objects
+			jsonOut, _ := json.MarshalIndent(v, "", "  ")
+			fmt.Println(string(jsonOut))
+		default:
+			fmt.Printf("%v\n", v)
+		}
+	} else {
+		fmt.Fprintf(os.Stderr, "Skill '%s' failed: %s\n", skillName, result.Error)
+		os.Exit(1)
+	}
+}
+
 // runSkillsCommand handles skill-related commands.
 func runSkillsCommand(args []string) {
 	fs := flag.NewFlagSet("skills", flag.ExitOnError)
 	list := fs.Bool("list", false, "List available skills")
 	init := fs.Bool("init", false, "Create default skill files")
+	exec := fs.String("exec", "", "Execute a skill by name")
 	// Parse flags - exits on error due to ExitOnError flag
 	_ = fs.Parse(args)
 
@@ -992,6 +1077,15 @@ func runSkillsCommand(args []string) {
 	cfg, _ := config.Load()
 	configLoader := config.NewConfigLoader(cfg)
 	skills.RegisterBuiltinSkills(registry, configLoader)
+
+	// Execute skill if --exec provided
+	if *exec != "" {
+		// Collect remaining args after flags
+		remainingArgs := fs.Args()
+		allArgs := append([]string{*exec}, remainingArgs...)
+		runSkillExecuteCommand(allArgs)
+		return
+	}
 
 	if *list || len(args) == 0 {
 		allSkills := registry.GetAllSkills()
