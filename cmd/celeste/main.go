@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -991,7 +992,18 @@ func runSkillExecuteCommand(args []string) {
 		if strings.HasPrefix(args[i], "--") {
 			key := strings.TrimPrefix(args[i], "--")
 			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "--") {
-				skillArgs[key] = args[i+1]
+				value := args[i+1]
+
+				// Try to parse as number (int or float)
+				if intVal, err := strconv.Atoi(value); err == nil {
+					skillArgs[key] = float64(intVal) // Use float64 for consistency with JSON numbers
+				} else if floatVal, err := strconv.ParseFloat(value, 64); err == nil {
+					skillArgs[key] = floatVal
+				} else {
+					// Keep as string
+					skillArgs[key] = value
+				}
+
 				i++ // Skip next arg since we consumed it
 			} else {
 				// Boolean flag

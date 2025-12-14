@@ -75,10 +75,13 @@ All 18 built-in skills can be executed directly:
 ./celeste skill generate_password --length 20
 
 # Get weather for specific zip
-./celeste skill get_weather --zip 90210
+./celeste skill get_weather --zip_code 90210
 
 # Convert units
-./celeste skill convert_units --value 100 --from fahrenheit --to celsius
+./celeste skill convert_units --value 100 --from_unit fahrenheit --to_unit celsius
+
+# Convert currency
+./celeste skill convert_currency --amount 100 --from_currency USD --to_currency EUR
 
 # Save a note
 ./celeste skill save_note --title "My Note" --content "Note content here"
@@ -86,8 +89,8 @@ All 18 built-in skills can be executed directly:
 # Get a note
 ./celeste skill get_note --title "My Note"
 
-# Set reminder
-./celeste skill set_reminder --message "Call mom" --time "2024-12-15T14:00:00Z"
+# Set reminder (format: YYYY-MM-DD HH:MM or just HH:MM for today)
+./celeste skill set_reminder --message "Call mom" --time "2024-12-15 14:00"
 
 # Tarot reading
 ./celeste skill tarot_reading --spread three_card
@@ -96,13 +99,19 @@ All 18 built-in skills can be executed directly:
 ./celeste skill generate_qr_code --text "https://example.com"
 
 # Base64 decode
-./celeste skill base64_decode --data "SGVsbG8gV29ybGQ="
+./celeste skill base64_decode --encoded "SGVsbG8gV29ybGQ="
+
+# Hash data
+./celeste skill generate_hash --text "mydata" --algorithm "sha256"
+
+# Convert timezone
+./celeste skill convert_timezone --time "14:30" --from_timezone "America/New_York" --to_timezone "America/Los_Angeles"
 
 # Get YouTube videos
-./celeste skill get_youtube_videos --channel_id "@someChannel"
+./celeste skill get_youtube_videos --channel "@someChannel"
 
 # Check Twitch status
-./celeste skill check_twitch_live --username "someTwitchUser"
+./celeste skill check_twitch_live --streamer "someTwitchUser"
 ```
 
 ### Alternative Syntax
@@ -132,8 +141,8 @@ Run `./celeste skills --list` to see all 18 built-in skills:
 13. **convert_units** - Convert between units
 14. **convert_currency** - Convert between currencies
 15. **convert_timezone** - Convert between timezones
-16. **hash_data** - Generate cryptographic hash
-17. **encode_base64** - Encode data to base64
+16. **generate_hash** - Generate cryptographic hash
+17. **base64_encode** - Encode data to base64
 18. **check_twitch_live** - Check if Twitch streamer is live
 
 ## Testing & Development
