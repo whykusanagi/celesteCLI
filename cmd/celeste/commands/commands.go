@@ -855,7 +855,7 @@ func handleSession(cmd *Command, ctx *CommandContext) *CommandResult {
 	if len(cmd.Args) == 0 {
 		return &CommandResult{
 			Success:      false,
-			Message:      "Usage: /session <new|resume|list|clear|merge|info> [args]\n\nAvailable subcommands:\n  • new [name]       - Start a new session\n  • resume <id>      - Resume a previous session\n  • list             - List all saved sessions\n  • clear            - Clear current session\n  • merge <id>       - Merge another session into current\n  • info             - Show current session statistics\n\nExamples:\n  /session new \"Planning notes\"\n  /session resume 1733609876123\n  /session list\n  /session info",
+			Message:      "Usage: /session <action> [args]\n\nAvailable actions:\n  • new [name]         - Start a new session\n  • resume <id|name>   - Resume a previous session by ID or name\n  • list               - List all saved sessions\n  • clear              - Clear current session\n  • merge <id>         - Merge another session into current\n  • info               - Show current session statistics\n  • rename <id> <name> - Rename a session\n  • delete <id>        - Delete a session\n\nExamples:\n  /session new \"Planning notes\"\n  /session resume 1733609876123\n  /session resume \"Planning notes\"\n  /session rename 1733609876123 \"New name\"\n  /session delete 1733609876123\n  /session list",
 			ShouldRender: true,
 		}
 	}
@@ -957,10 +957,53 @@ func handleSession(cmd *Command, ctx *CommandContext) *CommandResult {
 			},
 		}
 
+	case "rename":
+		if len(cmd.Args) < 3 {
+			return &CommandResult{
+				Success:      false,
+				Message:      "Usage: /session rename <session-id> <new-name>\n\nExample:\n  /session rename 1733609876123 \"My Session\"",
+				ShouldRender: true,
+			}
+		}
+		sessionID := cmd.Args[1]
+		newName := strings.Join(cmd.Args[2:], " ")
+		return &CommandResult{
+			Success:      true,
+			Message:      "", // Will be populated by handler
+			ShouldRender: true,
+			StateChange: &StateChange{
+				SessionAction: &SessionAction{
+					Action:    "rename",
+					SessionID: sessionID,
+					Name:      newName,
+				},
+			},
+		}
+
+	case "delete", "rm":
+		if len(cmd.Args) < 2 {
+			return &CommandResult{
+				Success:      false,
+				Message:      "Usage: /session delete <session-id>\n\nUse /session list to see available sessions.",
+				ShouldRender: true,
+			}
+		}
+		return &CommandResult{
+			Success:      true,
+			Message:      "", // Will be populated by handler
+			ShouldRender: true,
+			StateChange: &StateChange{
+				SessionAction: &SessionAction{
+					Action:    "delete",
+					SessionID: cmd.Args[1],
+				},
+			},
+		}
+
 	default:
 		return &CommandResult{
 			Success:      false,
-			Message:      fmt.Sprintf("Unknown session action: %s\n\nAvailable actions: new, resume, list, clear, merge, info", action),
+			Message:      fmt.Sprintf("Unknown session action: %s\n\nAvailable actions: new, resume, list, clear, merge, info, rename, delete", action),
 			ShouldRender: true,
 		}
 	}

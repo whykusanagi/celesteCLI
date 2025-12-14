@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -34,6 +35,29 @@ type SessionMessage struct {
 	Role      string    `json:"role"`
 	Content   string    `json:"content"`
 	Timestamp time.Time `json:"timestamp"`
+}
+
+// GenerateNameFromMessage creates a session name from first user message.
+// Extracts first 40-50 chars, intelligently truncates at word boundary.
+func GenerateNameFromMessage(content string) string {
+	// Remove newlines, trim spaces
+	content = strings.ReplaceAll(content, "\n", " ")
+	content = strings.TrimSpace(content)
+
+	if len(content) == 0 {
+		return "Untitled Session"
+	}
+
+	// Truncate at 50 chars, find last space to avoid cutting words
+	if len(content) > 50 {
+		content = content[:50]
+		if idx := strings.LastIndex(content, " "); idx > 0 {
+			content = content[:idx]
+		}
+		content += "..."
+	}
+
+	return content
 }
 
 // SessionManager manages session persistence.
@@ -104,6 +128,18 @@ func (m *SessionManager) Load(id string) (*Session, error) {
 	var session Session
 	if err := json.Unmarshal(data, &session); err != nil {
 		return nil, fmt.Errorf("failed to parse session: %w", err)
+	}
+
+	// Auto-generate name for old sessions that don't have one
+	if session.Name == "" && len(session.Messages) > 0 {
+		for _, msg := range session.Messages {
+			if msg.Role == "user" {
+				session.Name = GenerateNameFromMessage(msg.Content)
+				// Save the session with the new name
+				m.Save(&session)
+				break
+			}
+		}
 	}
 
 	m.currentID = id
@@ -205,6 +241,11 @@ func (m *SessionManager) GetCurrentID() string {
 
 // AddMessage adds a message to the session and saves.
 func (m *SessionManager) AddMessage(session *Session, role, content string) {
+	// Auto-generate name from first user message
+	if len(session.Messages) == 0 && role == "user" && session.Name == "" {
+		session.Name = GenerateNameFromMessage(content)
+	}
+
 	session.Messages = append(session.Messages, SessionMessage{
 		Role:      role,
 		Content:   content,
@@ -215,6 +256,11 @@ func (m *SessionManager) AddMessage(session *Session, role, content string) {
 
 // AddMessageWithTokens adds a message to the session with token tracking.
 func (m *SessionManager) AddMessageWithTokens(session *Session, role, content string, inputTokens, outputTokens int) {
+	// Auto-generate name from first user message
+	if len(session.Messages) == 0 && role == "user" && session.Name == "" {
+		session.Name = GenerateNameFromMessage(content)
+	}
+
 	// Add the message
 	session.Messages = append(session.Messages, SessionMessage{
 		Role:      role,
@@ -343,12 +389,13 @@ func GetMessagesForLLM(session *Session) []map[string]string {
 
 // SessionSummary provides a brief overview of a session.
 type SessionSummary struct {
-	ID           string    `json:"id"`
-	Name         string    `json:"name,omitempty"`
-	MessageCount int       `json:"message_count"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
-	FirstMessage string    `json:"first_message,omitempty"`
+	ID           string         `json:"id"`
+	Name         string         `json:"name,omitempty"`
+	MessageCount int            `json:"message_count"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	FirstMessage string         `json:"first_message,omitempty"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
 }
 
 // Summarize returns a summary of the session.
@@ -359,6 +406,7 @@ func (s *Session) Summarize() SessionSummary {
 		MessageCount: len(s.Messages),
 		CreatedAt:    s.CreatedAt,
 		UpdatedAt:    s.UpdatedAt,
+		Metadata:     s.Metadata,
 	}
 
 	// Get first user message as preview
@@ -366,7 +414,12 @@ func (s *Session) Summarize() SessionSummary {
 		if msg.Role == "user" {
 			preview := msg.Content
 			if len(preview) > 50 {
-				preview = preview[:47] + "..."
+				// Intelligently truncate at word boundary
+				preview = preview[:50]
+				if idx := strings.LastIndex(preview, " "); idx > 0 {
+					preview = preview[:idx]
+				}
+				preview += "..."
 			}
 			summary.FirstMessage = preview
 			break
@@ -379,6 +432,12 @@ func (s *Session) Summarize() SessionSummary {
 // GetMessagesWithLimit returns messages with token limit applied.
 func (s *Session) GetMessagesWithLimit(systemPromptTokens int) []SessionMessage {
 	return TruncateToLimit(s.Messages, s.Model, systemPromptTokens)
+}
+
+// SetName updates the session name.
+func (s *Session) SetName(name string) {
+	s.Name = name
+	s.UpdatedAt = time.Now()
 }
 
 // MergeSessions combines messages from two sessions chronologically.

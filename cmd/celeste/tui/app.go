@@ -4,6 +4,7 @@ package tui
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -1023,6 +1024,7 @@ type SessionManager interface {
 	Save(session interface{}) error
 	Load(id string) (interface{}, error)
 	List() ([]interface{}, error)
+	Delete(id string) error
 	MergeSessions(session1, session2 interface{}) interface{}
 }
 
@@ -1035,6 +1037,7 @@ type Session interface {
 	GetModel() string
 	SetNSFWMode(enabled bool)
 	GetNSFWMode() bool
+	SetName(name string)
 	ClearMessages()
 	GetMessagesRaw() interface{}     // Returns []SessionMessage
 	SetMessagesRaw(msgs interface{}) // Accepts []SessionMessage
@@ -1057,6 +1060,7 @@ type SessionSummary struct {
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 	FirstMessage string
+	Metadata     map[string]interface{}
 }
 
 // SetSessionManager sets the session manager for persistence.
@@ -1111,6 +1115,7 @@ func (m AppModel) SetConfig(cfg *config.Config) AppModel {
 
 // WithMessages restores chat history from session messages.
 func (m AppModel) WithMessages(messages []ChatMessage) AppModel {
+	// Restore all messages first
 	for _, msg := range messages {
 		switch msg.Role {
 		case "user":
@@ -1121,6 +1126,12 @@ func (m AppModel) WithMessages(messages []ChatMessage) AppModel {
 			m.chat = m.chat.AddToolResult(msg.ToolCallID, msg.Name, msg.Content)
 		}
 	}
+
+	// Add a system message at the end indicating session was resumed
+	if len(messages) > 0 {
+		m.chat = m.chat.AddSystemMessage(fmt.Sprintf("📂 Resumed session (%d messages)", len(messages)))
+	}
+
 	return m
 }
 
@@ -1199,8 +1210,30 @@ func (m AppModel) handleSessionAction(action *commands.SessionAction) AppModel {
 		// Save current session first
 		m.persistSession()
 
+		// Try to load by ID first
+		loaded, err := m.sessionManager.Load(action.SessionID)
+
+		// If not found by ID, search by name
+		if err != nil {
+			if sessions, listErr := m.sessionManager.List(); listErr == nil {
+				for _, sessionRaw := range sessions {
+					if s, ok := sessionRaw.(Session); ok {
+						if summaryRaw := s.SummarizeRaw(); summaryRaw != nil {
+							if summary, ok := summaryRaw.(SessionSummary); ok {
+								if strings.EqualFold(summary.Name, action.SessionID) {
+									loaded = s
+									err = nil
+									break
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
 		// Load requested session
-		if loaded, err := m.sessionManager.Load(action.SessionID); err == nil {
+		if err == nil {
 			if s, ok := loaded.(Session); ok {
 				m.currentSession = s
 
@@ -1248,34 +1281,98 @@ func (m AppModel) handleSessionAction(action *commands.SessionAction) AppModel {
 			if len(sessions) == 0 {
 				m.chat = m.chat.AddSystemMessage("No saved sessions")
 			} else {
-				var sb strings.Builder
-				sb.WriteString(fmt.Sprintf("\n📋 Saved Sessions (%d):\n\n", len(sessions)))
+				// Convert to SessionSummary slice for sorting
+				summaries := make([]SessionSummary, 0, len(sessions))
 				for _, sessionRaw := range sessions {
 					if s, ok := sessionRaw.(Session); ok {
 						if summaryRaw := s.SummarizeRaw(); summaryRaw != nil {
-							// Type assert the summary to our local struct
-							if summary, ok := summaryRaw.(SessionSummary); ok {
-								// Format session entry
-								preview := summary.FirstMessage
-								if preview == "" {
-									preview = "(empty session)"
-								} else if len(preview) > 40 {
-									preview = preview[:37] + "..."
+							// Convert config.SessionSummary to tui.SessionSummary
+							if configSummary, ok := summaryRaw.(config.SessionSummary); ok {
+								tuiSummary := SessionSummary{
+									ID:           configSummary.ID,
+									Name:         configSummary.Name,
+									MessageCount: configSummary.MessageCount,
+									CreatedAt:    configSummary.CreatedAt,
+									UpdatedAt:    configSummary.UpdatedAt,
+									FirstMessage: configSummary.FirstMessage,
+									Metadata:     make(map[string]interface{}),
 								}
-
-								// Show ID (last 8 chars), message count, and preview
-								shortID := summary.ID
-								if len(shortID) > 8 {
-									shortID = shortID[len(shortID)-8:]
+								// Copy metadata
+								for k, v := range configSummary.Metadata {
+									tuiSummary.Metadata[k] = v
 								}
-
-								sb.WriteString(fmt.Sprintf("• [%s] %d msgs - %s\n",
-									shortID, summary.MessageCount, preview))
+								summaries = append(summaries, tuiSummary)
 							}
 						}
 					}
 				}
-				sb.WriteString("\nUse /session resume <id> to load a session")
+
+				// Sort by UpdatedAt descending (most recent first)
+				sort.Slice(summaries, func(i, j int) bool {
+					return summaries[i].UpdatedAt.After(summaries[j].UpdatedAt)
+				})
+
+				var sb strings.Builder
+				sb.WriteString(fmt.Sprintf("\n📋 Saved Sessions (%d):\n\n", len(summaries)))
+
+				// Get current session ID for comparison
+				var currentSessionID string
+				if m.currentSession != nil {
+					if currentSummaryRaw := m.currentSession.SummarizeRaw(); currentSummaryRaw != nil {
+						if configSummary, ok := currentSummaryRaw.(config.SessionSummary); ok {
+							currentSessionID = configSummary.ID
+						}
+					}
+				}
+
+				for _, summary := range summaries {
+					// Display name if set, otherwise "Untitled"
+					displayName := summary.Name
+					if displayName == "" {
+						displayName = "Untitled Session"
+					}
+
+					// Mark current session with ★
+					currentMarker := ""
+					if currentSessionID != "" && currentSessionID == summary.ID {
+						currentMarker = "★ "
+					}
+
+					// Relative timestamp
+					relativeTime := humanizeTime(summary.UpdatedAt)
+
+					// Get endpoint/model from metadata
+					endpoint := ""
+					model := ""
+					if summary.Metadata != nil {
+						if e, ok := summary.Metadata["endpoint"].(string); ok {
+							endpoint = e
+						}
+						if m, ok := summary.Metadata["model"].(string); ok {
+							model = m
+						}
+					}
+
+					// Format output
+					sb.WriteString(fmt.Sprintf("• %s%s (%s)\n", currentMarker, displayName, summary.ID))
+					if model != "" && endpoint != "" {
+						sb.WriteString(fmt.Sprintf("  %s • %d msgs • %s @ %s\n",
+							relativeTime, summary.MessageCount, model, endpoint))
+					} else {
+						sb.WriteString(fmt.Sprintf("  %s • %d msgs\n",
+							relativeTime, summary.MessageCount))
+					}
+					if summary.FirstMessage != "" {
+						sb.WriteString(fmt.Sprintf("  \"%s\"\n", summary.FirstMessage))
+					}
+					sb.WriteString("\n")
+				}
+
+				sb.WriteString("Commands:\n")
+				sb.WriteString("  /session resume <id>       - Load session by ID\n")
+				sb.WriteString("  /session resume \"<name>\"   - Load session by name\n")
+				sb.WriteString("  /session rename <id> <name> - Rename a session\n")
+				sb.WriteString("  /session delete <id>       - Delete a session\n")
 				m.chat = m.chat.AddSystemMessage(sb.String())
 			}
 		} else {
@@ -1321,6 +1418,50 @@ func (m AppModel) handleSessionAction(action *commands.SessionAction) AppModel {
 		} else {
 			m.chat = m.chat.AddSystemMessage(
 				fmt.Sprintf("❌ Failed to merge session: %v", err))
+		}
+
+	case "rename":
+		if loaded, err := m.sessionManager.Load(action.SessionID); err == nil {
+			if s, ok := loaded.(Session); ok {
+				// Update the name
+				s.SetName(action.Name)
+
+				// Save the session
+				if saveErr := m.sessionManager.Save(s); saveErr == nil {
+					m.chat = m.chat.AddSystemMessage(
+						fmt.Sprintf("✓ Renamed session to: %s", action.Name))
+				} else {
+					m.chat = m.chat.AddSystemMessage(
+						fmt.Sprintf("❌ Failed to save renamed session: %v", saveErr))
+				}
+			}
+		} else {
+			m.chat = m.chat.AddSystemMessage(
+				fmt.Sprintf("❌ Failed to load session: %v", err))
+		}
+
+	case "delete", "rm":
+		// Prevent deleting current session
+		currentID := ""
+		if m.currentSession != nil {
+			if summaryRaw := m.currentSession.SummarizeRaw(); summaryRaw != nil {
+				if summary, ok := summaryRaw.(SessionSummary); ok {
+					currentID = summary.ID
+				}
+			}
+		}
+
+		if currentID == action.SessionID {
+			m.chat = m.chat.AddSystemMessage(
+				"❌ Cannot delete current session. Switch to another session first.")
+		} else {
+			if err := m.sessionManager.Delete(action.SessionID); err == nil {
+				m.chat = m.chat.AddSystemMessage(
+					fmt.Sprintf("✓ Deleted session: %s", action.SessionID))
+			} else {
+				m.chat = m.chat.AddSystemMessage(
+					fmt.Sprintf("❌ Failed to delete session: %v", err))
+			}
 		}
 
 	case "info":
@@ -1595,6 +1736,35 @@ func (m StatusModel) getWarningStyle() lipgloss.Style {
 }
 
 // --- Helper functions ---
+
+// humanizeTime converts a timestamp to a human-readable relative time.
+func humanizeTime(t time.Time) string {
+	duration := time.Since(t)
+
+	if duration < time.Minute {
+		return "just now"
+	} else if duration < time.Hour {
+		mins := int(duration.Minutes())
+		if mins == 1 {
+			return "1 min ago"
+		}
+		return fmt.Sprintf("%d mins ago", mins)
+	} else if duration < 24*time.Hour {
+		hours := int(duration.Hours())
+		if hours == 1 {
+			return "1 hour ago"
+		}
+		return fmt.Sprintf("%d hours ago", hours)
+	} else if duration < 7*24*time.Hour {
+		days := int(duration.Hours() / 24)
+		if days == 1 {
+			return "1 day ago"
+		}
+		return fmt.Sprintf("%d days ago", days)
+	} else {
+		return t.Format("Jan 2, 2006")
+	}
+}
 
 // Run starts the TUI application.
 func Run(llmClient LLMClient) error {

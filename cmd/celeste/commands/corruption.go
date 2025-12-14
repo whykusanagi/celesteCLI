@@ -121,6 +121,53 @@ func containsAny(text string, substrings []string) bool {
 	return false
 }
 
+// corruptTextCharacterLevel mixes Japanese characters INTO English words
+// This creates the classic translation-failure aesthetic: "loaディング", "pro理cessing"
+func corruptTextCharacterLevel(text string, intensity float64) string {
+	if intensity <= 0 {
+		return text
+	}
+
+	// Japanese character sets for character-level mixing
+	katakana := []rune("アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン")
+	kanjiFragments := []rune("壊虚深淵闇処理分析監視接続統計使用")
+
+	runes := []rune(text)
+	result := make([]rune, 0, len(runes)*2) // Pre-allocate extra space for insertions
+
+	for i, r := range runes {
+		// Skip spaces and punctuation
+		if r == ' ' || r < 'A' || (r > 'Z' && r < 'a') || r > 'z' {
+			result = append(result, r)
+			continue
+		}
+
+		// Decide corruption type based on intensity
+		if rand.Float64() < intensity {
+			roll := rand.Float64()
+
+			if roll < 0.5 {
+				// Replace character with Katakana (50%)
+				result = append(result, katakana[rand.Intn(len(katakana))])
+			} else if roll < 0.75 {
+				// Replace with Kanji fragment (25%)
+				result = append(result, kanjiFragments[rand.Intn(len(kanjiFragments))])
+			} else {
+				// Keep original and maybe insert after (25%)
+				result = append(result, r)
+				if i < len(runes)-1 && rand.Float64() < 0.3 {
+					// Insert Katakana after
+					result = append(result, katakana[rand.Intn(len(katakana))])
+				}
+			}
+		} else {
+			result = append(result, r)
+		}
+	}
+
+	return string(result)
+}
+
 // corruptTextFlicker adds flickering corruption (like Celeste's animation)
 // Returns text with random corruption artifacts that appear/disappear
 func corruptTextFlicker(text string, frame int) string {

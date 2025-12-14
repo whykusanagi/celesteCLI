@@ -51,6 +51,15 @@ func HandleStatsCommand(args []string, contextTracker *config.ContextTracker) Co
 		}
 	}
 
+	// Fallback: Count actual session files if analytics show 0
+	sessionCount := analytics.TotalSessions
+	if sessionCount == 0 {
+		sessionMgr := config.NewSessionManager()
+		if sessions, err := sessionMgr.List(); err == nil {
+			sessionCount = len(sessions)
+		}
+	}
+
 	// Animation frame from args (optional, for flickering)
 	animFrame := 0
 	if len(args) > 0 && args[0] == "--frame" && len(args) > 1 {
@@ -64,7 +73,7 @@ func HandleStatsCommand(args []string, contextTracker *config.ContextTracker) Co
 
 	// Lifetime statistics
 	output.WriteString(renderSectionHeader("LIFETIME CORRUPTION"))
-	output.WriteString(renderDataRow("Total Sessions", fmt.Sprintf("%d", analytics.TotalSessions)))
+	output.WriteString(renderDataRow("Total Sessions", fmt.Sprintf("%d", sessionCount)))
 	output.WriteString(renderDataRow("Total Messages", fmt.Sprintf("%s", config.FormatNumber(analytics.TotalMessages))))
 	output.WriteString(renderDataRow("Total Tokens", config.FormatTokenCount(analytics.TotalTokens)))
 	output.WriteString(renderDataRow("Total Cost", config.FormatCost(analytics.TotalCost)))
@@ -181,8 +190,8 @@ func HandleStatsCommand(args []string, contextTracker *config.ContextTracker) Co
 func renderCorruptedHeader(frame int) string {
 	phrase := statsPhrases[rand.Intn(len(statsPhrases))]
 
-	// Apply corruption effect to title with flickering
-	title := corruptTextSimple("USAGE ANALYTICS", 0.40)
+	// Apply character-level corruption to title (Japanese chars mixed INTO English)
+	title := corruptTextCharacterLevel("USAGE ANALYTICS", 0.35)
 	titleFlickered := corruptTextFlicker(title, frame)
 
 	// Add flickering to phrase as well

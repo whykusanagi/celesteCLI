@@ -1120,6 +1120,10 @@ func (a *SessionManagerAdapter) List() ([]interface{}, error) {
 	return result, nil
 }
 
+func (a *SessionManagerAdapter) Delete(id string) error {
+	return a.manager.Delete(id)
+}
+
 func (a *SessionManagerAdapter) MergeSessions(session1, session2 interface{}) interface{} {
 	s1, ok1 := session1.(*config.Session)
 	s2, ok2 := session2.(*config.Session)

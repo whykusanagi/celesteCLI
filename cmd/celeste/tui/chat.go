@@ -291,9 +291,21 @@ func (m ChatModel) renderMessage(msg ChatMessage, width int) string {
 	// Header line
 	header := fmt.Sprintf("%s %s", roleLabel, timestamp)
 
-	// Wrap content to width
+	// Detect pre-formatted content (stats dashboard, ASCII art, etc.)
+	// These have box-drawing characters or block elements that shouldn't be wrapped
+	isPreformatted := strings.Contains(msg.Content, "▓▒░") ||
+		strings.Contains(msg.Content, "═══") ||
+		strings.Contains(msg.Content, "█") ||
+		strings.Contains(msg.Content, "```")
+
+	// Wrap content to width (skip wrapping for pre-formatted content)
 	contentStyle := MessageRoleStyle(msg.Role)
-	wrappedContent := wrapText(msg.Content, width-2)
+	var wrappedContent string
+	if isPreformatted {
+		wrappedContent = msg.Content // Don't wrap pre-formatted content
+	} else {
+		wrappedContent = wrapText(msg.Content, width-2)
+	}
 	styledContent := contentStyle.Render(wrappedContent)
 
 	return lipgloss.JoinVertical(lipgloss.Left, header, styledContent)
