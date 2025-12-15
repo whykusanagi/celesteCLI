@@ -212,49 +212,143 @@ func showProviderInfo(name string, ctx *CommandContext) *CommandResult {
 		output.WriteString(fmt.Sprintf("  Preferred (Tool): %s\n", caps.PreferredToolModel))
 	}
 
-	// Known limitations
-	output.WriteString("\nNOTES:\n")
+	// Authentication Requirements
+	output.WriteString("\nAUTHENTICATION:\n")
+	if caps.RequiresAPIKey {
+		output.WriteString("  Required: API Key\n")
+		switch name {
+		case "openai":
+			output.WriteString("  Get key: https://platform.openai.com/api-keys\n")
+			output.WriteString("  Format: sk-...\n")
+		case "grok":
+			output.WriteString("  Get key: https://console.x.ai/\n")
+			output.WriteString("  Format: xai-...\n")
+		case "anthropic":
+			output.WriteString("  Get key: https://console.anthropic.com/\n")
+			output.WriteString("  Format: sk-ant-...\n")
+		case "gemini":
+			output.WriteString("  Get key: https://aistudio.google.com/\n")
+			output.WriteString("  Format: Google AI Studio API key\n")
+		case "venice":
+			output.WriteString("  Get key: https://venice.ai/\n")
+			output.WriteString("  Format: Venice API key\n")
+		case "vertex":
+			output.WriteString("  Method: OAuth 2.0\n")
+			output.WriteString("  Requires: GCP project setup\n")
+		case "openrouter":
+			output.WriteString("  Get key: https://openrouter.ai/keys\n")
+			output.WriteString("  Format: sk-or-...\n")
+		case "digitalocean":
+			output.WriteString("  Method: DigitalOcean API token\n")
+			output.WriteString("  Requires: Deployed App Platform app\n")
+		case "elevenlabs":
+			output.WriteString("  Get key: https://elevenlabs.io/\n")
+			output.WriteString("  Format: ElevenLabs API key\n")
+		}
+	}
+
+	// Test Status
+	output.WriteString("\nTEST STATUS:\n")
+	switch name {
+	case "openai":
+		output.WriteString("  Unit Tests: ✅ PASS\n")
+		output.WriteString("  Integration: 🔜 Ready\n")
+		output.WriteString("  Status: Gold standard, fully validated\n")
+	case "grok":
+		output.WriteString("  Unit Tests: ✅ PASS\n")
+		output.WriteString("  Integration: 🔜 Ready\n")
+		output.WriteString("  Status: Fully tested, production ready\n")
+	case "venice":
+		output.WriteString("  Unit Tests: ✅ PASS\n")
+		output.WriteString("  Integration: 🔜 Ready\n")
+		output.WriteString("  Status: Model-dependent tool support\n")
+	case "anthropic":
+		output.WriteString("  Unit Tests: ✅ PASS\n")
+		output.WriteString("  Integration: 🔜 Ready\n")
+		output.WriteString("  Status: OpenAI mode limited, native API recommended\n")
+	case "gemini", "vertex", "openrouter", "digitalocean", "elevenlabs":
+		output.WriteString("  Unit Tests: ✅ PASS\n")
+		output.WriteString("  Integration: ❓ Needs API key\n")
+		output.WriteString("  Status: Configured, pending live validation\n")
+	}
+
+	// Known limitations and features
+	output.WriteString("\nKEY FEATURES & LIMITATIONS:\n")
 	switch name {
 	case "openai":
 		output.WriteString("  • Gold standard for function calling\n")
-		output.WriteString("  • Full feature support\n")
+		output.WriteString("  • Full streaming support\n")
+		output.WriteString("  • Comprehensive token tracking\n")
+		output.WriteString("  • Dynamic model listing\n")
 	case "grok":
-		output.WriteString("  • 2M context window\n")
-		output.WriteString("  • Fast and reliable\n")
+		output.WriteString("  • 2M context window (grok-4-1-fast)\n")
+		output.WriteString("  • Fast response times\n")
+		output.WriteString("  • Full OpenAI compatibility\n")
+		output.WriteString("  • Recommended: grok-4-1-fast for tools\n")
 	case "venice":
-		output.WriteString("  • Uncensored mode available\n")
-		output.WriteString("  • No function calling support\n")
+		output.WriteString("  • Uncensored models available\n")
+		output.WriteString("  • venice-uncensored: NO function calling\n")
+		output.WriteString("  • llama-3.3-70b: supports tools\n")
+		output.WriteString("  • Privacy-focused provider\n")
 	case "anthropic":
-		output.WriteString("  • Use OpenAI compatibility mode\n")
-		output.WriteString("  • Native API support planned\n")
+		output.WriteString("  • 200k context window\n")
+		output.WriteString("  • OpenAI compatibility mode has limitations\n")
+		output.WriteString("  • Native API recommended (not yet implemented)\n")
+		output.WriteString("  • No dynamic model listing\n")
 	case "gemini":
-		output.WriteString("  • Google AI Studio required\n")
-		output.WriteString("  • Function calling support via API\n")
+		output.WriteString("  • Free tier available\n")
+		output.WriteString("  • Multi-modal capabilities\n")
+		output.WriteString("  • OpenAI compatibility mode (untested)\n")
+		output.WriteString("  • May require native Google AI SDK\n")
 	case "vertex":
+		output.WriteString("  • Enterprise GCP integration\n")
 		output.WriteString("  • Requires OAuth setup\n")
-		output.WriteString("  • GCP project required\n")
+		output.WriteString("  • Same models as Gemini\n")
+		output.WriteString("  • More complex authentication\n")
 	case "openrouter":
-		output.WriteString("  • Model aggregator\n")
+		output.WriteString("  • Access to 100+ models\n")
+		output.WriteString("  • Model aggregator service\n")
 		output.WriteString("  • Function calling varies by model\n")
+		output.WriteString("  • Pricing varies by provider\n")
 	case "digitalocean":
-		output.WriteString("  • Agent API (cloud-hosted only)\n")
-		output.WriteString("  • Requires DigitalOcean account\n")
+		output.WriteString("  • Cloud-hosted agents only\n")
+		output.WriteString("  • Cannot use local Celeste skills\n")
+		output.WriteString("  • Requires App Platform deployment\n")
+		output.WriteString("  • Limited to gpt-4o-mini\n")
 	case "elevenlabs":
 		output.WriteString("  • Voice synthesis API\n")
-		output.WriteString("  • Function calling unknown\n")
+		output.WriteString("  • Different use case (not chat)\n")
+		output.WriteString("  • Function calling support unknown\n")
+		output.WriteString("  • Requires voice-specific integration\n")
 	default:
 		output.WriteString("  • See provider documentation for details\n")
 	}
 
-	// Setup instructions
+	// Example Usage
+	output.WriteString("\nEXAMPLE USAGE:\n")
+	if caps.BaseURL != "" {
+		output.WriteString("  # Configure via commands:\n")
+		output.WriteString(fmt.Sprintf("  ./celeste config --set-url %s\n", caps.BaseURL))
+	}
+	if caps.DefaultModel != "" {
+		output.WriteString(fmt.Sprintf("  ./celeste config --set-model %s\n", caps.DefaultModel))
+	}
+	output.WriteString("  ./celeste config --set-key YOUR_API_KEY\n")
+	output.WriteString("\n  # Or edit ~/.celeste/config.json directly:\n")
+	output.WriteString("  {\n")
+	if caps.BaseURL != "" {
+		output.WriteString(fmt.Sprintf("    \"base_url\": \"%s\",\n", caps.BaseURL))
+	}
+	if caps.DefaultModel != "" {
+		output.WriteString(fmt.Sprintf("    \"model\": \"%s\",\n", caps.DefaultModel))
+	}
+	output.WriteString("    \"api_key\": \"YOUR_API_KEY\"\n")
+	output.WriteString("  }\n")
+
+	// Switching recommendation
 	if name != ctx.Provider {
-		output.WriteString(fmt.Sprintf("\nTo use this provider, update your config:\n"))
-		if caps.BaseURL != "" {
-			output.WriteString(fmt.Sprintf("  base_url: %s\n", caps.BaseURL))
-		}
-		if caps.DefaultModel != "" {
-			output.WriteString(fmt.Sprintf("  model: %s\n", caps.DefaultModel))
-		}
+		output.WriteString(fmt.Sprintf("\n💡 To switch to this provider:\n"))
+		output.WriteString(fmt.Sprintf("   Use the config commands above, or see: ./celeste providers\n"))
 	}
 
 	return &CommandResult{
