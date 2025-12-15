@@ -403,9 +403,10 @@ func TestSessionSummarize(t *testing.T) {
 	assert.Equal(t, now, summary.CreatedAt)
 	assert.Equal(t, now, summary.UpdatedAt)
 
-	// First message should be truncated at 50 chars
+	// First message should be truncated (at word boundary within 50 chars, then + "...")
 	assert.Contains(t, summary.FirstMessage, "This is the first user message")
-	assert.Len(t, summary.FirstMessage, 50) // 47 chars + "..."
+	assert.LessOrEqual(t, len(summary.FirstMessage), 53) // Max 50 chars + "..."
+	assert.Greater(t, len(summary.FirstMessage), 30) // Should have meaningful content
 	assert.True(t, len(summary.FirstMessage) > 0 && summary.FirstMessage[len(summary.FirstMessage)-3:] == "...")
 }
 

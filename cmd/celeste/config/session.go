@@ -333,6 +333,8 @@ func (s *Session) SetEndpoint(endpoint string) {
 		s.Metadata = make(map[string]any)
 	}
 	s.Metadata["endpoint"] = endpoint
+	// Also set the Provider field to match the endpoint
+	s.Provider = endpoint
 }
 
 // GetEndpoint retrieves the endpoint from session metadata.
@@ -344,6 +346,16 @@ func (s *Session) GetEndpoint() string {
 		return endpoint
 	}
 	return ""
+}
+
+// SetProvider stores the provider name in the session.
+func (s *Session) SetProvider(provider string) {
+	s.Provider = provider
+}
+
+// GetProvider retrieves the provider name from the session.
+func (s *Session) GetProvider() string {
+	return s.Provider
 }
 
 // SetModel stores the current model in session metadata.

@@ -883,6 +883,19 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					m.model = modelName
 					m.header = m.header.SetModel(modelName)
+
+					// Check provider capabilities for the current provider
+					if m.provider != "" {
+						if caps, ok := providers.GetProvider(m.provider); ok {
+							// Check if provider supports function calling
+							if !caps.SupportsFunctionCalling {
+								m.chat = m.chat.AddSystemMessage(fmt.Sprintf("⚠️ Warning: Provider '%s' does not support function calling. Skills will be unavailable.", m.provider))
+								m.skillsEnabled = false
+								m.header = m.header.SetSkillsEnabled(false)
+							}
+						}
+					}
+
 					m.chat = m.chat.AddSystemMessage(fmt.Sprintf("🤖 Model changed to: %s", modelName))
 					m.status = m.status.SetText(fmt.Sprintf("Model changed to: %s", modelName))
 
@@ -1153,6 +1166,22 @@ func (m AppModel) WithEndpoint(endpoint string) AppModel {
 		m.provider = endpoint // Provider matches endpoint name
 		m.header = m.header.SetEndpoint(endpoint)
 		LogInfo(fmt.Sprintf("✓ Restored endpoint from session: %s", endpoint))
+
+		// Check provider capabilities
+		if caps, ok := providers.GetProvider(m.provider); ok {
+			m.skillsEnabled = caps.SupportsFunctionCalling
+			m.header = m.header.SetSkillsEnabled(m.skillsEnabled)
+			LogInfo(fmt.Sprintf("✓ Provider '%s' function calling support: %v", m.provider, m.skillsEnabled))
+
+			// Auto-select best tool model if available
+			if m.skillsEnabled && caps.PreferredToolModel != "" && m.model == "" {
+				m.model = caps.PreferredToolModel
+				m.header = m.header.SetModel(m.model)
+				LogInfo(fmt.Sprintf("✓ Auto-selected preferred tool model: %s", m.model))
+			}
+		} else {
+			LogInfo(fmt.Sprintf("⚠️ Provider '%s' not found in registry", m.provider))
+		}
 	}
 	return m
 }

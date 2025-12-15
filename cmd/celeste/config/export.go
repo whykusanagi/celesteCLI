@@ -30,7 +30,7 @@ func (e *Exporter) ToMarkdown() (string, error) {
 
 	// Frontmatter
 	sb.WriteString("---\n")
-	sb.WriteString(fmt.Sprintf("session_id: %d\n", e.session.ID))
+	sb.WriteString(fmt.Sprintf("session_id: %s\n", e.session.ID))
 	sb.WriteString(fmt.Sprintf("created: %s\n", e.session.CreatedAt.Format(time.RFC3339)))
 	sb.WriteString(fmt.Sprintf("updated: %s\n", e.session.UpdatedAt.Format(time.RFC3339)))
 	sb.WriteString(fmt.Sprintf("model: %s\n", e.session.Model))
@@ -59,7 +59,7 @@ func (e *Exporter) ToMarkdown() (string, error) {
 	sb.WriteString(fmt.Sprintf("# %s\n\n", title))
 
 	// Session info
-	sb.WriteString(fmt.Sprintf("**Session ID:** %d  \n", e.session.ID))
+	sb.WriteString(fmt.Sprintf("**Session ID:** %s  \n", e.session.ID))
 	sb.WriteString(fmt.Sprintf("**Created:** %s  \n", e.session.CreatedAt.Format("2006-01-02 15:04:05")))
 	sb.WriteString(fmt.Sprintf("**Model:** %s  \n", e.session.Model))
 	if e.session.UsageMetrics != nil {
@@ -184,7 +184,7 @@ func (e *Exporter) SaveToFile(content string, format string) (string, error) {
 
 	// Generate filename
 	timestamp := time.Now().Format("20060102_150405")
-	filename := fmt.Sprintf("session_%d_%s.%s", e.session.ID, timestamp, format)
+	filename := fmt.Sprintf("session_%s_%s.%s", e.session.ID, timestamp, format)
 	filepath := filepath.Join(exportDir, filename)
 
 	// Write file
