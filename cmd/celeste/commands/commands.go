@@ -841,14 +841,87 @@ func handleMenu(cmd *Command) *CommandResult {
 
 // handleSkills handles the /skills command (toggle skills menu).
 func handleSkills(cmd *Command, ctx *CommandContext) *CommandResult {
-	menuState := "skills"
+	// If no arguments, show skills menu
+	if len(cmd.Args) == 0 {
+		menuState := "skills"
+		return &CommandResult{
+			Success:      true,
+			Message:      "", // Don't render message - just change state
+			ShouldRender: false,
+			StateChange: &StateChange{
+				MenuState: &menuState,
+			},
+		}
+	}
+
+	// Handle subcommands
+	subcommand := strings.ToLower(cmd.Args[0])
+
+	switch subcommand {
+	case "list":
+		return handleSkillsList()
+	case "delete":
+		if len(cmd.Args) < 2 {
+			return &CommandResult{
+				Success:      false,
+				Message:      "Usage: /skills delete <skill_name>",
+				ShouldRender: true,
+			}
+		}
+		return handleSkillsDelete(cmd.Args[1])
+	case "info":
+		if len(cmd.Args) < 2 {
+			return &CommandResult{
+				Success:      false,
+				Message:      "Usage: /skills info <skill_name>",
+				ShouldRender: true,
+			}
+		}
+		return handleSkillsInfo(cmd.Args[1])
+	case "reload":
+		return handleSkillsReload()
+	default:
+		return &CommandResult{
+			Success:      false,
+			Message:      fmt.Sprintf("Unknown /skills subcommand: %s\n\nAvailable: list, delete <name>, info <name>, reload", subcommand),
+			ShouldRender: true,
+		}
+	}
+}
+
+// handleSkillsList shows all registered skills with count
+func handleSkillsList() *CommandResult {
 	return &CommandResult{
-		Success:      true,
-		Message:      "", // Don't render message - just change state
-		ShouldRender: false,
-		StateChange: &StateChange{
-			MenuState: &menuState,
-		},
+		Success:      false,
+		Message:      "⚠️ /skills list requires app context - this should be handled by the TUI",
+		ShouldRender: true,
+	}
+}
+
+// handleSkillsDelete removes a skill from the registry
+func handleSkillsDelete(name string) *CommandResult {
+	return &CommandResult{
+		Success:      false,
+		Message:      fmt.Sprintf("⚠️ /skills delete requires app context - this should be handled by the TUI\n\nSkill to delete: %s", name),
+		ShouldRender: true,
+	}
+}
+
+// handleSkillsInfo shows detailed information about a skill
+func handleSkillsInfo(name string) *CommandResult {
+	return &CommandResult{
+		Success:      false,
+		Message:      fmt.Sprintf("⚠️ /skills info requires app context - this should be handled by the TUI\n\nSkill to query: %s", name),
+		ShouldRender: true,
+	}
+}
+
+// handleSkillsReload reloads skills from disk
+func handleSkillsReload() *CommandResult {
+	return &CommandResult{
+		Success:      false,
+		Message:      "⚠️ /skills reload requires app context - this should be handled by the TUI",
+		ShouldRender: true,
 	}
 }
 
