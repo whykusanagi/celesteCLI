@@ -137,6 +137,7 @@ For security issues, see our [Security Policy](SECURITY.md) or contact security@
 - [Usage](#-usage)
 - [Architecture](#%EF%B8%8F-architecture)
 - [Development](#-development)
+- [Documentation](#-documentation)
 - [Troubleshooting](#-troubleshooting)
 - [Contributing](#-contributing)
 
@@ -1139,9 +1140,40 @@ go mod tidy
 
 ---
 
+## 📖 Documentation
+
+Comprehensive documentation for developers and contributors:
+
+### Core Documentation
+
+- **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - System design, component relationships, and data flow diagrams
+- **[TESTING.md](docs/TESTING.md)** - Testing guide with examples, coverage reports, and best practices
+- **[CONTRIBUTING.md](docs/CONTRIBUTING.md)** - How to contribute: adding skills, providers, and commands
+- **[LLM_PROVIDERS.md](docs/LLM_PROVIDERS.md)** - Provider compatibility matrix and setup guides
+- **[STYLE_GUIDE.md](docs/STYLE_GUIDE.md)** - Code formatting standards and conventions
+
+### Test Coverage (v1.2.0)
+
+Overall coverage: **17.4%** across critical packages
+
+| Package | Coverage | Status |
+|---------|----------|--------|
+| prompts | 97.1% | ✅ Excellent |
+| providers | 72.8% | ✅ Excellent |
+| config | 52.0% | ✅ Good |
+| commands | 25.8% | ⚠️ Moderate |
+| venice | 22.6% | ⚠️ Moderate |
+| skills | 12.2% | ⚠️ Low |
+| llm | 0% | ❌ Requires mocking |
+| tui | 0% | ❌ Requires mocking |
+
+See [TESTING.md](docs/TESTING.md) for details on running tests and writing new ones.
+
+---
+
 ## 🤝 Contributing
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+We welcome contributions! Please see [CONTRIBUTING.md](docs/CONTRIBUTING.md) for detailed guidelines.
 
 ### Quick Start for Contributors
 

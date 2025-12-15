@@ -372,3 +372,129 @@ func TestIsContentPolicyRefusal(t *testing.T) {
 		})
 	}
 }
+
+// TestExecuteProviders tests the providers command
+func TestExecuteProviders(t *testing.T) {
+	t.Run("list all providers", func(t *testing.T) {
+		cmd := &Command{Name: "providers", Args: []string{}}
+		ctx := &CommandContext{Provider: "openai", CurrentModel: "gpt-4o-mini"}
+		result := Execute(cmd, ctx)
+
+		assert.True(t, result.Success)
+		assert.Contains(t, result.Message, "AI PROVIDERS")
+		assert.Contains(t, result.Message, "openai")
+		assert.Contains(t, result.Message, "grok")
+		assert.Contains(t, result.Message, "Use: /providers info")
+	})
+
+	t.Run("list tool providers", func(t *testing.T) {
+		cmd := &Command{Name: "providers", Args: []string{"--tools"}}
+		ctx := &CommandContext{Provider: "openai"}
+		result := Execute(cmd, ctx)
+
+		assert.True(t, result.Success)
+		assert.Contains(t, result.Message, "TOOL-CAPABLE")
+		assert.Contains(t, result.Message, "openai")
+		assert.Contains(t, result.Message, "grok")
+	})
+
+	t.Run("provider info openai", func(t *testing.T) {
+		cmd := &Command{Name: "providers", Args: []string{"info", "openai"}}
+		ctx := &CommandContext{Provider: "grok"}
+		result := Execute(cmd, ctx)
+
+		assert.True(t, result.Success)
+		assert.Contains(t, result.Message, "PROVIDER: OPENAI")
+		assert.Contains(t, result.Message, "CAPABILITIES")
+		assert.Contains(t, result.Message, "Function Calling")
+		assert.Contains(t, result.Message, "AUTHENTICATION")
+		assert.Contains(t, result.Message, "TEST STATUS")
+		assert.Contains(t, result.Message, "EXAMPLE USAGE")
+	})
+
+	t.Run("provider info unknown", func(t *testing.T) {
+		cmd := &Command{Name: "providers", Args: []string{"info", "unknown"}}
+		ctx := &CommandContext{}
+		result := Execute(cmd, ctx)
+
+		assert.False(t, result.Success)
+		assert.Contains(t, result.Message, "not found")
+		assert.Contains(t, result.Message, "Available providers")
+	})
+
+	t.Run("current provider", func(t *testing.T) {
+		cmd := &Command{Name: "providers", Args: []string{"current"}}
+		ctx := &CommandContext{Provider: "openai", CurrentModel: "gpt-4o-mini", BaseURL: "https://api.openai.com/v1"}
+		result := Execute(cmd, ctx)
+
+		assert.True(t, result.Success)
+		assert.Contains(t, result.Message, "openai")
+		assert.Contains(t, result.Message, "gpt-4o-mini")
+	})
+}
+
+// TestHandleProvidersCommand tests provider command handling
+func TestHandleProvidersCommand(t *testing.T) {
+	tests := []struct {
+		name           string
+		args           []string
+		expectSuccess  bool
+		expectContains string
+	}{
+		{
+			name:           "list providers",
+			args:           []string{},
+			expectSuccess:  true,
+			expectContains: "openai",
+		},
+		{
+			name:           "tool providers",
+			args:           []string{"--tools"},
+			expectSuccess:  true,
+			expectContains: "TOOL-CAPABLE",
+		},
+		{
+			name:           "provider info",
+			args:           []string{"info", "grok"},
+			expectSuccess:  true,
+			expectContains: "GROK",
+		},
+		{
+			name:           "current provider",
+			args:           []string{"current"},
+			expectSuccess:  true,
+			expectContains: "PROVIDER:",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := &Command{Name: "providers", Args: tt.args}
+			ctx := &CommandContext{Provider: "openai"}
+			result := Execute(cmd, ctx)
+
+			assert.Equal(t, tt.expectSuccess, result.Success)
+			if tt.expectContains != "" {
+				assert.Contains(t, result.Message, tt.expectContains)
+			}
+		})
+	}
+}
+
+// TestBoolToStatus tests the helper function
+func TestBoolToStatus(t *testing.T) {
+	tests := []struct {
+		input    bool
+		expected string
+	}{
+		{true, "✓ Yes"},
+		{false, "✗ No"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.expected, func(t *testing.T) {
+			result := boolToStatus(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}

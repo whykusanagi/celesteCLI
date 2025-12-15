@@ -145,25 +145,25 @@ var SectionHeaders = struct {
 		Analysis   string
 	}
 	Session struct {
-		Data     string
-		Active   string
-		Recent   string
-		Current  string
-		History  string
+		Data    string
+		Active  string
+		Recent  string
+		Current string
+		History string
 	}
 	Token struct {
-		Usage       string
-		Cost        string
-		Spending    string
-		Budget      string
-		Breakdown   string
+		Usage     string
+		Cost      string
+		Spending  string
+		Budget    string
+		Breakdown string
 	}
 	Time struct {
-		Today    string
-		Week     string
-		Recent   string
-		Current  string
-		Latest   string
+		Today   string
+		Week    string
+		Recent  string
+		Current string
+		Latest  string
 	}
 }{
 	Lifetime: struct {
@@ -193,24 +193,24 @@ var SectionHeaders = struct {
 		Analysis:   "█ SERVICE 分析 ANALYSIS:",
 	},
 	Session: struct {
-		Data     string
-		Active   string
-		Recent   string
-		Current  string
-		History  string
+		Data    string
+		Active  string
+		Recent  string
+		Current string
+		History string
 	}{
-		Data:     "█ SESSION データ DATA:",
-		Active:   "█ ACTIVE セッション SESSIONS:",
-		Recent:   "█ RECENT 活動 ACTIVITY:",
-		Current:  "█ CURRENT 状態 STATUS:",
-		History:  "█ HISTORY 履歴 RECORDS:",
+		Data:    "█ SESSION データ DATA:",
+		Active:  "█ ACTIVE セッション SESSIONS:",
+		Recent:  "█ RECENT 活動 ACTIVITY:",
+		Current: "█ CURRENT 状態 STATUS:",
+		History: "█ HISTORY 履歴 RECORDS:",
 	},
 	Token: struct {
-		Usage       string
-		Cost        string
-		Spending    string
-		Budget      string
-		Breakdown   string
+		Usage     string
+		Cost      string
+		Spending  string
+		Budget    string
+		Breakdown string
 	}{
 		Usage:     "█ TOKEN 使用 USAGE:",
 		Cost:      "█ COST 計算 CALCULATION:",
@@ -219,11 +219,11 @@ var SectionHeaders = struct {
 		Breakdown: "█ EXPENSE 費用 BREAKDOWN:",
 	},
 	Time: struct {
-		Today    string
-		Week     string
-		Recent   string
-		Current  string
-		Latest   string
+		Today   string
+		Week    string
+		Recent  string
+		Current string
+		Latest  string
 	}{
 		Today:   "█ TODAY 今日 ACTIVITY:",
 		Week:    "█ THIS WEEK 今週 STATS:",
@@ -257,11 +257,11 @@ var DataLabels = struct {
 		Spending   string
 	}
 	Message struct {
-		Total   string
-		Number  string
-		Count   string
-		Data    string
-		Total2  string
+		Total  string
+		Number string
+		Count  string
+		Data   string
+		Total2 string
 	}
 	Provider struct {
 		Name       string
@@ -311,11 +311,11 @@ var DataLabels = struct {
 		Spending:   "spending 支出",
 	},
 	Message: struct {
-		Total   string
-		Number  string
-		Count   string
-		Data    string
-		Total2  string
+		Total  string
+		Number string
+		Count  string
+		Data   string
+		Total2 string
 	}{
 		Total:  "Total メッセージ",
 		Number: "Message 数",
@@ -489,12 +489,12 @@ var ThematicPhrases = struct {
 		Deeply   string
 	}
 	Eye struct {
-		Watching    string
-		Watching2   string
-		Observing   string
-		Under       string
-		Always      string
-		Celeste     string
+		Watching  string
+		Watching2 string
+		Observing string
+		Under     string
+		Always    string
+		Celeste   string
 	}
 }{
 	Void: struct {
@@ -532,12 +532,12 @@ var ThematicPhrases = struct {
 		Deeply:   "deeply 壊れ corrupted",
 	},
 	Eye: struct {
-		Watching    string
-		Watching2   string
-		Observing   string
-		Under       string
-		Always      string
-		Celeste     string
+		Watching  string
+		Watching2 string
+		Observing string
+		Under     string
+		Always    string
+		Celeste   string
 	}{
 		Watching:  "👁️ 監視 watching kanshi 👁️",
 		Watching2: "👁️ 見ている miteiru 👁️",

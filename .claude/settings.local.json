@@ -64,7 +64,22 @@
       "Bash(./celeste config:*)",
       "Bash(./celeste:*)",
       "Bash(git push:*)",
-      "Bash(git tag:*)"
+      "Bash(git tag:*)",
+      "Bash(go test:*)",
+      "Bash(chmod:*)",
+      "Bash(ls:*)",
+      "Bash(./test/test_oneshot_commands.sh)",
+      "Bash(go tool cover:*)",
+      "Bash(git log:*)",
+      "Bash(gh run list:*)",
+      "Bash(go vet:*)",
+      "Bash(gofmt:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh pr view:*)",
+      "Bash(golangci-lint run:*)",
+      "Bash(go install:*)"
     ],
     "deny": [],
     "ask": []

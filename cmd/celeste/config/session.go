@@ -136,7 +136,7 @@ func (m *SessionManager) Load(id string) (*Session, error) {
 			if msg.Role == "user" {
 				session.Name = GenerateNameFromMessage(msg.Content)
 				// Save the session with the new name
-				m.Save(&session)
+				_ = m.Save(&session) // Error intentionally ignored - name generation is best-effort
 				break
 			}
 		}
@@ -333,6 +333,8 @@ func (s *Session) SetEndpoint(endpoint string) {
 		s.Metadata = make(map[string]any)
 	}
 	s.Metadata["endpoint"] = endpoint
+	// Also set the Provider field to match the endpoint
+	s.Provider = endpoint
 }
 
 // GetEndpoint retrieves the endpoint from session metadata.
@@ -344,6 +346,16 @@ func (s *Session) GetEndpoint() string {
 		return endpoint
 	}
 	return ""
+}
+
+// SetProvider stores the provider name in the session.
+func (s *Session) SetProvider(provider string) {
+	s.Provider = provider
+}
+
+// GetProvider retrieves the provider name from the session.
+func (s *Session) GetProvider() string {
+	return s.Provider
 }
 
 // SetModel stores the current model in session metadata.

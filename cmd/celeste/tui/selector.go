@@ -19,16 +19,16 @@ type SelectorItem struct {
 
 // SelectorModel is a Bubble Tea component for arrow-key navigation.
 type SelectorModel struct {
-	title       string
-	items       []SelectorItem
-	selected    int    // Currently selected index
-	offset      int    // Scroll offset for large lists
-	height      int    // Visible height
-	width       int    // Component width
-	active      bool   // Whether selector is active
-	confirmed   bool   // Whether user pressed Enter
-	cancelled   bool   // Whether user pressed Escape
-	footerText  string // Footer instructions
+	title      string
+	items      []SelectorItem
+	selected   int    // Currently selected index
+	offset     int    // Scroll offset for large lists
+	height     int    // Visible height
+	width      int    // Component width
+	active     bool   // Whether selector is active
+	confirmed  bool   // Whether user pressed Enter
+	cancelled  bool   // Whether user pressed Escape
+	footerText string // Footer instructions
 }
 
 // NewSelectorModel creates a new selector component.

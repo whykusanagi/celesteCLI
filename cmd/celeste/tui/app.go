@@ -63,9 +63,7 @@ type AppModel struct {
 	config *config.Config
 
 	// Context tracking (NEW)
-	contextTracker     *config.ContextTracker
-	showContextWarning bool
-	lastWarningLevel   string
+	contextTracker *config.ContextTracker
 
 	// Interactive selector
 	selector       SelectorModel
@@ -883,6 +881,19 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					m.model = modelName
 					m.header = m.header.SetModel(modelName)
+
+					// Check provider capabilities for the current provider
+					if m.provider != "" {
+						if caps, ok := providers.GetProvider(m.provider); ok {
+							// Check if provider supports function calling
+							if !caps.SupportsFunctionCalling {
+								m.chat = m.chat.AddSystemMessage(fmt.Sprintf("⚠️ Warning: Provider '%s' does not support function calling. Skills will be unavailable.", m.provider))
+								m.skillsEnabled = false
+								m.header = m.header.SetSkillsEnabled(false)
+							}
+						}
+					}
+
 					m.chat = m.chat.AddSystemMessage(fmt.Sprintf("🤖 Model changed to: %s", modelName))
 					m.status = m.status.SetText(fmt.Sprintf("Model changed to: %s", modelName))
 
@@ -1153,6 +1164,22 @@ func (m AppModel) WithEndpoint(endpoint string) AppModel {
 		m.provider = endpoint // Provider matches endpoint name
 		m.header = m.header.SetEndpoint(endpoint)
 		LogInfo(fmt.Sprintf("✓ Restored endpoint from session: %s", endpoint))
+
+		// Check provider capabilities
+		if caps, ok := providers.GetProvider(m.provider); ok {
+			m.skillsEnabled = caps.SupportsFunctionCalling
+			m.header = m.header.SetSkillsEnabled(m.skillsEnabled)
+			LogInfo(fmt.Sprintf("✓ Provider '%s' function calling support: %v", m.provider, m.skillsEnabled))
+
+			// Auto-select best tool model if available
+			if m.skillsEnabled && caps.PreferredToolModel != "" && m.model == "" {
+				m.model = caps.PreferredToolModel
+				m.header = m.header.SetModel(m.model)
+				LogInfo(fmt.Sprintf("✓ Auto-selected preferred tool model: %s", m.model))
+			}
+		} else {
+			LogInfo(fmt.Sprintf("⚠️ Provider '%s' not found in registry", m.provider))
+		}
 	}
 	return m
 }
@@ -1504,15 +1531,15 @@ func (m AppModel) handleSessionAction(action *commands.SessionAction) AppModel {
 
 // HeaderModel represents the header bar.
 type HeaderModel struct {
-	width           int
-	nsfwMode        bool
-	endpoint        string
-	model           string
-	imageModel      string // Image generation model (NSFW mode)
-	autoRouted      bool   // Whether the last message was auto-routed
-	skillsEnabled   bool   // Whether skills/function calling is available
+	width            int
+	nsfwMode         bool
+	endpoint         string
+	model            string
+	imageModel       string           // Image generation model (NSFW mode)
+	autoRouted       bool             // Whether the last message was auto-routed
+	skillsEnabled    bool             // Whether skills/function calling is available
 	contextIndicator ContextIndicator // Token usage display
-	showContext     bool   // Whether to show context usage
+	showContext      bool             // Whether to show context usage
 }
 
 // NewHeaderModel creates a new header model.
@@ -1655,13 +1682,13 @@ func (m HeaderModel) View() string {
 
 // StatusModel represents the status bar.
 type StatusModel struct {
-	width            int
-	text             string
-	streaming        bool
-	frame            int
-	warningMessage   string // Context warning message
-	warningLevel     string // "warn", "caution", "critical"
-	showWarning      bool   // Whether to show warning
+	width          int
+	text           string
+	streaming      bool
+	frame          int
+	warningMessage string // Context warning message
+	warningLevel   string // "warn", "caution", "critical"
+	showWarning    bool   // Whether to show warning
 }
 
 // NewStatusModel creates a new status model.

@@ -7,7 +7,7 @@ type ProviderCapabilities struct {
 	BaseURL                 string
 	SupportsFunctionCalling bool
 	SupportsModelListing    bool
-	SupportsTokenTracking   bool   // Returns usage data with stream_options
+	SupportsTokenTracking   bool // Returns usage data with stream_options
 	DefaultModel            string
 	PreferredToolModel      string // Best model for function calling
 	RequiresAPIKey          bool

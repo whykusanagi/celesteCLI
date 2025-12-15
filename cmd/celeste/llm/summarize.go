@@ -178,7 +178,6 @@ func (s *Summarizer) CompactSession(session *config.Session, targetTokens int) (
 	return messagesBefore, messagesAfter, nil
 }
 
-
 // EstimateSummarySavings estimates how many tokens would be saved by summarization.
 // Returns estimated tokens before and after summarization.
 func EstimateSummarySavings(messages []config.SessionMessage, count int) (int, int) {

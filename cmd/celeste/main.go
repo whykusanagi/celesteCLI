@@ -26,7 +26,7 @@ import (
 
 // Version information
 const (
-	Version = "1.1.0"
+	Version = "1.2.0-dev"
 	Build   = "bubbletea-tui"
 )
 
@@ -126,6 +126,8 @@ func main() {
 		runSkillExecuteCommand(cmdArgs)
 	case "skills":
 		runSkillsCommand(cmdArgs)
+	case "providers":
+		runProvidersCommand(cmdArgs)
 	case "session", "sessions":
 		runSessionCommand(cmdArgs)
 	case "help", "-h", "--help":
@@ -161,7 +163,11 @@ Commands:
   message <text>          Send a single message and exit
   config                  View/modify configuration
   skills                  List and manage skills
+  providers               List and query AI providers
   session                 Manage conversation sessions
+  context                 Show context/token usage
+  stats                   Show usage statistics
+  export                  Export session data
   help                    Show this help message
   version                 Show version information
 
@@ -190,6 +196,16 @@ Configuration:
 Skills:
   celeste skills --list                  List available skills
   celeste skills --init                  Create default skill files
+  celeste skills --delete <name>         Delete a skill
+  celeste skills --info <name>           Show skill information
+  celeste skills --reload                Reload skills from disk
+  celeste skill <name> [--args]          Execute a skill
+
+Providers:
+  celeste providers                      List all AI providers
+  celeste providers --tools              List tool-capable providers
+  celeste providers info <name>          Show provider details
+  celeste providers current              Show current provider
 
 Sessions:
   celeste session --list                 List saved sessions
@@ -1069,6 +1085,9 @@ func runSkillsCommand(args []string) {
 	list := fs.Bool("list", false, "List available skills")
 	init := fs.Bool("init", false, "Create default skill files")
 	exec := fs.String("exec", "", "Execute a skill by name")
+	deleteSkill := fs.String("delete", "", "Delete a skill by name")
+	info := fs.String("info", "", "Show information about a skill")
+	reload := fs.Bool("reload", false, "Reload skills from disk")
 	// Parse flags - exits on error due to ExitOnError flag
 	_ = fs.Parse(args)
 
@@ -1099,9 +1118,64 @@ func runSkillsCommand(args []string) {
 		return
 	}
 
+	// Handle delete subcommand
+	if *deleteSkill != "" {
+		if err := registry.DeleteSkill(*deleteSkill); err != nil {
+			fmt.Fprintf(os.Stderr, "Error deleting skill '%s': %v\n", *deleteSkill, err)
+			os.Exit(1)
+		}
+		fmt.Printf("✓ Deleted skill: %s\n", *deleteSkill)
+		return
+	}
+
+	// Handle info subcommand
+	if *info != "" {
+		hasHandler := registry.HasHandler(*info)
+		skill, exists := registry.GetSkill(*info)
+
+		fmt.Printf("\n═══════════════════════════════════════════════\n")
+		fmt.Printf("           SKILL: %s\n", strings.ToUpper(*info))
+		fmt.Printf("═══════════════════════════════════════════════\n\n")
+
+		if !exists {
+			fmt.Printf("Status:       ✗ Not Found\n")
+			fmt.Printf("\nUse 'celeste skills --list' to see available skills.\n\n")
+			os.Exit(1)
+		}
+
+		fmt.Printf("Status:       ✓ Registered\n")
+		fmt.Printf("Has Handler:  ")
+		if hasHandler {
+			fmt.Printf("✓ Yes\n")
+		} else {
+			fmt.Printf("✗ No\n")
+		}
+		fmt.Printf("\nDescription:  %s\n", skill.Description)
+
+		if len(skill.Parameters) > 0 {
+			fmt.Printf("\nParameters:   %d defined\n", len(skill.Parameters))
+			fmt.Printf("\nUse the skill to see full parameter details.\n")
+		}
+		fmt.Println()
+		return
+	}
+
+	// Handle reload subcommand
+	if *reload {
+		registry = skills.NewRegistry()
+		if err := registry.LoadSkills(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error reloading skills: %v\n", err)
+			os.Exit(1)
+		}
+		skills.RegisterBuiltinSkills(registry, configLoader)
+		fmt.Printf("✓ Reloaded %d skills from disk\n", registry.Count())
+		return
+	}
+
+	// Default: list skills
 	if *list || len(args) == 0 {
 		allSkills := registry.GetAllSkills()
-		fmt.Printf("\nAvailable Skills (%d):\n", len(allSkills))
+		fmt.Printf("\nAvailable Skills (%d):\n", registry.Count())
 		for _, skill := range allSkills {
 			fmt.Printf("\n  %s\n", skill.Name)
 			fmt.Printf("    %s\n", skill.Description)
@@ -1325,6 +1399,41 @@ func runStatsCommand(args []string) {
 
 	// Generate stats output
 	result := commands.HandleStatsCommand(args, contextTracker)
+	if result.Message != "" {
+		fmt.Println(result.Message)
+	}
+	if !result.Success {
+		os.Exit(1)
+	}
+}
+
+// runProvidersCommand handles standalone provider listing and information.
+func runProvidersCommand(args []string) {
+	// Load config to get current provider
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Detect current provider from BaseURL
+	currentProvider := providers.DetectProvider(cfg.BaseURL)
+
+	// Create command context
+	ctx := &commands.CommandContext{
+		Provider:     currentProvider,
+		CurrentModel: cfg.Model,
+		BaseURL:      cfg.BaseURL,
+	}
+
+	// Parse subcommand
+	cmd := &commands.Command{
+		Name: "providers",
+		Args: args,
+	}
+
+	// Execute command
+	result := commands.HandleProvidersCommand(cmd, ctx)
 	if result.Message != "" {
 		fmt.Println(result.Message)
 	}

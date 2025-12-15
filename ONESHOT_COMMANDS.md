@@ -48,6 +48,48 @@ All Celeste functionality is now available as one-shot CLI commands without ente
 ./celeste config --set-key <key>
 ```
 
+## Provider Management
+
+Query and list AI providers:
+
+```bash
+# List all providers
+./celeste providers
+
+# List only tool-capable providers
+./celeste providers --tools
+
+# Show detailed provider information
+./celeste providers info openai
+./celeste providers info grok
+./celeste providers info anthropic
+
+# Show current provider
+./celeste providers current
+```
+
+## Skills Management
+
+Manage skills without entering TUI:
+
+```bash
+# List all skills
+./celeste skills --list
+
+# Show skill information
+./celeste skills --info generate_uuid
+./celeste skills --info get_weather
+
+# Delete a custom skill
+./celeste skills --delete my_custom_skill
+
+# Reload skills from disk
+./celeste skills --reload
+
+# Initialize default skill files
+./celeste skills --init
+```
+
 ## Skill Execution
 
 All 18 built-in skills can be executed directly:
@@ -183,3 +225,63 @@ You can still use the TUI for interactive work:
 ```
 
 All slash commands in the TUI (/context, /stats, /export, etc.) are now also available as standalone CLI commands for maximum flexibility!
+
+## Testing Framework
+
+Test all one-shot commands automatically:
+
+### Local Testing
+
+```bash
+# Run the test suite
+./test/test_oneshot_commands.sh
+
+# Test with custom binary location
+CELESTE_BIN=./celeste ./test/test_oneshot_commands.sh
+```
+
+### Docker Testing
+
+Test in an isolated container environment:
+
+```bash
+# Build and run tests
+docker build -f Dockerfile.oneshot --target tester -t celeste-test .
+docker run celeste-test
+
+# Or use docker-compose
+docker-compose -f docker-compose.oneshot.yml up oneshot-test
+
+# Interactive testing container
+docker-compose -f docker-compose.oneshot.yml run oneshot-runtime
+
+# Inside the container, test commands:
+./celeste providers
+./celeste skills --list
+./celeste skill generate_uuid
+```
+
+### Test Coverage
+
+The test framework (`test/test_oneshot_commands.sh`) validates:
+
+- ✓ Version and help commands
+- ✓ Configuration commands (--show, --list)
+- ✓ Skills management (--list, --info, --reload, --delete)
+- ✓ Provider commands (list, --tools, info, current)
+- ✓ Session commands (--list)
+- ✓ Context and stats commands
+- ✓ Skill execution (generate_uuid, generate_password, etc.)
+
+### CI/CD Integration
+
+Add to your CI pipeline:
+
+```yaml
+# .github/workflows/test.yml
+- name: Build Celeste
+  run: go build -o celeste cmd/celeste/*.go
+
+- name: Run One-Shot Tests
+  run: ./test/test_oneshot_commands.sh
+```

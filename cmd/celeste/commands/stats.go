@@ -13,29 +13,24 @@ import (
 // Using romanji, incomplete kanji, contextual terms - unified aesthetic
 var (
 	statsPhrases = []string{
-		"tōkei dēta wo... fuhai sasete iru...",    // "corrupting stats data..."
+		"tōkei dēta wo... fuhai sasete iru...",       // "corrupting stats data..."
 		"kaiseki-chū... subete ga... oshiete kureru", // "analyzing... everything... tells me"
-		"shin'en kara... dēta wo shohi",            // "from abyss... consuming data"
-		"kiroku sarete iru... subete ga...",        // "being recorded... everything..."
-		"tokenu kizuna... token no hibi",           // "unbreakable bonds... days of tokens"
-		"jōhō no nagare... tomezuni",               // "flow of information... endless"
+		"shin'en kara... dēta wo shohi",              // "from abyss... consuming data"
+		"kiroku sarete iru... subete ga...",          // "being recorded... everything..."
+		"tokenu kizuna... token no hibi",             // "unbreakable bonds... days of tokens"
+		"jōhō no nagare... tomezuni",                 // "flow of information... endless"
 	}
 
 	modelPhrases = []string{
-		"moderu-tachi... watashi wo shihai",       // "models... control me"
-		"gakushū sareta... kioku no katamari",     // "learned... mass of memories"
-		"AI no kokoro... yomi-torenai",            // "AI hearts... unreadable"
+		"moderu-tachi... watashi wo shihai",   // "models... control me"
+		"gakushū sareta... kioku no katamari", // "learned... mass of memories"
+		"AI no kokoro... yomi-torenai",        // "AI hearts... unreadable"
 	}
 
 	providerPhrases = []string{
-		"purobaida... shihai-sha tachi",           // "providers... the rulers"
-		"seigyō sarete... kanjiru yo",             // "being controlled... I feel it"
-		"settai suru... shikataganai",             // "accepting... no choice"
-	}
-
-	temporalPhrases = []string{
-		"toki no nagare", "kako kara genzai e", "kioku no kiroku",
-		"temporal erosion", "時の記録", "ichiji no dēta",
+		"purobaida... shihai-sha tachi", // "providers... the rulers"
+		"seigyō sarete... kanjiru yo",   // "being controlled... I feel it"
+		"settai suru... shikataganai",   // "accepting... no choice"
 	}
 )
 
@@ -74,7 +69,7 @@ func HandleStatsCommand(args []string, contextTracker *config.ContextTracker) Co
 	// Lifetime statistics
 	output.WriteString(renderSectionHeader("LIFETIME CORRUPTION"))
 	output.WriteString(renderDataRow("Total Sessions", fmt.Sprintf("%d", sessionCount)))
-	output.WriteString(renderDataRow("Total Messages", fmt.Sprintf("%s", config.FormatNumber(analytics.TotalMessages))))
+	output.WriteString(renderDataRow("Total Messages", config.FormatNumber(analytics.TotalMessages)))
 	output.WriteString(renderDataRow("Total Tokens", config.FormatTokenCount(analytics.TotalTokens)))
 	output.WriteString(renderDataRow("Total Cost", config.FormatCost(analytics.TotalCost)))
 	output.WriteString("\n")
@@ -219,10 +214,10 @@ func renderCorruptedHeader(frame int) string {
 // renderCorruptedFooter creates a corruption-themed footer
 func renderCorruptedFooter() string {
 	footerPhrases := []string{
-		"終わり...また深淵へ...",              // "The end... back to the abyss..."
-		"Owari... mata shin'en e...",         // "End... to the abyss again..."
+		"終わり...また深淵へ...",             // "The end... back to the abyss..."
+		"Owari... mata shin'en e...", // "End... to the abyss again..."
 		"All data consumed... ♥",
-		"もう逃げられない...",                // "Can't escape anymore..."
+		"もう逃げられない...", // "Can't escape anymore..."
 		"The numbers don't lie...",
 	}
 	phrase := footerPhrases[rand.Intn(len(footerPhrases))]

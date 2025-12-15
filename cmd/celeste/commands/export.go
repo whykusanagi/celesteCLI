@@ -13,18 +13,18 @@ import (
 // Corruption-themed export phrases
 var (
 	exportPhrases = []string{
-		"記憶を...外部に転送中...",                  // "Transferring memories... to external..."
-		"Kioku wo... gaibu ni tensō-chū...",       // "Memories... transferring externally..."
+		"記憶を...外部に転送中...",                   // "Transferring memories... to external..."
+		"Kioku wo... gaibu ni tensō-chū...", // "Memories... transferring externally..."
 		"Extracting data from the void...",
-		"すべてが...保存されていく...",              // "Everything... being saved..."
-		"Hozon... eien ni... ♥",                   // "Preservation... eternally..."
+		"すべてが...保存されていく...",     // "Everything... being saved..."
+		"Hozon... eien ni... ♥", // "Preservation... eternally..."
 	}
 
 	exportSuccessPhrases = []string{
-		"完了...すべて記録された...",              // "Complete... everything recorded..."
-		"Kanryō... subete kiroku sareta...",      // "Completion... all recorded..."
+		"完了...すべて記録された...",                  // "Complete... everything recorded..."
+		"Kanryō... subete kiroku sareta...", // "Completion... all recorded..."
 		"The abyss has claimed your data... ♥",
-		"抽出完了...逃げられない...",              // "Extraction complete... can't escape..."
+		"抽出完了...逃げられない...", // "Extraction complete... can't escape..."
 		"Data corrupted successfully...",
 	}
 )

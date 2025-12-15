@@ -17,8 +17,11 @@ type Config struct {
 	APIKey       string `json:"api_key"`
 	BaseURL      string `json:"base_url"`
 	Model        string `json:"model"`
-	Timeout      int    `json:"timeout"`        // seconds
+	Timeout      int    `json:"timeout"`                 // seconds
 	ContextLimit int    `json:"context_limit,omitempty"` // Optional: Override context window size
+
+	// Runtime-detected provider (not persisted to config file)
+	Provider string `json:"-"` // Detected from BaseURL at runtime
 
 	// Persona settings
 	SkipPersonaPrompt bool `json:"skip_persona_prompt"`
