@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -27,6 +28,10 @@ func TestLoadEssence(t *testing.T) {
 
 // TestLoadEssenceFromFile tests loading essence from custom file
 func TestLoadEssenceFromFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping HOME environment variable test on Windows")
+	}
+
 	// Create temp directory for test config
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, ".celeste")
