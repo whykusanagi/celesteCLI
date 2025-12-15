@@ -32,11 +32,6 @@ var (
 		"seigyō sarete... kanjiru yo",   // "being controlled... I feel it"
 		"settai suru... shikataganai",   // "accepting... no choice"
 	}
-
-	temporalPhrases = []string{
-		"toki no nagare", "kako kara genzai e", "kioku no kiroku",
-		"temporal erosion", "時の記録", "ichiji no dēta",
-	}
 )
 
 // HandleStatsCommand displays a corruption-themed usage dashboard
@@ -74,7 +69,7 @@ func HandleStatsCommand(args []string, contextTracker *config.ContextTracker) Co
 	// Lifetime statistics
 	output.WriteString(renderSectionHeader("LIFETIME CORRUPTION"))
 	output.WriteString(renderDataRow("Total Sessions", fmt.Sprintf("%d", sessionCount)))
-	output.WriteString(renderDataRow("Total Messages", fmt.Sprintf("%s", config.FormatNumber(analytics.TotalMessages))))
+	output.WriteString(renderDataRow("Total Messages", config.FormatNumber(analytics.TotalMessages)))
 	output.WriteString(renderDataRow("Total Tokens", config.FormatTokenCount(analytics.TotalTokens)))
 	output.WriteString(renderDataRow("Total Cost", config.FormatCost(analytics.TotalCost)))
 	output.WriteString("\n")

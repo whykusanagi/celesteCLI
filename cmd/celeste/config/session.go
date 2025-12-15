@@ -136,7 +136,7 @@ func (m *SessionManager) Load(id string) (*Session, error) {
 			if msg.Role == "user" {
 				session.Name = GenerateNameFromMessage(msg.Content)
 				// Save the session with the new name
-				m.Save(&session)
+				_ = m.Save(&session) // Error intentionally ignored - name generation is best-effort
 				break
 			}
 		}

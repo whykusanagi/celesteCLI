@@ -284,8 +284,7 @@ func TestSaveBase64Image(t *testing.T) {
 
 		// Save an image (will create directory)
 		validPNG := base64.StdEncoding.EncodeToString([]byte{0x89, 0x50, 0x4E, 0x47})
-		_, err = saveBase64Image(validPNG, "test")
-		// May error on invalid PNG, but directory should be created
+		_, _ = saveBase64Image(validPNG, "test") // May error on invalid PNG, but directory should be created
 		_, statErr := os.Stat(downloadsDir)
 		assert.NoError(t, statErr, "Downloads dir should be created")
 	})

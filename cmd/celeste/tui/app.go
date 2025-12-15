@@ -63,9 +63,7 @@ type AppModel struct {
 	config *config.Config
 
 	// Context tracking (NEW)
-	contextTracker     *config.ContextTracker
-	showContextWarning bool
-	lastWarningLevel   string
+	contextTracker *config.ContextTracker
 
 	// Interactive selector
 	selector       SelectorModel

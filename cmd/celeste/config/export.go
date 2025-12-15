@@ -70,8 +70,11 @@ func (e *Exporter) ToMarkdown() (string, error) {
 
 	// Messages
 	for _, msg := range e.session.Messages {
-		// Format role
-		role := strings.Title(msg.Role)
+		// Format role (capitalize first letter)
+		role := msg.Role
+		if len(role) > 0 {
+			role = strings.ToUpper(role[:1]) + role[1:]
+		}
 
 		// Timestamp
 		timestamp := msg.Timestamp.Format("2006-01-02 15:04:05")

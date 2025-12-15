@@ -348,8 +348,8 @@ func showProviderInfo(name string, ctx *CommandContext) *CommandResult {
 
 	// Switching recommendation
 	if name != ctx.Provider {
-		output.WriteString(fmt.Sprintf("\n💡 To switch to this provider:\n"))
-		output.WriteString(fmt.Sprintf("   Use the config commands above, or see: ./celeste providers\n"))
+		output.WriteString("\n💡 To switch to this provider:\n")
+		output.WriteString("   Use the config commands above, or see: ./celeste providers\n")
 	}
 
 	return &CommandResult{
@@ -380,14 +380,4 @@ func boolToStatus(b bool) string {
 		return "✓ Yes"
 	}
 	return "✗ No"
-}
-
-func formatNumber(n int) string {
-	if n >= 1000000 {
-		return fmt.Sprintf("%.1fM", float64(n)/1000000)
-	}
-	if n >= 1000 {
-		return fmt.Sprintf("%.1fK", float64(n)/1000)
-	}
-	return fmt.Sprintf("%d", n)
 }
