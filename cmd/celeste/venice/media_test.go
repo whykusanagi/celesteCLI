@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -144,6 +145,10 @@ func TestParseMediaCommandEdgeCases(t *testing.T) {
 
 // TestGetDownloadsDir tests downloads directory resolution
 func TestGetDownloadsDir(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping HOME directory tests on Windows")
+	}
+
 	t.Run("default downloads directory", func(t *testing.T) {
 		// Create temp home directory
 		tmpHome := t.TempDir()
@@ -272,6 +277,10 @@ func TestSaveBase64Image(t *testing.T) {
 	})
 
 	t.Run("creates downloads directory", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("Skipping HOME directory test on Windows")
+		}
+
 		tmpHome := t.TempDir()
 		originalHome := os.Getenv("HOME")
 		os.Setenv("HOME", tmpHome)
