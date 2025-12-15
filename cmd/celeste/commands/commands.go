@@ -127,6 +127,8 @@ func Execute(cmd *Command, ctx *CommandContext) *CommandResult {
 		return handleMenu(cmd)
 	case "skills":
 		return handleSkills(cmd, ctx)
+	case "providers":
+		return HandleProvidersCommand(cmd, ctx)
 	case "session":
 		return handleSession(cmd, ctx)
 	case "context":
