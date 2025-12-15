@@ -400,6 +400,34 @@ Provider management commands validated:
 - `./celeste providers info <name>` - Show provider details
 - `./celeste providers current` - Show current provider
 
+### Overall Test Coverage (v1.2.0)
+
+Comprehensive test suites added across critical packages:
+
+**Package Coverage**:
+- ✅ prompts: 97.1% (16 test functions - persona, NSFW mode, content generation)
+- ✅ providers: 72.8% (27 test functions - registry, models, capabilities)
+- ✅ config: 52.0% (session management, configuration)
+- ✅ commands: 25.8% (17 test functions - includes providers command tests)
+- ✅ venice: 22.6% (9 test functions - media parsing, downloads, base64)
+- ✅ skills: 12.2% (18 test functions - registry, tool definitions)
+- ⏳ llm: 0% (requires HTTP mocking infrastructure)
+- ⏳ tui: 0% (requires Bubble Tea/tcell mocking)
+
+**Total Coverage**: 17.4%
+
+**Run All Tests**:
+```bash
+go test ./cmd/celeste/... -cover
+go test -coverprofile=coverage.out ./cmd/celeste/... && go tool cover -html=coverage.out
+```
+
+**Test Files Added**:
+- `cmd/celeste/prompts/celeste_test.go` (new)
+- `cmd/celeste/venice/media_test.go` (new)
+- `cmd/celeste/commands/commands_test.go` (enhanced)
+- `cmd/celeste/skills/registry_test.go` (enhanced)
+
 ---
 
 ## FAQ
