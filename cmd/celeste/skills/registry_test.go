@@ -348,3 +348,157 @@ func TestSkillParameters(t *testing.T) {
 		})
 	}
 }
+
+// TestHasHandler tests handler existence checking
+func TestHasHandler(t *testing.T) {
+	registry := NewRegistry()
+
+	// Test non-existent handler
+	assert.False(t, registry.HasHandler("nonexistent"), "should return false for non-existent handler")
+
+	// Register handler
+	registry.RegisterHandler("test_handler", func(args map[string]interface{}) (interface{}, error) {
+		return nil, nil
+	})
+
+	// Test registered handler
+	assert.True(t, registry.HasHandler("test_handler"), "should return true for registered handler")
+}
+
+// TestDeleteSkill tests skill deletion
+func TestDeleteSkill(t *testing.T) {
+	registry := NewRegistry()
+
+	// Register a skill
+	skill := Skill{Name: "to_delete", Description: "Will be deleted"}
+	registry.RegisterSkill(skill)
+
+	// Verify it exists
+	_, exists := registry.GetSkill("to_delete")
+	assert.True(t, exists, "skill should exist before deletion")
+
+	// Delete the skill
+	err := registry.DeleteSkill("to_delete")
+	require.NoError(t, err, "deletion should succeed")
+
+	// Verify it's gone
+	_, exists = registry.GetSkill("to_delete")
+	assert.False(t, exists, "skill should not exist after deletion")
+
+	// Try deleting non-existent skill (should succeed silently)
+	err = registry.DeleteSkill("nonexistent")
+	assert.NoError(t, err, "deleting non-existent skill should not error (silently succeeds)")
+}
+
+// TestCount tests skill counting
+func TestCount(t *testing.T) {
+	registry := NewRegistry()
+
+	// Empty registry
+	assert.Equal(t, 0, registry.Count(), "new registry should have 0 skills")
+
+	// Add skills
+	registry.RegisterSkill(Skill{Name: "skill1", Description: "First"})
+	assert.Equal(t, 1, registry.Count(), "should have 1 skill")
+
+	registry.RegisterSkill(Skill{Name: "skill2", Description: "Second"})
+	assert.Equal(t, 2, registry.Count(), "should have 2 skills")
+
+	registry.RegisterSkill(Skill{Name: "skill3", Description: "Third"})
+	assert.Equal(t, 3, registry.Count(), "should have 3 skills")
+
+	// Overwriting should not change count
+	registry.RegisterSkill(Skill{Name: "skill1", Description: "Updated"})
+	assert.Equal(t, 3, registry.Count(), "overwriting should not change count")
+
+	// Delete a skill
+	registry.DeleteSkill("skill2")
+	assert.Equal(t, 2, registry.Count(), "should have 2 skills after deletion")
+}
+
+// TestGetToolDefinitions tests OpenAI tool format generation
+func TestGetToolDefinitions(t *testing.T) {
+	registry := NewRegistry()
+
+	// Empty registry
+	tools := registry.GetToolDefinitions()
+	assert.Empty(t, tools, "empty registry should return no tools")
+
+	// Register some skills
+	skill1 := Skill{
+		Name:        "test_skill_1",
+		Description: "First test skill",
+		Parameters: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"param1": map[string]interface{}{
+					"type":        "string",
+					"description": "First parameter",
+				},
+			},
+			"required": []string{"param1"},
+		},
+	}
+
+	skill2 := Skill{
+		Name:        "test_skill_2",
+		Description: "Second test skill",
+		Parameters: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"param2": map[string]interface{}{
+					"type":        "number",
+					"description": "Second parameter",
+				},
+			},
+		},
+	}
+
+	registry.RegisterSkill(skill1)
+	registry.RegisterSkill(skill2)
+
+	// Get tool definitions
+	tools = registry.GetToolDefinitions()
+	assert.Len(t, tools, 2, "should have 2 tool definitions")
+
+	// Verify structure
+	for _, tool := range tools {
+		assert.Equal(t, "function", tool["type"], "tool type should be function")
+
+		functionDef, ok := tool["function"].(map[string]interface{})
+		require.True(t, ok, "tool should have function definition as map")
+
+		assert.NotEmpty(t, functionDef["name"], "function should have a name")
+		assert.NotEmpty(t, functionDef["description"], "function should have a description")
+		assert.NotNil(t, functionDef["parameters"], "function should have parameters")
+	}
+
+	// Find specific skill in tools
+	var tool1 map[string]interface{}
+	for _, tool := range tools {
+		functionDef := tool["function"].(map[string]interface{})
+		if functionDef["name"] == "test_skill_1" {
+			tool1 = tool
+			break
+		}
+	}
+	require.NotNil(t, tool1, "should find test_skill_1 in tools")
+
+	tool1Func := tool1["function"].(map[string]interface{})
+	assert.Equal(t, "First test skill", tool1Func["description"])
+}
+
+// TestSetSkillsDir tests setting custom skills directory
+func TestSetSkillsDir(t *testing.T) {
+	registry := NewRegistry()
+
+	// Set custom directory
+	customDir := "/custom/skills/path"
+	registry.SetSkillsDir(customDir)
+
+	// Note: No direct way to verify, but we're ensuring no panic
+	// The actual directory is used in LoadSkills
+	assert.NotPanics(t, func() {
+		registry.SetSkillsDir(customDir)
+	}, "setting skills directory should not panic")
+}
