@@ -33,14 +33,14 @@ func TestGetUsagePercentage(t *testing.T) {
 
 	// Test at various levels
 	testCases := []struct {
-		tokens  int
+		tokens   int
 		expected float64
 	}{
 		{0, 0.0},
-		{64000, 0.5},     // 50%
-		{96000, 0.75},    // 75%
-		{108800, 0.85},   // 85%
-		{128000, 1.0},    // 100%
+		{64000, 0.5},   // 50%
+		{96000, 0.75},  // 75%
+		{108800, 0.85}, // 85%
+		{128000, 1.0},  // 100%
 	}
 
 	for _, tc := range testCases {
@@ -60,10 +60,10 @@ func TestGetWarningLevel(t *testing.T) {
 		tokens int
 		level  string
 	}{
-		{50000, "ok"},         // ~39%
-		{96000, "warn"},       // 75%
-		{108800, "caution"},   // 85%
-		{121600, "critical"},  // 95%
+		{50000, "ok"},        // ~39%
+		{96000, "warn"},      // 75%
+		{108800, "caution"},  // 85%
+		{121600, "critical"}, // 95%
 	}
 
 	for _, tc := range testCases {

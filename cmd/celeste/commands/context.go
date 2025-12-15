@@ -9,14 +9,15 @@ import (
 
 // HandleContextCommand handles the /context command and its subcommands.
 // Usage:
-//   /context          - Show current context usage
-//   /context status   - Detailed context breakdown
-//   /context compact  - Manual context compaction (future)
+//
+//	/context          - Show current context usage
+//	/context status   - Detailed context breakdown
+//	/context compact  - Manual context compaction (future)
 func HandleContextCommand(args []string, contextTracker *config.ContextTracker) CommandResult {
 	if contextTracker == nil {
 		return CommandResult{
-			Success:      true,
-			Message:      "📭 No messages in this session yet\n\n" +
+			Success: true,
+			Message: "📭 No messages in this session yet\n\n" +
 				"Context tracking will begin after your first message.\n" +
 				"Send a message to start tracking token usage.",
 			ShouldRender: true,

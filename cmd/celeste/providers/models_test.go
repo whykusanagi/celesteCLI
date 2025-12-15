@@ -34,10 +34,10 @@ func TestNewModelService(t *testing.T) {
 // TestGetStaticModels tests static model lists for all providers
 func TestGetStaticModels(t *testing.T) {
 	tests := []struct {
-		provider       string
-		expectedCount  int
-		hasToolModels  bool
-		checkModelID   string // Specific model to verify
+		provider      string
+		expectedCount int
+		hasToolModels bool
+		checkModelID  string // Specific model to verify
 	}{
 		{"grok", 4, true, "grok-4-1-fast"},
 		{"openai", 4, true, "gpt-4o-mini"},
@@ -99,7 +99,7 @@ func TestGetBestToolModel(t *testing.T) {
 		{"vertex", "gemini-2.0-flash"},
 		{"openrouter", "openai/gpt-4o-mini"},
 		{"digitalocean", ""}, // No preferred tool model
-		{"unknown", ""}, // Unknown provider
+		{"unknown", ""},      // Unknown provider
 	}
 
 	for _, tt := range tests {

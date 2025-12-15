@@ -76,12 +76,12 @@ func TestGetSystemPrompt(t *testing.T) {
 // TestBuildPromptFromEssence tests prompt construction
 func TestBuildPromptFromEssence(t *testing.T) {
 	essence := &CelesteEssence{
-		Version:     "1.0",
-		Character:   "Test Character",
-		Description: "A test character description",
-		CoreRules:   []string{"Rule 1", "Rule 2"},
+		Version:          "1.0",
+		Character:        "Test Character",
+		Description:      "A test character description",
+		CoreRules:        []string{"Rule 1", "Rule 2"},
 		InteractionRules: []string{"Interaction rule 1"},
-		KnowledgeUsage: "Test knowledge usage",
+		KnowledgeUsage:   "Test knowledge usage",
 	}
 	essence.Voice.Style = "Test voice style"
 	essence.Voice.Constraints = []string{"Constraint 1", "Constraint 2"}

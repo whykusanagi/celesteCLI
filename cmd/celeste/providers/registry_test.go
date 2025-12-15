@@ -261,7 +261,7 @@ func TestGeminiProvider(t *testing.T) {
 // TestProviderNotes verifies important notes are documented
 func TestProviderNotes(t *testing.T) {
 	tests := []struct {
-		provider     string
+		provider      string
 		shouldContain string
 	}{
 		{"openai", "Gold standard"},

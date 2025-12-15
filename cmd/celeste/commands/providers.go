@@ -9,10 +9,11 @@ import (
 
 // HandleProvidersCommand handles the /providers command and its subcommands.
 // Usage:
-//   /providers               - List all providers
-//   /providers --tools       - Show only tool-capable providers
-//   /providers info <name>   - Show detailed capabilities
-//   /providers current       - Show current provider info
+//
+//	/providers               - List all providers
+//	/providers --tools       - Show only tool-capable providers
+//	/providers info <name>   - Show detailed capabilities
+//	/providers current       - Show current provider info
 func HandleProvidersCommand(cmd *Command, ctx *CommandContext) *CommandResult {
 	// Parse subcommand
 	if len(cmd.Args) == 0 {

@@ -1533,15 +1533,15 @@ func (m AppModel) handleSessionAction(action *commands.SessionAction) AppModel {
 
 // HeaderModel represents the header bar.
 type HeaderModel struct {
-	width           int
-	nsfwMode        bool
-	endpoint        string
-	model           string
-	imageModel      string // Image generation model (NSFW mode)
-	autoRouted      bool   // Whether the last message was auto-routed
-	skillsEnabled   bool   // Whether skills/function calling is available
+	width            int
+	nsfwMode         bool
+	endpoint         string
+	model            string
+	imageModel       string           // Image generation model (NSFW mode)
+	autoRouted       bool             // Whether the last message was auto-routed
+	skillsEnabled    bool             // Whether skills/function calling is available
 	contextIndicator ContextIndicator // Token usage display
-	showContext     bool   // Whether to show context usage
+	showContext      bool             // Whether to show context usage
 }
 
 // NewHeaderModel creates a new header model.
@@ -1684,13 +1684,13 @@ func (m HeaderModel) View() string {
 
 // StatusModel represents the status bar.
 type StatusModel struct {
-	width            int
-	text             string
-	streaming        bool
-	frame            int
-	warningMessage   string // Context warning message
-	warningLevel     string // "warn", "caution", "critical"
-	showWarning      bool   // Whether to show warning
+	width          int
+	text           string
+	streaming      bool
+	frame          int
+	warningMessage string // Context warning message
+	warningLevel   string // "warn", "caution", "critical"
+	showWarning    bool   // Whether to show warning
 }
 
 // NewStatusModel creates a new status model.

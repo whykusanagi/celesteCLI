@@ -14,12 +14,12 @@ import (
 // TestParseMediaCommand tests parsing various media command formats
 func TestParseMediaCommand(t *testing.T) {
 	tests := []struct {
-		name           string
-		input          string
-		expectType     string
-		expectPrompt   string
-		expectParams   map[string]interface{}
-		expectIsMedia  bool
+		name          string
+		input         string
+		expectType    string
+		expectPrompt  string
+		expectParams  map[string]interface{}
+		expectIsMedia bool
 	}{
 		{
 			name:          "Anime shortcut",

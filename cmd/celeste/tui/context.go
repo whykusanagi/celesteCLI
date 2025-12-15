@@ -12,7 +12,7 @@ type ContextIndicator struct {
 	width           int
 	currentTokens   int
 	maxTokens       int
-	warningLevel    string     // "ok", "warn", "caution", "critical"
+	warningLevel    string // "ok", "warn", "caution", "critical"
 	showPercentage  bool
 	showProgressBar bool
 }

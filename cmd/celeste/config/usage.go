@@ -28,40 +28,40 @@ type PricingTier struct {
 // ModelPricing contains pricing information for various LLM models (2025 rates)
 var ModelPricing = map[string]PricingTier{
 	// OpenAI models
-	"gpt-4o":                    {2.50, 10.00},
-	"gpt-4o-mini":               {0.15, 0.60},
-	"gpt-4o-2024-11-20":         {2.50, 10.00},
-	"gpt-4-turbo":               {10.00, 30.00},
-	"gpt-4":                     {30.00, 60.00},
-	"gpt-3.5-turbo":             {0.50, 1.50},
-	"gpt-3.5-turbo-16k":         {3.00, 4.00},
+	"gpt-4o":            {2.50, 10.00},
+	"gpt-4o-mini":       {0.15, 0.60},
+	"gpt-4o-2024-11-20": {2.50, 10.00},
+	"gpt-4-turbo":       {10.00, 30.00},
+	"gpt-4":             {30.00, 60.00},
+	"gpt-3.5-turbo":     {0.50, 1.50},
+	"gpt-3.5-turbo-16k": {3.00, 4.00},
 
 	// Anthropic Claude models
-	"claude-opus-4.5":           {15.00, 75.00},
-	"claude-sonnet-4":           {3.00, 15.00},
-	"claude-3-5-sonnet-20241022":{3.00, 15.00},
-	"claude-3-5-sonnet-20240620":{3.00, 15.00},
-	"claude-3-opus-20240229":    {15.00, 75.00},
-	"claude-3-sonnet-20240229":  {3.00, 15.00},
-	"claude-3-haiku-20240307":   {0.80, 4.00},
-	"claude-haiku":              {0.80, 4.00},
+	"claude-opus-4.5":            {15.00, 75.00},
+	"claude-sonnet-4":            {3.00, 15.00},
+	"claude-3-5-sonnet-20241022": {3.00, 15.00},
+	"claude-3-5-sonnet-20240620": {3.00, 15.00},
+	"claude-3-opus-20240229":     {15.00, 75.00},
+	"claude-3-sonnet-20240229":   {3.00, 15.00},
+	"claude-3-haiku-20240307":    {0.80, 4.00},
+	"claude-haiku":               {0.80, 4.00},
 
 	// xAI Grok models
-	"grok-4-1-fast":             {5.00, 25.00},
-	"grok-4-1":                  {3.00, 15.00},
-	"grok-4":                    {3.00, 15.00},
-	"grok-3":                    {2.00, 10.00},
-	"grok-2":                    {1.00, 5.00},
+	"grok-4-1-fast": {5.00, 25.00},
+	"grok-4-1":      {3.00, 15.00},
+	"grok-4":        {3.00, 15.00},
+	"grok-3":        {2.00, 10.00},
+	"grok-2":        {1.00, 5.00},
 
 	// Google Gemini models
-	"gemini-2.0-flash-exp":      {0.00, 0.00},  // Free tier
-	"gemini-1.5-pro":            {1.25, 5.00},
-	"gemini-1.5-flash":          {0.075, 0.30},
-	"gemini-1.0-pro":            {0.50, 1.50},
+	"gemini-2.0-flash-exp": {0.00, 0.00}, // Free tier
+	"gemini-1.5-pro":       {1.25, 5.00},
+	"gemini-1.5-flash":     {0.075, 0.30},
+	"gemini-1.0-pro":       {0.50, 1.50},
 
 	// Venice.ai models
-	"venice-uncensored":         {0.00, 0.00},  // Often free/community
-	"llama-3.3-70b":             {0.50, 0.50},
+	"venice-uncensored": {0.00, 0.00}, // Often free/community
+	"llama-3.3-70b":     {0.50, 0.50},
 
 	// OpenRouter (approximate, varies by model)
 	"meta-llama/llama-3.3-70b-instruct": {0.60, 0.60},
