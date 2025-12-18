@@ -109,6 +109,9 @@ type ConfigLoader interface {
 	GetWeatherConfig() (WeatherConfig, error)
 	GetTwitchConfig() (TwitchConfig, error)
 	GetYouTubeConfig() (YouTubeConfig, error)
+	GetIPFSConfig() (IPFSConfig, error)
+	GetAlchemyConfig() (AlchemyConfig, error)
+	GetBlockmonConfig() (BlockmonConfig, error)
 }
 
 // TarotConfig holds tarot function configuration.
@@ -142,6 +145,31 @@ type TwitchConfig struct {
 type YouTubeConfig struct {
 	APIKey         string
 	DefaultChannel string
+}
+
+// IPFSConfig holds IPFS configuration.
+type IPFSConfig struct {
+	Provider       string
+	APIKey         string
+	APISecret      string
+	ProjectID      string
+	GatewayURL     string
+	TimeoutSeconds int
+}
+
+// AlchemyConfig holds Alchemy API configuration.
+type AlchemyConfig struct {
+	APIKey         string
+	DefaultNetwork string
+	TimeoutSeconds int
+}
+
+// BlockmonConfig holds blockchain monitoring configuration.
+type BlockmonConfig struct {
+	AlchemyAPIKey       string
+	WebhookURL          string
+	DefaultNetwork      string
+	PollIntervalSeconds int
 }
 
 // --- Helper Functions for Error Handling ---
