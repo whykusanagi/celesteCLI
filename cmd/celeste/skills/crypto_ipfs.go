@@ -421,7 +421,7 @@ func handleIPFSListPins(ctx context.Context, client *ipfsapi.HttpApi) (interface
 	// Convert to string array
 	var cidList []string
 	for pin := range pins {
-		if pin.Err != nil {
+		if pin.Err() != nil {
 			continue
 		}
 		cidList = append(cidList, pin.Path().Cid().String())

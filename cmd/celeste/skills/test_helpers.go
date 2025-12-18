@@ -7,18 +7,24 @@ import (
 
 // MockConfigLoader provides a mock implementation of configuration loading for testing
 type MockConfigLoader struct {
-	TarotCfg   TarotConfig
-	VeniceCfg  VeniceConfig
-	WeatherCfg WeatherConfig
-	TwitchCfg  TwitchConfig
-	YouTubeCfg YouTubeConfig
+	TarotCfg    TarotConfig
+	VeniceCfg   VeniceConfig
+	WeatherCfg  WeatherConfig
+	TwitchCfg   TwitchConfig
+	YouTubeCfg  YouTubeConfig
+	IPFSCfg     IPFSConfig
+	AlchemyCfg  AlchemyConfig
+	BlockmonCfg BlockmonConfig
 
 	// Error flags to simulate missing config
-	TarotError   error
-	VeniceError  error
-	WeatherError error
-	TwitchError  error
-	YouTubeError error
+	TarotError    error
+	VeniceError   error
+	WeatherError  error
+	TwitchError   error
+	YouTubeError  error
+	IPFSError     error
+	AlchemyError  error
+	BlockmonError error
 }
 
 // GetTarotConfig returns mock tarot configuration
@@ -61,6 +67,30 @@ func (m *MockConfigLoader) GetYouTubeConfig() (YouTubeConfig, error) {
 	return m.YouTubeCfg, nil
 }
 
+// GetIPFSConfig returns mock IPFS configuration
+func (m *MockConfigLoader) GetIPFSConfig() (IPFSConfig, error) {
+	if m.IPFSError != nil {
+		return IPFSConfig{}, m.IPFSError
+	}
+	return m.IPFSCfg, nil
+}
+
+// GetAlchemyConfig returns mock Alchemy configuration
+func (m *MockConfigLoader) GetAlchemyConfig() (AlchemyConfig, error) {
+	if m.AlchemyError != nil {
+		return AlchemyConfig{}, m.AlchemyError
+	}
+	return m.AlchemyCfg, nil
+}
+
+// GetBlockmonConfig returns mock blockchain monitoring configuration
+func (m *MockConfigLoader) GetBlockmonConfig() (BlockmonConfig, error) {
+	if m.BlockmonError != nil {
+		return BlockmonConfig{}, m.BlockmonError
+	}
+	return m.BlockmonCfg, nil
+}
+
 // NewMockConfigLoader creates a mock config loader with default values
 func NewMockConfigLoader() *MockConfigLoader {
 	return &MockConfigLoader{
@@ -84,17 +114,38 @@ func NewMockConfigLoader() *MockConfigLoader {
 		YouTubeCfg: YouTubeConfig{
 			APIKey: "mock-youtube-key",
 		},
+		IPFSCfg: IPFSConfig{
+			Provider:       "infura",
+			APIKey:         "mock-ipfs-key",
+			APISecret:      "mock-ipfs-secret",
+			ProjectID:      "mock-project-id",
+			GatewayURL:     "https://ipfs.infura.io",
+			TimeoutSeconds: 30,
+		},
+		AlchemyCfg: AlchemyConfig{
+			APIKey:         "mock-alchemy-key",
+			DefaultNetwork: "eth-mainnet",
+			TimeoutSeconds: 10,
+		},
+		BlockmonCfg: BlockmonConfig{
+			AlchemyAPIKey:       "mock-alchemy-key",
+			DefaultNetwork:      "eth-mainnet",
+			PollIntervalSeconds: 15,
+		},
 	}
 }
 
 // NewMockConfigLoaderWithErrors creates a mock that returns errors for all configs
 func NewMockConfigLoaderWithErrors() *MockConfigLoader {
 	return &MockConfigLoader{
-		TarotError:   fmt.Errorf("tarot config not found"),
-		VeniceError:  fmt.Errorf("venice config not found"),
-		WeatherError: fmt.Errorf("weather config not found"),
-		TwitchError:  fmt.Errorf("twitch config not found"),
-		YouTubeError: fmt.Errorf("youtube config not found"),
+		TarotError:    fmt.Errorf("tarot config not found"),
+		VeniceError:   fmt.Errorf("venice config not found"),
+		WeatherError:  fmt.Errorf("weather config not found"),
+		TwitchError:   fmt.Errorf("twitch config not found"),
+		YouTubeError:  fmt.Errorf("youtube config not found"),
+		IPFSError:     fmt.Errorf("IPFS config not found"),
+		AlchemyError:  fmt.Errorf("Alchemy config not found"),
+		BlockmonError: fmt.Errorf("blockchain monitoring config not found"),
 	}
 }
 
