@@ -1,0 +1,274 @@
+# IPFS Setup Guide
+
+This guide explains how to configure and use the IPFS (InterPlanetary File System) skill in Celeste CLI for decentralized content storage and retrieval.
+
+## Overview
+
+The IPFS skill allows you to:
+- Upload content to IPFS (returns a Content Identifier - CID)
+- Download content by CID
+- Pin and unpin content for persistence
+- List all pinned content
+- Support multiple IPFS providers (Infura, Pinata, custom nodes)
+
+## Supported Providers
+
+### 1. Infura IPFS (Recommended)
+
+Infura provides a hosted IPFS service with generous free tier limits.
+
+**Getting Started:**
+1. Sign up at [infura.io](https://infura.io)
+2. Create a new project
+3. Navigate to IPFS under your project
+4. Copy your **Project ID** and **API Key Secret**
+
+**Configuration:**
+```bash
+# Set via environment variable
+export CELESTE_IPFS_API_KEY=your_project_id:your_api_secret
+
+# Or configure via celeste config
+celeste config --set-ipfs-provider infura
+celeste config --set-ipfs-project-id YOUR_PROJECT_ID
+celeste config --set-ipfs-secret YOUR_API_SECRET
+```
+
+**skills.json format:**
+```json
+{
+  "ipfs_provider": "infura",
+  "ipfs_project_id": "YOUR_PROJECT_ID",
+  "ipfs_api_secret": "YOUR_API_SECRET",
+  "ipfs_gateway_url": "https://ipfs.infura.io",
+  "ipfs_timeout_seconds": 30
+}
+```
+
+### 2. Pinata
+
+Pinata offers dedicated IPFS pinning services with advanced features.
+
+**Getting Started:**
+1. Sign up at [pinata.cloud](https://pinata.cloud)
+2. Generate an API key from your account settings
+3. Copy your API Key and API Secret
+
+**Configuration:**
+```json
+{
+  "ipfs_provider": "pinata",
+  "ipfs_api_key": "YOUR_PINATA_API_KEY",
+  "ipfs_api_secret": "YOUR_PINATA_SECRET",
+  "ipfs_gateway_url": "https://gateway.pinata.cloud",
+  "ipfs_timeout_seconds": 30
+}
+```
+
+### 3. Custom IPFS Node
+
+Use your own IPFS node or a third-party gateway.
+
+**Configuration:**
+```json
+{
+  "ipfs_provider": "custom",
+  "ipfs_gateway_url": "/ip4/127.0.0.1/tcp/5001",
+  "ipfs_timeout_seconds": 30
+}
+```
+
+## Configuration Methods
+
+### Method 1: Environment Variable
+```bash
+export CELESTE_IPFS_API_KEY="project_id:api_secret"
+```
+
+### Method 2: skills.json File
+Edit `~/.celeste/skills.json`:
+```json
+{
+  "ipfs_provider": "infura",
+  "ipfs_project_id": "YOUR_PROJECT_ID",
+  "ipfs_api_secret": "YOUR_API_SECRET",
+  "ipfs_gateway_url": "https://ipfs.infura.io",
+  "ipfs_timeout_seconds": 30
+}
+```
+
+## Usage Examples
+
+### Upload Content
+```bash
+# Upload a string to IPFS
+celeste skill ipfs --operation upload --content "Hello, decentralized world!"
+
+# Returns:
+{
+  "success": true,
+  "cid": "QmXxx...abc",
+  "size": 28,
+  "gateway_url": "https://ipfs.io/ipfs/QmXxx...abc",
+  "message": "Content successfully uploaded to IPFS"
+}
+```
+
+### Download Content
+```bash
+# Download content by CID
+celeste skill ipfs --operation download --cid QmXxx...abc
+
+# Returns:
+{
+  "success": true,
+  "cid": "QmXxx...abc",
+  "content": "Hello, decentralized world!",
+  "size": 28,
+  "message": "Content successfully downloaded from IPFS"
+}
+```
+
+### Pin Content
+```bash
+# Pin content to keep it available
+celeste skill ipfs --operation pin --cid QmXxx...abc
+
+# Returns:
+{
+  "success": true,
+  "cid": "QmXxx...abc",
+  "message": "Content successfully pinned on IPFS"
+}
+```
+
+### Unpin Content
+```bash
+# Unpin content to free up storage
+celeste skill ipfs --operation unpin --cid QmXxx...abc
+
+# Returns:
+{
+  "success": true,
+  "cid": "QmXxx...abc",
+  "message": "Content successfully unpinned from IPFS"
+}
+```
+
+### List Pins
+```bash
+# List all pinned content
+celeste skill ipfs --operation list_pins
+
+# Returns:
+{
+  "success": true,
+  "pins": ["QmXxx...abc", "QmYyy...def", "QmZzz...ghi"],
+  "count": 3,
+  "message": "Found 3 pinned items"
+}
+```
+
+## Use Cases
+
+### 1. Decentralized Content Storage
+Store files, images, or data permanently without relying on centralized servers.
+
+### 2. NFT Metadata
+Upload and retrieve NFT metadata and assets using content-addressed CIDs.
+
+### 3. Data Sharing
+Share content via immutable CIDs that anyone can access from IPFS gateways.
+
+### 4. Backup and Archival
+Create permanent backups of important data with cryptographic verification.
+
+### 5. Distributed Applications
+Build dApps that store and retrieve content from IPFS.
+
+## Technical Details
+
+### Libraries Used
+- **go-ipfs-http-client** (v0.7.0) - Official IPFS HTTP API client
+- **go-cid** (v0.6.0) - Content Identifier handling
+- **go-multiaddr** (v0.9.0) - Multiaddr format for IPFS endpoints
+
+### Authentication
+- **Infura**: Basic Auth with `Project-ID:API-Secret` in base64
+- **Pinata**: API key headers (`pinata_api_key`, `pinata_secret_api_key`)
+- **Custom**: No authentication (local node)
+
+### Content Identifiers (CIDs)
+IPFS uses CIDs to uniquely identify content. CIDs are:
+- **Content-addressed**: Same content = same CID
+- **Immutable**: Content cannot be changed after upload
+- **Cryptographically secure**: SHA-256 hashed
+
+Example CID: `QmXnnyufdzAWL5CqZ2RnSNgPbvCc1ALT73s6epPrRnZ1Xy`
+
+### Gateway URLs
+Public IPFS gateways allow HTTP access to IPFS content:
+- `https://ipfs.io/ipfs/<CID>`
+- `https://cloudflare-ipfs.com/ipfs/<CID>`
+- `https://gateway.pinata.cloud/ipfs/<CID>`
+
+## Troubleshooting
+
+### Error: "IPFS configuration is required"
+**Solution**: Set the IPFS API key via environment variable or skills.json.
+
+### Error: "Invalid CID"
+**Solution**: Verify the CID format. CIDs should start with `Qm` (v0) or `baf` (v1).
+
+### Error: "Failed to connect to IPFS"
+**Solution**:
+- Check your API credentials
+- Verify network connectivity
+- Ensure the IPFS endpoint is accessible
+- For local nodes, ensure IPFS daemon is running (`ipfs daemon`)
+
+### Error: "Timeout"
+**Solution**: Increase `ipfs_timeout_seconds` in configuration. Large files may take longer.
+
+### Error: "Content not found"
+**Solution**: The CID may not be pinned or available on the network. Try pinning it first.
+
+## Best Practices
+
+1. **Pin Important Content**: Always pin content you want to keep available
+2. **Use Unique CIDs**: CIDs are content-addressed, so duplicate content returns the same CID
+3. **Gateway Selection**: Use reliable gateways (Infura, Pinata, Cloudflare) for production
+4. **Backup CIDs**: Store CIDs in a database or file for later retrieval
+5. **Monitor Storage**: Track pinned content to manage storage quotas
+
+## Cost Considerations
+
+### Infura Free Tier
+- 5GB storage
+- 100GB bandwidth per month
+- Unlimited requests
+
+### Pinata Free Tier
+- 1GB storage
+- Unlimited pins
+- Unlimited gateway requests
+
+### Self-Hosted
+- Hardware/VPS costs
+- Bandwidth costs
+- Maintenance time
+
+## Security Notes
+
+- **Never commit API keys to version control**
+- Use environment variables in CI/CD pipelines
+- Rotate API keys periodically
+- Monitor API usage for anomalies
+- Use separate keys for development and production
+
+## Further Reading
+
+- [IPFS Documentation](https://docs.ipfs.io)
+- [Infura IPFS Guide](https://docs.infura.io/infura/networks/ipfs)
+- [Pinata Documentation](https://docs.pinata.cloud)
+- [Content Addressing](https://docs.ipfs.io/concepts/content-addressing/)

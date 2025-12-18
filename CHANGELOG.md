@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2025-12-18
+
+### Added
+- **IPFS Integration** - Decentralized content management
+  - Upload and download content via IPFS (returns CID)
+  - Pin management (pin, unpin, list pins)
+  - Multi-provider support (Infura, Pinata, custom nodes)
+  - Gateway URL generation for public access
+  - Official go-ipfs-http-client library integration
+- **Alchemy Blockchain API** - Comprehensive blockchain data access
+  - Wallet operations: ETH/token balances, transaction history, asset transfers
+  - Token data: Real-time metadata and comprehensive token information
+  - NFT APIs: Query NFTs by owner, metadata, collection info
+  - Transaction monitoring: Gas prices, transaction receipts, block information
+  - Multi-network support: Ethereum, Arbitrum, Optimism, Polygon, Base (mainnet + testnets)
+  - JSON-RPC interface with proper error handling
+- **Blockchain Monitoring** - Real-time blockchain event tracking
+  - Watch addresses for new transactions across multiple blocks
+  - Get latest block information with transaction details
+  - Query specific blocks by number (hex or decimal)
+  - Asset transfer tracking (external, internal, ERC20, ERC721, ERC1155)
+  - Network-specific monitoring with configurable poll intervals
+- **Modern Crypto Utilities**
+  - Ethereum address validation using go-ethereum (EIP-55 checksumming)
+  - Wei ↔ Ether ↔ Gwei conversion helpers with big.Int precision
+  - Production-ready rate limiting using golang.org/x/time/rate
+  - Multi-network URL construction and validation
+  - Chain ID support for all major networks
+- **Enhanced Configuration System**
+  - Network-specific settings for L2 support
+  - Environment variable overrides for CI/CD (`CELESTE_IPFS_API_KEY`, `CELESTE_ALCHEMY_API_KEY`)
+  - Flexible provider configuration (Infura, Pinata, custom endpoints)
+  - Crypto-specific config fields in config.json and skills.json
+  - ConfigLoader interface with GetIPFSConfig(), GetAlchemyConfig(), GetBlockmonConfig()
+
+### Changed
+- Upgraded to modern production-grade Go crypto libraries:
+  - `github.com/ethereum/go-ethereum@v1.16.7` - Official Ethereum Go implementation
+  - `github.com/ipfs/go-ipfs-http-client@v0.7.0` - Official IPFS HTTP client
+  - `github.com/ipfs/go-cid@v0.6.0` - Content Identifier handling
+  - `golang.org/x/time@v0.14.0` - Token bucket rate limiting
+- Improved error handling for external API integrations
+- Enhanced skills.json structure for crypto service configuration
+- Better address normalization with proper checksum validation
+
+### Documentation
+- Added `docs/IPFS_SETUP.md` - Infura IPFS configuration guide
+- Added `docs/ALCHEMY_SETUP.md` - Alchemy API setup and usage
+- Added `docs/BLOCKCHAIN_MONITORING.md` - Real-time monitoring guide
+
 ## [1.1.0] - 2025-12-14
 
 ### Added
@@ -132,7 +182,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Release Links
 
-- [Unreleased](https://github.com/whykusanagi/celesteCLI/compare/v1.1.0...HEAD)
+- [Unreleased](https://github.com/whykusanagi/celesteCLI/compare/v1.3.0...HEAD)
+- [1.3.0](https://github.com/whykusanagi/celesteCLI/compare/v1.1.0...v1.3.0)
 - [1.1.0](https://github.com/whykusanagi/celesteCLI/compare/v1.0.2...v1.1.0)
 - [1.0.2](https://github.com/whykusanagi/celesteCLI/releases/tag/v1.0.2)
 - [1.0.0](https://github.com/whykusanagi/celesteCLI/releases/tag/v1.0.0)

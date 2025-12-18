@@ -100,6 +100,9 @@ func RegisterBuiltinSkills(registry *Registry, configLoader ConfigLoader) {
 	registry.RegisterHandler("list_notes", func(args map[string]interface{}) (interface{}, error) {
 		return ListNotesHandler(args)
 	})
+
+	// Register crypto skills (IPFS, Alchemy, Blockchain Monitoring)
+	RegisterCryptoSkills(registry, configLoader)
 }
 
 // ConfigLoader provides access to configuration values.

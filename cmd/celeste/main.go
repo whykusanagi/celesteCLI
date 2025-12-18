@@ -26,7 +26,7 @@ import (
 
 // Version information
 const (
-	Version = "1.2.0-dev"
+	Version = "1.3.0"
 	Build   = "bubbletea-tui"
 )
 
@@ -710,6 +710,10 @@ func runConfigCommand(args []string) {
 	simulateTyping := fs.String("simulate-typing", "", "Simulate typing (true/false)")
 	typingSpeed := fs.Int("typing-speed", 0, "Typing speed (chars/sec)")
 
+	// Google Cloud authentication flags
+	setGoogleCredentials := fs.String("set-google-credentials", "", "Set Google Cloud service account JSON file path")
+	useGoogleADC := fs.Bool("use-google-adc", false, "Enable Google Application Default Credentials (auto-detect)")
+
 	// Skill configuration flags
 	setTarotToken := fs.String("set-tarot-token", "", "Set tarot auth token (saved to skills.json)")
 	setVeniceKey := fs.String("set-venice-key", "", "Set Venice.ai API key (saved to skills.json)")
@@ -788,6 +792,24 @@ func runConfigCommand(args []string) {
 		cfg.TypingSpeed = *typingSpeed
 		changed = true
 		fmt.Printf("Typing speed: %d chars/sec\n", cfg.TypingSpeed)
+	}
+
+	// Handle Google Cloud authentication
+	if *setGoogleCredentials != "" {
+		cfg.GoogleCredentialsFile = *setGoogleCredentials
+		cfg.GoogleUseADC = false
+		changed = true
+		fmt.Printf("✓ Google credentials file: %s\n", *setGoogleCredentials)
+		fmt.Println("  Authentication will use the service account JSON file")
+	}
+	if *useGoogleADC {
+		cfg.GoogleUseADC = true
+		cfg.GoogleCredentialsFile = ""
+		cfg.APIKey = "" // Clear manual API key when using ADC
+		changed = true
+		fmt.Println("✓ Google ADC enabled (will auto-detect credentials)")
+		fmt.Println("  Run: gcloud auth application-default login")
+		fmt.Println("  Or set: GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json")
 	}
 
 	// Handle skill configuration
