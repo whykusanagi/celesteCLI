@@ -2,6 +2,19 @@
 
 This guide explains how to configure and use the IPFS (InterPlanetary File System) skill in Celeste CLI for decentralized content storage and retrieval.
 
+## ⚠️ Important: Provider Compatibility
+
+The IPFS skill uses the official `go-ipfs-http-client` library which requires providers that support the **standard IPFS HTTP API**.
+
+**✅ Currently Supported:**
+- Infura IPFS (recommended - tested and working)
+- Local IPFS nodes
+- Any provider supporting standard IPFS HTTP API
+
+**❌ Not Currently Supported:**
+- Pinata (uses custom REST API, not standard IPFS HTTP API)
+- Future enhancement planned for Pinata-specific implementation
+
 ## Overview
 
 The IPFS skill allows you to:
@@ -9,7 +22,7 @@ The IPFS skill allows you to:
 - Download content by CID
 - Pin and unpin content for persistence
 - List all pinned content
-- Support multiple IPFS providers (Infura, Pinata, custom nodes)
+- Support for Infura IPFS and local IPFS nodes
 
 ## Supported Providers
 
@@ -45,25 +58,11 @@ celeste config --set-ipfs-secret YOUR_API_SECRET
 }
 ```
 
-### 2. Pinata
+### 2. Pinata (Future Enhancement)
 
-Pinata offers dedicated IPFS pinning services with advanced features.
+⚠️ **Note**: Pinata is not currently supported as it uses a custom REST API instead of the standard IPFS HTTP API. A Pinata-specific implementation is planned for a future release.
 
-**Getting Started:**
-1. Sign up at [pinata.cloud](https://pinata.cloud)
-2. Generate an API key from your account settings
-3. Copy your API Key and API Secret
-
-**Configuration:**
-```json
-{
-  "ipfs_provider": "pinata",
-  "ipfs_api_key": "YOUR_PINATA_API_KEY",
-  "ipfs_api_secret": "YOUR_PINATA_SECRET",
-  "ipfs_gateway_url": "https://gateway.pinata.cloud",
-  "ipfs_timeout_seconds": 30
-}
-```
+For now, please use Infura IPFS or a local IPFS node.
 
 ### 3. Custom IPFS Node
 
