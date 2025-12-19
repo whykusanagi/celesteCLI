@@ -22,13 +22,7 @@ The Alchemy skill provides:
 
 ### 2. Configure Celeste CLI
 
-**Method 1: Environment Variable**
-```bash
-export CELESTE_ALCHEMY_API_KEY="your_api_key_here"
-```
-
-**Method 2: skills.json Configuration**
-Edit `~/.celeste/skills.json`:
+Edit `~/.celeste/config.json` and add:
 ```json
 {
   "alchemy_api_key": "your_api_key_here",
@@ -36,6 +30,8 @@ Edit `~/.celeste/skills.json`:
   "alchemy_timeout_seconds": 10
 }
 ```
+
+**Note**: API keys are stored securely in the config file. Never use environment variables as they can be accessed by any process on your system.
 
 ## Supported Networks
 
@@ -324,7 +320,7 @@ Examples:
 ### Common Errors
 
 **"Alchemy API key is required"**
-- Solution: Set `CELESTE_ALCHEMY_API_KEY` environment variable
+- Solution: Add `alchemy_api_key` to `~/.celeste/config.json`
 
 **"Invalid Ethereum address"**
 - Solution: Verify address format (0x followed by 40 hex characters)

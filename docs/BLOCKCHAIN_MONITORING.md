@@ -19,7 +19,8 @@ The blockchain monitoring skill uses the same Alchemy API as the Alchemy skill.
 
 **Method 1: Environment Variable**
 ```bash
-export CELESTE_ALCHEMY_API_KEY="your_api_key_here"
+# Add to ~/.celeste/config.json:
+# "alchemy_api_key": "your_api_key_here"
 ```
 
 **Method 2: skills.json Configuration**
@@ -377,7 +378,7 @@ All addresses are normalized to EIP-55 checksummed format:
 ### Common Errors
 
 **"Alchemy API key is required"**
-- Solution: Configure `CELESTE_ALCHEMY_API_KEY` or `blockmon_alchemy_api_key`
+- Solution: Configure `alchemy_api_key` in `~/.celeste/config.json`
 
 **"Address is required"**
 - Solution: Provide `--address` parameter for watch_address operation

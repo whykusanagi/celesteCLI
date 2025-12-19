@@ -13,7 +13,8 @@ Monitor your Ethereum wallets for security threats including dust attacks, NFT s
 Wallet security monitoring uses the Alchemy API to track blockchain transactions:
 
 ```bash
-export CELESTE_ALCHEMY_API_KEY="your_alchemy_key"
+# Add to ~/.celeste/config.json:
+# "alchemy_api_key": "your_alchemy_key"
 ```
 
 Or configure via config file:

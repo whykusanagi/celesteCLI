@@ -37,17 +37,7 @@ Infura provides a hosted IPFS service with generous free tier limits.
 4. Copy your **Project ID** and **API Key Secret**
 
 **Configuration:**
-```bash
-# Set via environment variable
-export CELESTE_IPFS_API_KEY=your_project_id:your_api_secret
-
-# Or configure via celeste config
-celeste config --set-ipfs-provider infura
-celeste config --set-ipfs-project-id YOUR_PROJECT_ID
-celeste config --set-ipfs-secret YOUR_API_SECRET
-```
-
-**skills.json format:**
+**Edit `~/.celeste/config.json`:**
 ```json
 {
   "ipfs_provider": "infura",
@@ -79,13 +69,9 @@ Use your own IPFS node or a third-party gateway.
 
 ## Configuration Methods
 
-### Method 1: Environment Variable
-```bash
-export CELESTE_IPFS_API_KEY="project_id:api_secret"
-```
+### Configuration File
 
-### Method 2: skills.json File
-Edit `~/.celeste/skills.json`:
+Edit `~/.celeste/config.json`:
 ```json
 {
   "ipfs_provider": "infura",

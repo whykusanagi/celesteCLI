@@ -295,26 +295,6 @@ func LoadNamed(name string) (*Config, error) {
 		}
 	}
 
-	// Override with environment variables
-	if apiKey := os.Getenv("CELESTE_API_KEY"); apiKey != "" {
-		config.APIKey = apiKey
-	}
-	if endpoint := os.Getenv("CELESTE_API_ENDPOINT"); endpoint != "" {
-		config.BaseURL = endpoint
-	}
-	if veniceKey := os.Getenv("VENICE_API_KEY"); veniceKey != "" {
-		config.VeniceAPIKey = veniceKey
-	}
-	if tarotToken := os.Getenv("TAROT_AUTH_TOKEN"); tarotToken != "" {
-		config.TarotAuthToken = tarotToken
-	}
-	if ipfsKey := os.Getenv("CELESTE_IPFS_API_KEY"); ipfsKey != "" {
-		config.IPFSAPIKey = ipfsKey
-	}
-	if alchemyKey := os.Getenv("CELESTE_ALCHEMY_API_KEY"); alchemyKey != "" {
-		config.AlchemyAPIKey = alchemyKey
-	}
-
 	return config, nil
 }
 
@@ -459,26 +439,6 @@ func Load() (*Config, error) {
 		if skillsConfig.BlockmonPollIntervalSeconds > 0 {
 			config.BlockmonPollIntervalSeconds = skillsConfig.BlockmonPollIntervalSeconds
 		}
-	}
-
-	// Override with environment variables
-	if apiKey := os.Getenv("CELESTE_API_KEY"); apiKey != "" {
-		config.APIKey = apiKey
-	}
-	if endpoint := os.Getenv("CELESTE_API_ENDPOINT"); endpoint != "" {
-		config.BaseURL = endpoint
-	}
-	if veniceKey := os.Getenv("VENICE_API_KEY"); veniceKey != "" {
-		config.VeniceAPIKey = veniceKey
-	}
-	if tarotToken := os.Getenv("TAROT_AUTH_TOKEN"); tarotToken != "" {
-		config.TarotAuthToken = tarotToken
-	}
-	if ipfsKey := os.Getenv("CELESTE_IPFS_API_KEY"); ipfsKey != "" {
-		config.IPFSAPIKey = ipfsKey
-	}
-	if alchemyKey := os.Getenv("CELESTE_ALCHEMY_API_KEY"); alchemyKey != "" {
-		config.AlchemyAPIKey = alchemyKey
 	}
 
 	return config, nil
