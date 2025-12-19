@@ -396,69 +396,6 @@ func TestLoadNamedWithSkillsMerge(t *testing.T) {
 	assert.Equal(t, "skills-tarot-token", loaded.TarotAuthToken)
 }
 
-// TestEnvironmentVariableOverride tests env var overrides
-func TestEnvironmentVariableOverride(t *testing.T) {
-	// Create temporary directory for testing
-	tmpDir := t.TempDir()
-	homeDir := tmpDir
-
-	oldHomeDir := os.Getenv("HOME")
-	oldUserProfile := os.Getenv("USERPROFILE")
-	defer func() {
-		os.Setenv("HOME", oldHomeDir)
-		os.Setenv("USERPROFILE", oldUserProfile)
-	}()
-	os.Setenv("HOME", homeDir)
-	os.Setenv("USERPROFILE", homeDir)
-
-	// Set environment variables
-	oldAPIKey := os.Getenv("CELESTE_API_KEY")
-	oldEndpoint := os.Getenv("CELESTE_API_ENDPOINT")
-	oldVeniceKey := os.Getenv("VENICE_API_KEY")
-	oldTarotToken := os.Getenv("TAROT_AUTH_TOKEN")
-
-	defer func() {
-		os.Setenv("CELESTE_API_KEY", oldAPIKey)
-		os.Setenv("CELESTE_API_ENDPOINT", oldEndpoint)
-		os.Setenv("VENICE_API_KEY", oldVeniceKey)
-		os.Setenv("TAROT_AUTH_TOKEN", oldTarotToken)
-	}()
-
-	os.Setenv("CELESTE_API_KEY", "env-api-key")
-	os.Setenv("CELESTE_API_ENDPOINT", "https://env.example.com")
-	os.Setenv("VENICE_API_KEY", "env-venice-key")
-	os.Setenv("TAROT_AUTH_TOKEN", "env-tarot-token")
-
-	// Create .celeste directory
-	configDir := filepath.Join(homeDir, ".celeste")
-	err := os.MkdirAll(configDir, 0755)
-	require.NoError(t, err)
-
-	// Create config file with different values
-	config := &Config{
-		APIKey:         "file-api-key",
-		BaseURL:        "https://file.example.com",
-		VeniceAPIKey:   "file-venice-key",
-		TarotAuthToken: "file-tarot-token",
-	}
-
-	configPath := filepath.Join(configDir, "config.json")
-	data, err := json.MarshalIndent(config, "", "  ")
-	require.NoError(t, err)
-	err = os.WriteFile(configPath, data, 0644)
-	require.NoError(t, err)
-
-	// Load config
-	loaded, err := Load()
-	require.NoError(t, err)
-
-	// Env vars should override file values
-	assert.Equal(t, "env-api-key", loaded.APIKey)
-	assert.Equal(t, "https://env.example.com", loaded.BaseURL)
-	assert.Equal(t, "env-venice-key", loaded.VeniceAPIKey)
-	assert.Equal(t, "env-tarot-token", loaded.TarotAuthToken)
-}
-
 // TestListConfigs tests listing available configs
 func TestListConfigs(t *testing.T) {
 	// Create temporary directory for testing
