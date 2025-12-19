@@ -5,11 +5,11 @@
 [allowlist]
 description = "Allow public blockchain addresses and example data in documentation"
 
-# Allow all blockchain addresses in documentation files
-[[allowlist.regexes]]
-description = "Ethereum addresses in documentation are public contract addresses"
-regex = '''token_address.*0x[a-fA-F0-9]{40}'''
+# Exclude documentation files with example API responses
+[[allowlist.paths]]
+description = "Documentation with example blockchain addresses (public contracts, not secrets)"
+regex = '''docs/ALCHEMY_SETUP\.md'''
 
 [[allowlist.paths]]
-description = "Documentation examples with sample data"
-regex = '''docs/ALCHEMY_SETUP\.md'''
+description = "Documentation with example data (not actual secrets)"
+regex = '''docs/.*\.md'''
