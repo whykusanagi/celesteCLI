@@ -64,10 +64,10 @@ type Config struct {
 	YouTubeDefaultChannel string `json:"youtube_default_channel,omitempty"`
 
 	// IPFS settings
-	IPFSProvider       string `json:"ipfs_provider,omitempty"`        // "infura", "pinata", "custom"
+	IPFSProvider       string `json:"ipfs_provider,omitempty"` // "infura", "pinata", "custom"
 	IPFSAPIKey         string `json:"ipfs_api_key,omitempty"`
 	IPFSAPISecret      string `json:"ipfs_api_secret,omitempty"`
-	IPFSProjectID      string `json:"ipfs_project_id,omitempty"`      // Infura specific
+	IPFSProjectID      string `json:"ipfs_project_id,omitempty"` // Infura specific
 	IPFSGatewayURL     string `json:"ipfs_gateway_url,omitempty"`
 	IPFSTimeoutSeconds int    `json:"ipfs_timeout_seconds,omitempty"`
 
@@ -81,6 +81,11 @@ type Config struct {
 	BlockmonWebhookURL          string `json:"blockmon_webhook_url,omitempty"`
 	BlockmonDefaultNetwork      string `json:"blockmon_default_network,omitempty"`
 	BlockmonPollIntervalSeconds int    `json:"blockmon_poll_interval_seconds,omitempty"`
+
+	// Wallet security settings
+	WalletSecurityEnabled      bool   `json:"wallet_security_enabled,omitempty"`
+	WalletSecurityPollInterval int    `json:"wallet_security_poll_interval,omitempty"` // seconds
+	WalletSecurityAlertLevel   string `json:"wallet_security_alert_level,omitempty"`   // "low", "medium", "high", "critical"
 }
 
 // DefaultConfig returns a config with default values.
@@ -681,6 +686,25 @@ func (l *ConfigLoader) GetBlockmonConfig() (skills.BlockmonConfig, error) {
 		WebhookURL:          l.config.BlockmonWebhookURL,
 		DefaultNetwork:      network,
 		PollIntervalSeconds: pollInterval,
+	}, nil
+}
+
+// GetWalletSecurityConfig returns wallet security monitoring configuration.
+func (l *ConfigLoader) GetWalletSecurityConfig() (skills.WalletSecuritySettingsConfig, error) {
+	pollInterval := l.config.WalletSecurityPollInterval
+	if pollInterval == 0 {
+		pollInterval = 300 // 5 minutes default
+	}
+
+	alertLevel := l.config.WalletSecurityAlertLevel
+	if alertLevel == "" {
+		alertLevel = "medium"
+	}
+
+	return skills.WalletSecuritySettingsConfig{
+		Enabled:      l.config.WalletSecurityEnabled,
+		PollInterval: pollInterval,
+		AlertLevel:   alertLevel,
 	}, nil
 }
 

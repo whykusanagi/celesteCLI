@@ -7,6 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2025-12-18
+
+### Added
+- **Wallet Security Monitoring** - Comprehensive wallet threat detection and alerting
+  - Monitor multiple wallet addresses across networks (Ethereum, Polygon, Arbitrum, Optimism, Base)
+  - Real-time polling every 5 minutes (configurable)
+  - 6 wallet management operations: add, remove, list, check security, get alerts, acknowledge alerts
+  - 4 threat detection types:
+    - **Dust attacks** - Detect tiny value transfers (< 0.001 ETH) used for address poisoning
+    - **NFT scams** - Flag unsolicited NFT transfers from unknown contracts
+    - **Large transfers** - Alert on significant outgoing funds (> 1 ETH or > 10% of balance)
+    - **Dangerous approvals** - Detect unlimited token approvals (2^256-1) and high-value approvals
+  - Alert system with severity-based classification (critical, high, medium, low)
+  - Persistent alert history stored in `~/.celeste/wallet_alerts.json`
+  - Alert acknowledgment system to track reviewed threats
+  - CLI commands for wallet management via `celeste skill wallet_security`
+- **Background Monitoring Daemon** - Automatic wallet security monitoring
+  - Run wallet checks in background at configurable intervals
+  - Commands: `celeste wallet-monitor start/stop/status`
+  - Fork to background process with PID file management
+  - Graceful shutdown with SIGTERM handling
+  - Configurable poll interval via `wallet_security_poll_interval`
+  - Automatic logging of security events with timestamps
+- **Token Approval Monitoring** - ERC20 approval event tracking
+  - Monitor `Approval(address,address,uint256)` events via `eth_getLogs`
+  - Detect unlimited approvals (max uint256 = 2^256-1)
+  - Flag high-value approvals (> 1 million tokens)
+  - Alert severity: HIGH for unlimited, MEDIUM for high-value
+  - Track spender contracts and approved amounts
+- **IPFS File Upload** - Binary file support for IPFS
+  - Upload files via `--file_path` parameter
+  - Support for all file types: images, PDFs, archives, audio/video, binaries
+  - Automatic file size and name detection
+  - Returns filename, size, type, and CID in response
+  - Preserves original string content upload functionality
+- **Wallet Security Storage**
+  - `~/.celeste/wallet_security.json` - Monitored wallets configuration
+  - `~/.celeste/wallet_alerts.json` - Security alerts history log
+  - `~/.celeste/wallet_monitor.pid` - Daemon process ID
+  - Automatic directory creation and file management
+- **Enhanced Configuration**
+  - Added `WalletSecuritySettingsConfig` with poll interval and alert level settings
+  - Config fields: `wallet_security_enabled`, `wallet_security_poll_interval`, `wallet_security_alert_level`
+
+### Changed
+- Extended Alchemy integration for wallet security monitoring using `alchemy_getAssetTransfers` and `eth_getLogs` APIs
+- Enhanced alert display system with severity-based styling (leveraging existing TUI components)
+- Updated ConfigLoader interface with `GetWalletSecurityConfig()` method
+- IPFS skill description updated to reflect file upload support
+
+### Documentation
+- Added `docs/WALLET_SECURITY.md` - Complete wallet security monitoring guide with:
+  - Setup instructions for wallet monitoring
+  - Threat detection patterns and explanations
+  - Background daemon usage and configuration
+  - Token approval monitoring details
+  - Usage examples for all operations
+- Updated `docs/IPFS_SETUP.md` - Added file upload documentation with examples for binary files
+
 ## [1.3.0] - 2025-12-18
 
 ### Added

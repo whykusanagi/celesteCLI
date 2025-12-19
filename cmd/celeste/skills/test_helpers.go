@@ -7,24 +7,26 @@ import (
 
 // MockConfigLoader provides a mock implementation of configuration loading for testing
 type MockConfigLoader struct {
-	TarotCfg    TarotConfig
-	VeniceCfg   VeniceConfig
-	WeatherCfg  WeatherConfig
-	TwitchCfg   TwitchConfig
-	YouTubeCfg  YouTubeConfig
-	IPFSCfg     IPFSConfig
-	AlchemyCfg  AlchemyConfig
-	BlockmonCfg BlockmonConfig
+	TarotCfg           TarotConfig
+	VeniceCfg          VeniceConfig
+	WeatherCfg         WeatherConfig
+	TwitchCfg          TwitchConfig
+	YouTubeCfg         YouTubeConfig
+	IPFSCfg            IPFSConfig
+	AlchemyCfg         AlchemyConfig
+	BlockmonCfg        BlockmonConfig
+	WalletSecurityCfg  WalletSecuritySettingsConfig
 
 	// Error flags to simulate missing config
-	TarotError    error
-	VeniceError   error
-	WeatherError  error
-	TwitchError   error
-	YouTubeError  error
-	IPFSError     error
-	AlchemyError  error
-	BlockmonError error
+	TarotError           error
+	VeniceError          error
+	WeatherError         error
+	TwitchError          error
+	YouTubeError         error
+	IPFSError            error
+	AlchemyError         error
+	BlockmonError        error
+	WalletSecurityError  error
 }
 
 // GetTarotConfig returns mock tarot configuration
@@ -91,6 +93,14 @@ func (m *MockConfigLoader) GetBlockmonConfig() (BlockmonConfig, error) {
 	return m.BlockmonCfg, nil
 }
 
+// GetWalletSecurityConfig returns mock wallet security configuration
+func (m *MockConfigLoader) GetWalletSecurityConfig() (WalletSecuritySettingsConfig, error) {
+	if m.WalletSecurityError != nil {
+		return WalletSecuritySettingsConfig{}, m.WalletSecurityError
+	}
+	return m.WalletSecurityCfg, nil
+}
+
 // NewMockConfigLoader creates a mock config loader with default values
 func NewMockConfigLoader() *MockConfigLoader {
 	return &MockConfigLoader{
@@ -132,20 +142,26 @@ func NewMockConfigLoader() *MockConfigLoader {
 			DefaultNetwork:      "eth-mainnet",
 			PollIntervalSeconds: 15,
 		},
+		WalletSecurityCfg: WalletSecuritySettingsConfig{
+			Enabled:      true,
+			PollInterval: 300,
+			AlertLevel:   "medium",
+		},
 	}
 }
 
 // NewMockConfigLoaderWithErrors creates a mock that returns errors for all configs
 func NewMockConfigLoaderWithErrors() *MockConfigLoader {
 	return &MockConfigLoader{
-		TarotError:    fmt.Errorf("tarot config not found"),
-		VeniceError:   fmt.Errorf("venice config not found"),
-		WeatherError:  fmt.Errorf("weather config not found"),
-		TwitchError:   fmt.Errorf("twitch config not found"),
-		YouTubeError:  fmt.Errorf("youtube config not found"),
-		IPFSError:     fmt.Errorf("IPFS config not found"),
-		AlchemyError:  fmt.Errorf("Alchemy config not found"),
-		BlockmonError: fmt.Errorf("blockchain monitoring config not found"),
+		TarotError:          fmt.Errorf("tarot config not found"),
+		VeniceError:         fmt.Errorf("venice config not found"),
+		WeatherError:        fmt.Errorf("weather config not found"),
+		TwitchError:         fmt.Errorf("twitch config not found"),
+		YouTubeError:        fmt.Errorf("youtube config not found"),
+		IPFSError:           fmt.Errorf("IPFS config not found"),
+		AlchemyError:        fmt.Errorf("Alchemy config not found"),
+		BlockmonError:       fmt.Errorf("blockchain monitoring config not found"),
+		WalletSecurityError: fmt.Errorf("wallet security config not found"),
 	}
 }
 

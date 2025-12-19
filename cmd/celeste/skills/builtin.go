@@ -115,6 +115,7 @@ type ConfigLoader interface {
 	GetIPFSConfig() (IPFSConfig, error)
 	GetAlchemyConfig() (AlchemyConfig, error)
 	GetBlockmonConfig() (BlockmonConfig, error)
+	GetWalletSecurityConfig() (WalletSecuritySettingsConfig, error)
 }
 
 // TarotConfig holds tarot function configuration.
@@ -173,6 +174,13 @@ type BlockmonConfig struct {
 	WebhookURL          string
 	DefaultNetwork      string
 	PollIntervalSeconds int
+}
+
+// WalletSecuritySettingsConfig holds wallet security settings.
+type WalletSecuritySettingsConfig struct {
+	Enabled      bool
+	PollInterval int    // seconds
+	AlertLevel   string // minimum severity to alert on
 }
 
 // --- Helper Functions for Error Handling ---

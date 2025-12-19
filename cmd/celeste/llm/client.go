@@ -3,23 +3,21 @@ package llm
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
+	"os"
 	"time"
-
-	"github.com/sashabaranov/go-openai"
 
 	"github.com/whykusanagi/celesteCLI/cmd/celeste/skills"
 	"github.com/whykusanagi/celesteCLI/cmd/celeste/tui"
 )
 
-// Client wraps the OpenAI client for Celeste's needs.
+// Client wraps LLM backends and provides a unified interface.
+// It automatically selects the appropriate backend (OpenAI or Google) based on the provider.
 type Client struct {
-	client       *openai.Client
+	backend      LLMBackend
 	config       *Config
 	registry     *skills.Registry
+	backendType  BackendType
 	systemPrompt string
 }
 
@@ -32,38 +30,88 @@ type Config struct {
 	SkipPersonaPrompt bool
 	SimulateTyping    bool
 	TypingSpeed       int // chars per second
+
+	// Google Cloud authentication (for Gemini/Vertex AI)
+	GoogleCredentialsFile string // Path to service account JSON file
+	GoogleUseADC          bool   // Use Application Default Credentials
 }
 
-// NewClient creates a new LLM client.
+// NewClient creates a new LLM client with automatic backend selection.
+// It detects whether to use OpenAI SDK or Google GenAI SDK based on the base URL.
 func NewClient(config *Config, registry *skills.Registry) *Client {
-	clientConfig := openai.DefaultConfig(config.APIKey)
-	if config.BaseURL != "" {
-		clientConfig.BaseURL = config.BaseURL
+	// Detect which backend to use
+	backendType := DetectBackendType(config.BaseURL)
+
+	var backend LLMBackend
+	if backendType == BackendTypeGoogle {
+		// Use Google GenAI SDK for Gemini/Vertex AI
+		googleBackend, err := NewGoogleBackend(config)
+		if err != nil {
+			// Fallback to OpenAI backend if Google backend fails
+			// This handles the case where Google auth isn't configured yet
+			fmt.Fprintf(os.Stderr, "Warning: Failed to create Google backend: %v\nFalling back to OpenAI SDK\n", err)
+			backendType = BackendTypeOpenAI
+			backend = NewOpenAIBackend(config)
+		} else {
+			backend = googleBackend
+		}
+	} else {
+		// Use OpenAI SDK for OpenAI, Grok, Venice, Anthropic, etc.
+		backend = NewOpenAIBackend(config)
 	}
 
 	return &Client{
-		client:   openai.NewClientWithConfig(clientConfig),
-		config:   config,
-		registry: registry,
+		backend:     backend,
+		config:      config,
+		registry:    registry,
+		backendType: backendType,
 	}
 }
 
 // SetSystemPrompt sets the system prompt (Celeste persona).
 func (c *Client) SetSystemPrompt(prompt string) {
 	c.systemPrompt = prompt
+	if c.backend != nil {
+		c.backend.SetSystemPrompt(prompt)
+	}
 }
 
-// UpdateConfig updates the client configuration and recreates the OpenAI client.
+// UpdateConfig updates the client configuration and recreates the backend if needed.
 // This allows dynamic endpoint/model switching during runtime.
 func (c *Client) UpdateConfig(config *Config) {
 	c.config = config
 
-	// Recreate OpenAI client with new config
-	clientConfig := openai.DefaultConfig(config.APIKey)
-	if config.BaseURL != "" {
-		clientConfig.BaseURL = config.BaseURL
+	// Detect if backend type changed
+	newBackendType := DetectBackendType(config.BaseURL)
+
+	if newBackendType != c.backendType {
+		// Backend type changed - recreate backend
+		if c.backend != nil {
+			c.backend.Close()
+		}
+
+		if newBackendType == BackendTypeGoogle {
+			googleBackend, err := NewGoogleBackend(config)
+			if err != nil {
+				// Fallback to OpenAI if Google fails
+				fmt.Fprintf(os.Stderr, "Warning: Failed to create Google backend: %v\nFalling back to OpenAI SDK\n", err)
+				newBackendType = BackendTypeOpenAI
+				c.backend = NewOpenAIBackend(config)
+			} else {
+				c.backend = googleBackend
+			}
+		} else {
+			c.backend = NewOpenAIBackend(config)
+		}
+
+		c.backendType = newBackendType
+
+		// Restore system prompt
+		if c.systemPrompt != "" {
+			c.backend.SetSystemPrompt(c.systemPrompt)
+		}
 	}
-	c.client = openai.NewClientWithConfig(clientConfig)
+	// Note: Config changes within same backend type are handled by passing config to methods
 }
 
 // GetConfig returns the current configuration.
@@ -87,89 +135,9 @@ type ToolCallResult struct {
 }
 
 // SendMessageSync sends a message synchronously and returns the result.
+// This delegates to the appropriate backend (OpenAI or Google).
 func (c *Client) SendMessageSync(ctx context.Context, messages []tui.ChatMessage, tools []tui.SkillDefinition) (*ChatCompletionResult, error) {
-	// Convert messages to OpenAI format
-	openAIMessages := c.convertMessages(messages)
-
-	// Convert tools to OpenAI format
-	openAITools := c.convertTools(tools)
-
-	// Create request
-	req := openai.ChatCompletionRequest{
-		Model:    c.config.Model,
-		Messages: openAIMessages,
-		Stream:   true,
-	}
-
-	if len(openAITools) > 0 {
-		req.Tools = openAITools
-	}
-
-	// Create streaming request
-	stream, err := c.client.CreateChatCompletionStream(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	defer stream.Close()
-
-	result := &ChatCompletionResult{}
-	var toolCalls []openai.ToolCall
-
-	for {
-		response, err := stream.Recv()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			result.Error = err
-			return result, err
-		}
-
-		for _, choice := range response.Choices {
-			// Handle content delta
-			if choice.Delta.Content != "" {
-				result.Content += choice.Delta.Content
-			}
-
-			// Handle tool calls
-			for _, tc := range choice.Delta.ToolCalls {
-				if tc.Index != nil {
-					idx := *tc.Index
-					for len(toolCalls) <= idx {
-						toolCalls = append(toolCalls, openai.ToolCall{})
-					}
-					if tc.ID != "" {
-						toolCalls[idx].ID = tc.ID
-					}
-					if tc.Type != "" {
-						toolCalls[idx].Type = tc.Type
-					}
-					if tc.Function.Name != "" {
-						toolCalls[idx].Function.Name = tc.Function.Name
-					}
-					if tc.Function.Arguments != "" {
-						toolCalls[idx].Function.Arguments += tc.Function.Arguments
-					}
-				}
-			}
-
-			// Check finish reason
-			if choice.FinishReason != "" {
-				result.FinishReason = string(choice.FinishReason)
-			}
-		}
-	}
-
-	// Convert tool calls
-	for _, tc := range toolCalls {
-		result.ToolCalls = append(result.ToolCalls, ToolCallResult{
-			ID:        tc.ID,
-			Name:      tc.Function.Name,
-			Arguments: tc.Function.Arguments,
-		})
-	}
-
-	return result, nil
+	return c.backend.SendMessageSync(ctx, messages, tools)
 }
 
 // StreamCallback is called for each chunk during streaming.
@@ -193,221 +161,9 @@ type StreamChunk struct {
 }
 
 // SendMessageStream sends a message with streaming callback.
+// This delegates to the appropriate backend (OpenAI or Google).
 func (c *Client) SendMessageStream(ctx context.Context, messages []tui.ChatMessage, tools []tui.SkillDefinition, callback StreamCallback) error {
-	// Convert messages to OpenAI format
-	openAIMessages := c.convertMessages(messages)
-
-	// Convert tools to OpenAI format
-	openAITools := c.convertTools(tools)
-
-	// Create request
-	req := openai.ChatCompletionRequest{
-		Model:    c.config.Model,
-		Messages: openAIMessages,
-		Stream:   true,
-		StreamOptions: &openai.StreamOptions{
-			IncludeUsage: true,
-		},
-	}
-
-	if len(openAITools) > 0 {
-		req.Tools = openAITools
-	}
-
-	// Create streaming request
-	stream, err := c.client.CreateChatCompletionStream(ctx, req)
-	if err != nil {
-		return err
-	}
-	defer stream.Close()
-
-	var toolCalls []openai.ToolCall
-	var usage *TokenUsage
-	isFirst := true
-
-	for {
-		response, err := stream.Recv()
-		if errors.Is(err, io.EOF) {
-			// Send final chunk with usage data if available
-			callback(StreamChunk{
-				IsFinal:      true,
-				FinishReason: "stop",
-				ToolCalls:    convertToolCalls(toolCalls),
-				Usage:        usage,
-			})
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-
-		// Capture usage data from response (only in final chunk with StreamOptions)
-		if response.Usage != nil {
-			usage = &TokenUsage{
-				PromptTokens:     response.Usage.PromptTokens,
-				CompletionTokens: response.Usage.CompletionTokens,
-				TotalTokens:      response.Usage.TotalTokens,
-			}
-		}
-
-		for _, choice := range response.Choices {
-			chunk := StreamChunk{
-				IsFirst: isFirst,
-			}
-
-			// Handle content delta
-			if choice.Delta.Content != "" {
-				chunk.Content = choice.Delta.Content
-			}
-
-			// Handle tool calls
-			// Note: Different providers stream tool calls in different formats:
-			// - OpenAI: Streams tool calls incrementally across multiple chunks with an Index
-			// - Gemini: Sends complete tool calls in a single chunk without an Index
-			for _, tc := range choice.Delta.ToolCalls {
-				if tc.Index != nil {
-					// OpenAI format: Tool calls have an index for streaming accumulation
-					idx := *tc.Index
-					for len(toolCalls) <= idx {
-						toolCalls = append(toolCalls, openai.ToolCall{})
-					}
-					if tc.ID != "" {
-						toolCalls[idx].ID = tc.ID
-					}
-					if tc.Type != "" {
-						toolCalls[idx].Type = tc.Type
-					}
-					if tc.Function.Name != "" {
-						toolCalls[idx].Function.Name = tc.Function.Name
-					}
-					if tc.Function.Arguments != "" {
-						toolCalls[idx].Function.Arguments += tc.Function.Arguments
-					}
-				} else {
-					// Gemini format: Tool calls come complete without an index
-					// Append as a new tool call if it has an ID
-					if tc.ID != "" {
-						toolCalls = append(toolCalls, openai.ToolCall{
-							ID:   tc.ID,
-							Type: tc.Type,
-							Function: openai.FunctionCall{
-								Name:      tc.Function.Name,
-								Arguments: tc.Function.Arguments,
-							},
-						})
-					}
-				}
-			}
-
-			// Check finish reason
-			if choice.FinishReason != "" {
-				chunk.IsFinal = true
-				chunk.FinishReason = string(choice.FinishReason)
-				chunk.ToolCalls = convertToolCalls(toolCalls)
-			}
-
-			// Call callback
-			callback(chunk)
-			isFirst = false
-		}
-	}
-}
-
-// convertMessages converts TUI messages to OpenAI format.
-func (c *Client) convertMessages(messages []tui.ChatMessage) []openai.ChatCompletionMessage {
-	var result []openai.ChatCompletionMessage
-
-	// Add system prompt if configured
-	if c.systemPrompt != "" && !c.config.SkipPersonaPrompt {
-		result = append(result, openai.ChatCompletionMessage{
-			Role:    "system",
-			Content: c.systemPrompt,
-		})
-	}
-
-	// Convert messages
-	for _, msg := range messages {
-		// Skip messages with empty content (except tool calls which can have empty content)
-		if msg.Content == "" && len(msg.ToolCalls) == 0 && msg.Role != "tool" {
-			// Skip empty messages to prevent API errors (Grok requires content field)
-			continue
-		}
-
-		if msg.Role == "tool" {
-			// Tool messages need special format with tool_call_id
-			result = append(result, openai.ChatCompletionMessage{
-				Role:       "tool",
-				Content:    msg.Content,
-				ToolCallID: msg.ToolCallID,
-			})
-		} else if msg.Role == "assistant" && len(msg.ToolCalls) > 0 {
-			// Assistant messages with tool_calls need to include ToolCalls field
-			toolCalls := make([]openai.ToolCall, len(msg.ToolCalls))
-			for i, tc := range msg.ToolCalls {
-				toolCalls[i] = openai.ToolCall{
-					ID:   tc.ID,
-					Type: "function",
-					Function: openai.FunctionCall{
-						Name:      tc.Name,
-						Arguments: tc.Arguments,
-					},
-				}
-			}
-
-			// For tool-calling messages, ensure content is at least empty string (not nil)
-			content := msg.Content
-			if content == "" {
-				content = "" // Explicitly set to empty string for serialization
-			}
-
-			result = append(result, openai.ChatCompletionMessage{
-				Role:      msg.Role,
-				Content:   content,
-				ToolCalls: toolCalls,
-			})
-		} else {
-			// Regular messages (user, assistant without tool_calls, system)
-			result = append(result, openai.ChatCompletionMessage{
-				Role:    msg.Role,
-				Content: msg.Content,
-			})
-		}
-	}
-
-	return result
-}
-
-// convertTools converts TUI skill definitions to OpenAI tools.
-func (c *Client) convertTools(tools []tui.SkillDefinition) []openai.Tool {
-	var result []openai.Tool
-
-	for _, tool := range tools {
-		params, _ := json.Marshal(tool.Parameters)
-
-		result = append(result, openai.Tool{
-			Type: "function",
-			Function: &openai.FunctionDefinition{
-				Name:        tool.Name,
-				Description: tool.Description,
-				Parameters:  json.RawMessage(params),
-			},
-		})
-	}
-
-	return result
-}
-
-// convertToolCalls converts OpenAI tool calls to result format.
-func convertToolCalls(toolCalls []openai.ToolCall) []ToolCallResult {
-	var result []ToolCallResult
-	for _, tc := range toolCalls {
-		result = append(result, ToolCallResult{
-			ID:        tc.ID,
-			Name:      tc.Function.Name,
-			Arguments: tc.Function.Arguments,
-		})
-	}
-	return result
+	return c.backend.SendMessageStream(ctx, messages, tools, callback)
 }
 
 // GetSkills returns skill definitions for the TUI.

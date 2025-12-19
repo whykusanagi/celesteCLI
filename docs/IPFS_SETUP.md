@@ -99,6 +99,8 @@ Edit `~/.celeste/skills.json`:
 ## Usage Examples
 
 ### Upload Content
+
+#### Upload String Content
 ```bash
 # Upload a string to IPFS
 celeste skill ipfs --operation upload --content "Hello, decentralized world!"
@@ -108,9 +110,44 @@ celeste skill ipfs --operation upload --content "Hello, decentralized world!"
   "success": true,
   "cid": "QmXxx...abc",
   "size": 28,
+  "filename": "content.txt",
+  "type": "content",
   "gateway_url": "https://ipfs.io/ipfs/QmXxx...abc",
-  "message": "Content successfully uploaded to IPFS"
+  "message": "Successfully uploaded content to IPFS"
 }
+```
+
+#### Upload File (Binary Files Supported)
+```bash
+# Upload an image file
+celeste skill ipfs --operation upload --file_path /path/to/image.png
+
+# Upload a PDF document
+celeste skill ipfs --operation upload --file_path ~/documents/report.pdf
+
+# Upload any binary file
+celeste skill ipfs --operation upload --file_path ./data.zip
+
+# Returns:
+{
+  "success": true,
+  "cid": "QmYyy...def",
+  "size": 524288,
+  "filename": "image.png",
+  "type": "file",
+  "gateway_url": "https://ipfs.io/ipfs/QmYyy...def",
+  "message": "Successfully uploaded file to IPFS"
+}
+```
+
+**Supported File Types**:
+- Images: PNG, JPG, GIF, SVG, WEBP
+- Documents: PDF, DOCX, TXT, MD
+- Archives: ZIP, TAR, GZ
+- Audio/Video: MP3, MP4, AVI, MKV
+- Binary: Any file type supported
+
+**Note**: Either `--content` or `--file_path` must be provided, but not both.
 ```
 
 ### Download Content

@@ -6,13 +6,15 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
-	ipfsapi "github.com/ipfs/go-ipfs-http-client"
-	"github.com/ipfs/boxo/files"
 	ipath "github.com/ipfs/boxo/coreiface/path"
+	"github.com/ipfs/boxo/files"
 	"github.com/ipfs/go-cid"
+	ipfsapi "github.com/ipfs/go-ipfs-http-client"
 	"github.com/multiformats/go-multiaddr"
 )
 
@@ -20,7 +22,7 @@ import (
 func IPFSSkill() Skill {
 	return Skill{
 		Name:        "ipfs",
-		Description: "IPFS decentralized storage operations: upload content, download by CID, manage pins. Supports Infura, Pinata, and custom IPFS nodes.",
+		Description: "IPFS decentralized storage operations: upload content/files, download by CID, manage pins. Supports string content and binary files. Works with Infura, Pinata, and custom IPFS nodes.",
 		Parameters: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -31,7 +33,11 @@ func IPFSSkill() Skill {
 				},
 				"content": map[string]interface{}{
 					"type":        "string",
-					"description": "Content to upload (for upload operation)",
+					"description": "String content to upload (for upload operation with text/data)",
+				},
+				"file_path": map[string]interface{}{
+					"type":        "string",
+					"description": "Path to file to upload (for upload operation with binary files)",
 				},
 				"cid": map[string]interface{}{
 					"type":        "string",
@@ -163,13 +169,16 @@ func createIPFSClient(config IPFSConfig) (*ipfsapi.HttpApi, error) {
 
 // handleIPFSUpload uploads content to IPFS
 func handleIPFSUpload(ctx context.Context, client *ipfsapi.HttpApi, args map[string]interface{}, config IPFSConfig) (interface{}, error) {
-	// Get content
-	content, ok := args["content"].(string)
-	if !ok || content == "" {
+	// Check for file_path first, then content
+	filePath, hasFile := args["file_path"].(string)
+	content, hasContent := args["content"].(string)
+
+	// Validate input
+	if !hasFile && (!hasContent || content == "") {
 		return formatErrorResponse(
 			"validation_error",
-			"Content is required for upload operation",
-			"Provide content to upload to IPFS",
+			"Either content or file_path is required for upload operation",
+			"Provide string content or a file path to upload to IPFS",
 			map[string]interface{}{
 				"skill":     "ipfs",
 				"operation": "upload",
@@ -177,9 +186,73 @@ func handleIPFSUpload(ctx context.Context, client *ipfsapi.HttpApi, args map[str
 		), nil
 	}
 
-	// Upload content - wrap in files.Node
-	reader := strings.NewReader(content)
-	fileNode := files.NewReaderFile(reader)
+	if hasFile && hasContent && content != "" {
+		return formatErrorResponse(
+			"validation_error",
+			"Provide either content or file_path, not both",
+			"Choose one: string content or file path",
+			map[string]interface{}{
+				"skill":     "ipfs",
+				"operation": "upload",
+			},
+		), nil
+	}
+
+	var fileNode files.Node
+	var size int64
+	var filename string
+	var uploadType string
+
+	if hasFile && filePath != "" {
+		// File upload mode
+		uploadType = "file"
+
+		// Open file
+		file, err := os.Open(filePath)
+		if err != nil {
+			return formatErrorResponse(
+				"file_error",
+				fmt.Sprintf("Failed to open file: %v", err),
+				"Check that the file exists and is readable",
+				map[string]interface{}{
+					"skill":     "ipfs",
+					"operation": "upload",
+					"file_path": filePath,
+				},
+			), nil
+		}
+		defer file.Close()
+
+		// Get file info
+		stat, err := file.Stat()
+		if err != nil {
+			return formatErrorResponse(
+				"file_error",
+				fmt.Sprintf("Failed to get file info: %v", err),
+				"",
+				map[string]interface{}{
+					"skill":     "ipfs",
+					"operation": "upload",
+					"file_path": filePath,
+				},
+			), nil
+		}
+
+		size = stat.Size()
+		filename = filepath.Base(filePath)
+
+		// Create file node
+		fileNode = files.NewReaderFile(file)
+	} else {
+		// String content mode
+		uploadType = "content"
+		reader := strings.NewReader(content)
+		fileNode = files.NewReaderFile(reader)
+		size = int64(len(content))
+		filename = "content.txt"
+	}
+
+	// Upload to IPFS
 	path, err := client.Unixfs().Add(ctx, fileNode)
 	if err != nil {
 		return formatErrorResponse(
@@ -189,6 +262,7 @@ func handleIPFSUpload(ctx context.Context, client *ipfsapi.HttpApi, args map[str
 			map[string]interface{}{
 				"skill":     "ipfs",
 				"operation": "upload",
+				"type":      uploadType,
 			},
 		), nil
 	}
@@ -204,9 +278,11 @@ func handleIPFSUpload(ctx context.Context, client *ipfsapi.HttpApi, args map[str
 	return map[string]interface{}{
 		"success":     true,
 		"cid":         path.Cid().String(),
-		"size":        len(content),
+		"size":        size,
+		"filename":    filename,
+		"type":        uploadType,
 		"gateway_url": gatewayURL,
-		"message":     "Content successfully uploaded to IPFS",
+		"message":     fmt.Sprintf("Successfully uploaded %s to IPFS", uploadType),
 	}, nil
 }
 

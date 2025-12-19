@@ -291,15 +291,15 @@ func handleWatchAddress(ctx context.Context, client *http.Client, config Alchemy
 	txCount := len(transfers)
 
 	return map[string]interface{}{
-		"success":         true,
-		"address":         normalizedAddr,
-		"network":         network,
-		"blocks_checked":  blocksHistory,
-		"current_block":   currentBlock.String(),
-		"from_block":      fromBlock.String(),
+		"success":           true,
+		"address":           normalizedAddr,
+		"network":           network,
+		"blocks_checked":    blocksHistory,
+		"current_block":     currentBlock.String(),
+		"from_block":        fromBlock.String(),
 		"transaction_count": txCount,
-		"transactions":    transfers,
-		"message":         fmt.Sprintf("Found %d transactions in last %d blocks", txCount, blocksHistory),
+		"transactions":      transfers,
+		"message":           fmt.Sprintf("Found %d transactions in last %d blocks", txCount, blocksHistory),
 	}, nil
 }
 

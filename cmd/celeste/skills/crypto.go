@@ -20,4 +20,10 @@ func RegisterCryptoSkills(registry *Registry, configLoader ConfigLoader) {
 	registry.RegisterHandler("blockmon", func(args map[string]interface{}) (interface{}, error) {
 		return BlockmonHandler(args, configLoader)
 	})
+
+	// Register Wallet Security skill
+	registry.RegisterSkill(WalletSecuritySkill())
+	registry.RegisterHandler("wallet_security", func(args map[string]interface{}) (interface{}, error) {
+		return WalletSecurityHandler(args, configLoader)
+	})
 }

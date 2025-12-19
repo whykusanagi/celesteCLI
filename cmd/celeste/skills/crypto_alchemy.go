@@ -267,13 +267,13 @@ func handleGetBalance(ctx context.Context, client *http.Client, config AlchemyCo
 	etherBalance := WeiToEther(balance)
 
 	return map[string]interface{}{
-		"success":      true,
-		"address":      normalizedAddr,
-		"balance_wei":  balance.String(),
-		"balance_eth":  etherBalance,
-		"network":      network,
-		"block":        blockParam,
-		"message":      fmt.Sprintf("Balance: %s ETH", etherBalance),
+		"success":     true,
+		"address":     normalizedAddr,
+		"balance_wei": balance.String(),
+		"balance_eth": etherBalance,
+		"network":     network,
+		"block":       blockParam,
+		"message":     fmt.Sprintf("Balance: %s ETH", etherBalance),
 	}, nil
 }
 
@@ -541,12 +541,12 @@ func handleGetNFTMetadata(ctx context.Context, client *http.Client, config Alche
 	}
 
 	return map[string]interface{}{
-		"success":         true,
-		"contract":        normalizedAddr,
-		"token_id":        tokenID,
-		"network":         network,
-		"data":            result["result"],
-		"message":         "NFT metadata retrieved successfully",
+		"success":  true,
+		"contract": normalizedAddr,
+		"token_id": tokenID,
+		"network":  network,
+		"data":     result["result"],
+		"message":  "NFT metadata retrieved successfully",
 	}, nil
 }
 
@@ -587,11 +587,11 @@ func handleGetGasPrice(ctx context.Context, client *http.Client, config AlchemyC
 	gweiPrice := WeiToGwei(gasPrice)
 
 	return map[string]interface{}{
-		"success":       true,
-		"network":       network,
-		"gas_price_wei": gasPrice.String(),
+		"success":        true,
+		"network":        network,
+		"gas_price_wei":  gasPrice.String(),
 		"gas_price_gwei": gweiPrice,
-		"message":       fmt.Sprintf("Current gas price: %d Gwei", gweiPrice),
+		"message":        fmt.Sprintf("Current gas price: %d Gwei", gweiPrice),
 	}, nil
 }
 
@@ -626,11 +626,11 @@ func handleGetTransactionReceipt(ctx context.Context, client *http.Client, confi
 	}
 
 	return map[string]interface{}{
-		"success":         true,
+		"success":          true,
 		"transaction_hash": txHash,
-		"network":         network,
-		"data":            result["result"],
-		"message":         "Transaction receipt retrieved successfully",
+		"network":          network,
+		"data":             result["result"],
+		"message":          "Transaction receipt retrieved successfully",
 	}, nil
 }
 

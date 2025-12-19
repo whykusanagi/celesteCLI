@@ -8,6 +8,7 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/ethereum/go-ethereum v1.16.7
 	github.com/google/uuid v1.6.0
+	github.com/ipfs/boxo v0.10.0
 	github.com/ipfs/go-cid v0.6.0
 	github.com/ipfs/go-ipfs-http-client v0.7.0
 	github.com/multiformats/go-multiaddr v0.9.0
@@ -44,7 +45,6 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/holiman/uint256 v1.3.2 // indirect
 	github.com/ipfs/bbloom v0.0.4 // indirect
-	github.com/ipfs/boxo v0.10.0 // indirect
 	github.com/ipfs/go-block-format v0.1.2 // indirect
 	github.com/ipfs/go-datastore v0.6.0 // indirect
 	github.com/ipfs/go-ipfs-cmds v0.9.0 // indirect
