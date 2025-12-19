@@ -170,6 +170,8 @@ func createIPFSClient(config IPFSConfig) (*rpc.HttpApi, error) {
 }
 
 // handleIPFSUpload uploads content to IPFS
+//
+//nolint:staticcheck // Library deprecated, migration to Kubo planned for future version
 func handleIPFSUpload(ctx context.Context, client *rpc.HttpApi, args map[string]interface{}, config IPFSConfig) (interface{}, error) {
 	// Check for file_path first, then content
 	filePath, hasFile := args["file_path"].(string)
@@ -289,6 +291,8 @@ func handleIPFSUpload(ctx context.Context, client *rpc.HttpApi, args map[string]
 }
 
 // handleIPFSDownload downloads content from IPFS by CID
+//
+//nolint:staticcheck // Library deprecated, migration to Kubo planned for future version
 func handleIPFSDownload(ctx context.Context, client *rpc.HttpApi, args map[string]interface{}) (interface{}, error) {
 	// Get CID
 	cidStr, ok := args["cid"].(string)
@@ -373,6 +377,8 @@ func handleIPFSDownload(ctx context.Context, client *rpc.HttpApi, args map[strin
 }
 
 // handleIPFSPin pins content on IPFS
+//
+//nolint:staticcheck // Library deprecated, migration to Kubo planned for future version
 func handleIPFSPin(ctx context.Context, client *rpc.HttpApi, args map[string]interface{}) (interface{}, error) {
 	// Get CID
 	cidStr, ok := args["cid"].(string)
@@ -427,6 +433,8 @@ func handleIPFSPin(ctx context.Context, client *rpc.HttpApi, args map[string]int
 }
 
 // handleIPFSUnpin unpins content from IPFS
+//
+//nolint:staticcheck // Library deprecated, migration to Kubo planned for future version
 func handleIPFSUnpin(ctx context.Context, client *rpc.HttpApi, args map[string]interface{}) (interface{}, error) {
 	// Get CID
 	cidStr, ok := args["cid"].(string)
@@ -481,6 +489,8 @@ func handleIPFSUnpin(ctx context.Context, client *rpc.HttpApi, args map[string]i
 }
 
 // handleIPFSListPins lists all pinned content
+//
+//nolint:staticcheck // Library deprecated, migration to Kubo planned for future version
 func handleIPFSListPins(ctx context.Context, client *rpc.HttpApi) (interface{}, error) {
 	// List pins
 	pins, err := client.Pin().Ls(ctx)
