@@ -86,28 +86,28 @@ var Registry = map[string]ProviderCapabilities{
 
 	"gemini": {
 		Name:                    "Google Gemini AI (AI Studio)",
-		BaseURL:                 "https://generativelanguage.googleapis.com/v1beta/openai",
+		BaseURL:                 "https://generativelanguage.googleapis.com/v1beta",
 		SupportsFunctionCalling: true,
 		SupportsModelListing:    false,
-		SupportsTokenTracking:   true, // OpenAI-compatible endpoint
+		SupportsTokenTracking:   true,
 		DefaultModel:            "gemini-2.0-flash",
 		PreferredToolModel:      "gemini-2.0-flash",
-		RequiresAPIKey:          true, // Simple API key from https://aistudio.google.com/apikey
-		IsOpenAICompatible:      true,
-		Notes:                   "RECOMMENDED: Gemini AI Studio - Simple API keys (AIza...), free tier available. Full function calling support with streaming. Get key: https://aistudio.google.com/apikey",
+		RequiresAPIKey:          true,  // Simple API key from https://aistudio.google.com/apikey
+		IsOpenAICompatible:      false, // Uses native Google GenAI SDK
+		Notes:                   "RECOMMENDED: Native Google GenAI SDK with automatic authentication. Simple API keys (AIza...), free tier available. Full function calling support with streaming. Get key: https://aistudio.google.com/apikey",
 	},
 
 	"vertex": {
 		Name:                    "Google Vertex AI (Cloud)",
-		BaseURL:                 "https://aiplatform.googleapis.com/v1/projects/PROJECT_ID/locations/LOCATION/endpoints/openapi",
+		BaseURL:                 "https://aiplatform.googleapis.com/v1/projects/PROJECT_ID/locations/LOCATION",
 		SupportsFunctionCalling: true,
 		SupportsModelListing:    false,
-		SupportsTokenTracking:   true, // OpenAI-compatible endpoint
+		SupportsTokenTracking:   true,
 		DefaultModel:            "gemini-2.0-flash",
 		PreferredToolModel:      "gemini-2.0-flash",
-		RequiresAPIKey:          true, // OAuth2 access tokens (ya29...), expire hourly
-		IsOpenAICompatible:      true,
-		Notes:                   "ENTERPRISE: Vertex AI - OAuth2 tokens (ya29...), requires GCP project + billing. See ROADMAP.md for setup. Most users should use 'gemini' instead.",
+		RequiresAPIKey:          false, // Uses ADC or service account - NO manual token needed!
+		IsOpenAICompatible:      false, // Uses native Google GenAI SDK
+		Notes:                   "ENTERPRISE: Native Google GenAI SDK with automatic authentication. No manual token refresh! Use: (1) gcloud auth application-default login OR (2) Service account JSON. Tokens auto-refresh indefinitely. Requires GCP project + billing.",
 	},
 
 	"openrouter": {

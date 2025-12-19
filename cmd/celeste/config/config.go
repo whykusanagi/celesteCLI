@@ -20,6 +20,10 @@ type Config struct {
 	Timeout      int    `json:"timeout"`                 // seconds
 	ContextLimit int    `json:"context_limit,omitempty"` // Optional: Override context window size
 
+	// Google Cloud authentication (for Gemini/Vertex AI)
+	GoogleCredentialsFile string `json:"google_credentials_file,omitempty"` // Path to service account JSON file
+	GoogleUseADC          bool   `json:"google_use_adc,omitempty"`          // Use Application Default Credentials
+
 	// Runtime-detected provider (not persisted to config file)
 	Provider string `json:"-"` // Detected from BaseURL at runtime
 
@@ -58,6 +62,30 @@ type Config struct {
 	// YouTube settings
 	YouTubeAPIKey         string `json:"youtube_api_key,omitempty"`
 	YouTubeDefaultChannel string `json:"youtube_default_channel,omitempty"`
+
+	// IPFS settings
+	IPFSProvider       string `json:"ipfs_provider,omitempty"` // "infura", "pinata", "custom"
+	IPFSAPIKey         string `json:"ipfs_api_key,omitempty"`
+	IPFSAPISecret      string `json:"ipfs_api_secret,omitempty"`
+	IPFSProjectID      string `json:"ipfs_project_id,omitempty"` // Infura specific
+	IPFSGatewayURL     string `json:"ipfs_gateway_url,omitempty"`
+	IPFSTimeoutSeconds int    `json:"ipfs_timeout_seconds,omitempty"`
+
+	// Alchemy settings
+	AlchemyAPIKey         string `json:"alchemy_api_key,omitempty"`
+	AlchemyDefaultNetwork string `json:"alchemy_default_network,omitempty"`
+	AlchemyTimeoutSeconds int    `json:"alchemy_timeout_seconds,omitempty"`
+
+	// Blockchain monitoring settings
+	BlockmonAlchemyAPIKey       string `json:"blockmon_alchemy_api_key,omitempty"`
+	BlockmonWebhookURL          string `json:"blockmon_webhook_url,omitempty"`
+	BlockmonDefaultNetwork      string `json:"blockmon_default_network,omitempty"`
+	BlockmonPollIntervalSeconds int    `json:"blockmon_poll_interval_seconds,omitempty"`
+
+	// Wallet security settings
+	WalletSecurityEnabled      bool   `json:"wallet_security_enabled,omitempty"`
+	WalletSecurityPollInterval int    `json:"wallet_security_poll_interval,omitempty"` // seconds
+	WalletSecurityAlertLevel   string `json:"wallet_security_alert_level,omitempty"`   // "low", "medium", "high", "critical"
 }
 
 // DefaultConfig returns a config with default values.
@@ -117,21 +145,34 @@ func SaveSkillsConfig(skillsConfig *Config) error {
 
 	// Create skills config with only skill-related fields
 	skillsOnly := &Config{
-		VeniceAPIKey:             skillsConfig.VeniceAPIKey,
-		VeniceBaseURL:            skillsConfig.VeniceBaseURL,
-		VeniceModel:              skillsConfig.VeniceModel,
-		TarotFunctionURL:         skillsConfig.TarotFunctionURL,
-		TarotAuthToken:           skillsConfig.TarotAuthToken,
-		TwitterBearerToken:       skillsConfig.TwitterBearerToken,
-		TwitterAPIKey:            skillsConfig.TwitterAPIKey,
-		TwitterAPISecret:         skillsConfig.TwitterAPISecret,
-		TwitterAccessToken:       skillsConfig.TwitterAccessToken,
-		TwitterAccessTokenSecret: skillsConfig.TwitterAccessTokenSecret,
-		WeatherDefaultZipCode:    skillsConfig.WeatherDefaultZipCode,
-		TwitchClientID:           skillsConfig.TwitchClientID,
-		TwitchDefaultStreamer:    skillsConfig.TwitchDefaultStreamer,
-		YouTubeAPIKey:            skillsConfig.YouTubeAPIKey,
-		YouTubeDefaultChannel:    skillsConfig.YouTubeDefaultChannel,
+		VeniceAPIKey:                skillsConfig.VeniceAPIKey,
+		VeniceBaseURL:               skillsConfig.VeniceBaseURL,
+		VeniceModel:                 skillsConfig.VeniceModel,
+		TarotFunctionURL:            skillsConfig.TarotFunctionURL,
+		TarotAuthToken:              skillsConfig.TarotAuthToken,
+		TwitterBearerToken:          skillsConfig.TwitterBearerToken,
+		TwitterAPIKey:               skillsConfig.TwitterAPIKey,
+		TwitterAPISecret:            skillsConfig.TwitterAPISecret,
+		TwitterAccessToken:          skillsConfig.TwitterAccessToken,
+		TwitterAccessTokenSecret:    skillsConfig.TwitterAccessTokenSecret,
+		WeatherDefaultZipCode:       skillsConfig.WeatherDefaultZipCode,
+		TwitchClientID:              skillsConfig.TwitchClientID,
+		TwitchDefaultStreamer:       skillsConfig.TwitchDefaultStreamer,
+		YouTubeAPIKey:               skillsConfig.YouTubeAPIKey,
+		YouTubeDefaultChannel:       skillsConfig.YouTubeDefaultChannel,
+		IPFSProvider:                skillsConfig.IPFSProvider,
+		IPFSAPIKey:                  skillsConfig.IPFSAPIKey,
+		IPFSAPISecret:               skillsConfig.IPFSAPISecret,
+		IPFSProjectID:               skillsConfig.IPFSProjectID,
+		IPFSGatewayURL:              skillsConfig.IPFSGatewayURL,
+		IPFSTimeoutSeconds:          skillsConfig.IPFSTimeoutSeconds,
+		AlchemyAPIKey:               skillsConfig.AlchemyAPIKey,
+		AlchemyDefaultNetwork:       skillsConfig.AlchemyDefaultNetwork,
+		AlchemyTimeoutSeconds:       skillsConfig.AlchemyTimeoutSeconds,
+		BlockmonAlchemyAPIKey:       skillsConfig.BlockmonAlchemyAPIKey,
+		BlockmonWebhookURL:          skillsConfig.BlockmonWebhookURL,
+		BlockmonDefaultNetwork:      skillsConfig.BlockmonDefaultNetwork,
+		BlockmonPollIntervalSeconds: skillsConfig.BlockmonPollIntervalSeconds,
 	}
 
 	data, err := json.MarshalIndent(skillsOnly, "", "  ")
@@ -213,20 +254,45 @@ func LoadNamed(name string) (*Config, error) {
 		if skillsConfig.YouTubeDefaultChannel != "" {
 			config.YouTubeDefaultChannel = skillsConfig.YouTubeDefaultChannel
 		}
-	}
-
-	// Override with environment variables
-	if apiKey := os.Getenv("CELESTE_API_KEY"); apiKey != "" {
-		config.APIKey = apiKey
-	}
-	if endpoint := os.Getenv("CELESTE_API_ENDPOINT"); endpoint != "" {
-		config.BaseURL = endpoint
-	}
-	if veniceKey := os.Getenv("VENICE_API_KEY"); veniceKey != "" {
-		config.VeniceAPIKey = veniceKey
-	}
-	if tarotToken := os.Getenv("TAROT_AUTH_TOKEN"); tarotToken != "" {
-		config.TarotAuthToken = tarotToken
+		if skillsConfig.IPFSProvider != "" {
+			config.IPFSProvider = skillsConfig.IPFSProvider
+		}
+		if skillsConfig.IPFSAPIKey != "" {
+			config.IPFSAPIKey = skillsConfig.IPFSAPIKey
+		}
+		if skillsConfig.IPFSAPISecret != "" {
+			config.IPFSAPISecret = skillsConfig.IPFSAPISecret
+		}
+		if skillsConfig.IPFSProjectID != "" {
+			config.IPFSProjectID = skillsConfig.IPFSProjectID
+		}
+		if skillsConfig.IPFSGatewayURL != "" {
+			config.IPFSGatewayURL = skillsConfig.IPFSGatewayURL
+		}
+		if skillsConfig.IPFSTimeoutSeconds > 0 {
+			config.IPFSTimeoutSeconds = skillsConfig.IPFSTimeoutSeconds
+		}
+		if skillsConfig.AlchemyAPIKey != "" {
+			config.AlchemyAPIKey = skillsConfig.AlchemyAPIKey
+		}
+		if skillsConfig.AlchemyDefaultNetwork != "" {
+			config.AlchemyDefaultNetwork = skillsConfig.AlchemyDefaultNetwork
+		}
+		if skillsConfig.AlchemyTimeoutSeconds > 0 {
+			config.AlchemyTimeoutSeconds = skillsConfig.AlchemyTimeoutSeconds
+		}
+		if skillsConfig.BlockmonAlchemyAPIKey != "" {
+			config.BlockmonAlchemyAPIKey = skillsConfig.BlockmonAlchemyAPIKey
+		}
+		if skillsConfig.BlockmonWebhookURL != "" {
+			config.BlockmonWebhookURL = skillsConfig.BlockmonWebhookURL
+		}
+		if skillsConfig.BlockmonDefaultNetwork != "" {
+			config.BlockmonDefaultNetwork = skillsConfig.BlockmonDefaultNetwork
+		}
+		if skillsConfig.BlockmonPollIntervalSeconds > 0 {
+			config.BlockmonPollIntervalSeconds = skillsConfig.BlockmonPollIntervalSeconds
+		}
 	}
 
 	return config, nil
@@ -334,20 +400,45 @@ func Load() (*Config, error) {
 		if skillsConfig.YouTubeDefaultChannel != "" {
 			config.YouTubeDefaultChannel = skillsConfig.YouTubeDefaultChannel
 		}
-	}
-
-	// Override with environment variables
-	if apiKey := os.Getenv("CELESTE_API_KEY"); apiKey != "" {
-		config.APIKey = apiKey
-	}
-	if endpoint := os.Getenv("CELESTE_API_ENDPOINT"); endpoint != "" {
-		config.BaseURL = endpoint
-	}
-	if veniceKey := os.Getenv("VENICE_API_KEY"); veniceKey != "" {
-		config.VeniceAPIKey = veniceKey
-	}
-	if tarotToken := os.Getenv("TAROT_AUTH_TOKEN"); tarotToken != "" {
-		config.TarotAuthToken = tarotToken
+		if skillsConfig.IPFSProvider != "" {
+			config.IPFSProvider = skillsConfig.IPFSProvider
+		}
+		if skillsConfig.IPFSAPIKey != "" {
+			config.IPFSAPIKey = skillsConfig.IPFSAPIKey
+		}
+		if skillsConfig.IPFSAPISecret != "" {
+			config.IPFSAPISecret = skillsConfig.IPFSAPISecret
+		}
+		if skillsConfig.IPFSProjectID != "" {
+			config.IPFSProjectID = skillsConfig.IPFSProjectID
+		}
+		if skillsConfig.IPFSGatewayURL != "" {
+			config.IPFSGatewayURL = skillsConfig.IPFSGatewayURL
+		}
+		if skillsConfig.IPFSTimeoutSeconds > 0 {
+			config.IPFSTimeoutSeconds = skillsConfig.IPFSTimeoutSeconds
+		}
+		if skillsConfig.AlchemyAPIKey != "" {
+			config.AlchemyAPIKey = skillsConfig.AlchemyAPIKey
+		}
+		if skillsConfig.AlchemyDefaultNetwork != "" {
+			config.AlchemyDefaultNetwork = skillsConfig.AlchemyDefaultNetwork
+		}
+		if skillsConfig.AlchemyTimeoutSeconds > 0 {
+			config.AlchemyTimeoutSeconds = skillsConfig.AlchemyTimeoutSeconds
+		}
+		if skillsConfig.BlockmonAlchemyAPIKey != "" {
+			config.BlockmonAlchemyAPIKey = skillsConfig.BlockmonAlchemyAPIKey
+		}
+		if skillsConfig.BlockmonWebhookURL != "" {
+			config.BlockmonWebhookURL = skillsConfig.BlockmonWebhookURL
+		}
+		if skillsConfig.BlockmonDefaultNetwork != "" {
+			config.BlockmonDefaultNetwork = skillsConfig.BlockmonDefaultNetwork
+		}
+		if skillsConfig.BlockmonPollIntervalSeconds > 0 {
+			config.BlockmonPollIntervalSeconds = skillsConfig.BlockmonPollIntervalSeconds
+		}
 	}
 
 	return config, nil
@@ -477,6 +568,103 @@ func (l *ConfigLoader) GetYouTubeConfig() (skills.YouTubeConfig, error) {
 	return skills.YouTubeConfig{
 		APIKey:         l.config.YouTubeAPIKey,
 		DefaultChannel: defaultChannel,
+	}, nil
+}
+
+// GetIPFSConfig returns IPFS configuration.
+func (l *ConfigLoader) GetIPFSConfig() (skills.IPFSConfig, error) {
+	if l.config.IPFSAPIKey == "" {
+		return skills.IPFSConfig{}, fmt.Errorf("IPFS API key not configured")
+	}
+
+	provider := l.config.IPFSProvider
+	if provider == "" {
+		provider = "infura"
+	}
+
+	timeout := l.config.IPFSTimeoutSeconds
+	if timeout == 0 {
+		timeout = 30
+	}
+
+	return skills.IPFSConfig{
+		Provider:       provider,
+		APIKey:         l.config.IPFSAPIKey,
+		APISecret:      l.config.IPFSAPISecret,
+		ProjectID:      l.config.IPFSProjectID,
+		GatewayURL:     l.config.IPFSGatewayURL,
+		TimeoutSeconds: timeout,
+	}, nil
+}
+
+// GetAlchemyConfig returns Alchemy API configuration.
+func (l *ConfigLoader) GetAlchemyConfig() (skills.AlchemyConfig, error) {
+	if l.config.AlchemyAPIKey == "" {
+		return skills.AlchemyConfig{}, fmt.Errorf("Alchemy API key not configured")
+	}
+
+	network := l.config.AlchemyDefaultNetwork
+	if network == "" {
+		network = "eth-mainnet"
+	}
+
+	timeout := l.config.AlchemyTimeoutSeconds
+	if timeout == 0 {
+		timeout = 10
+	}
+
+	return skills.AlchemyConfig{
+		APIKey:         l.config.AlchemyAPIKey,
+		DefaultNetwork: network,
+		TimeoutSeconds: timeout,
+	}, nil
+}
+
+// GetBlockmonConfig returns blockchain monitoring configuration.
+func (l *ConfigLoader) GetBlockmonConfig() (skills.BlockmonConfig, error) {
+	apiKey := l.config.BlockmonAlchemyAPIKey
+	if apiKey == "" {
+		// Fall back to main Alchemy API key
+		apiKey = l.config.AlchemyAPIKey
+	}
+	if apiKey == "" {
+		return skills.BlockmonConfig{}, fmt.Errorf("Alchemy API key not configured for blockchain monitoring")
+	}
+
+	network := l.config.BlockmonDefaultNetwork
+	if network == "" {
+		network = "eth-mainnet"
+	}
+
+	pollInterval := l.config.BlockmonPollIntervalSeconds
+	if pollInterval == 0 {
+		pollInterval = 15
+	}
+
+	return skills.BlockmonConfig{
+		AlchemyAPIKey:       apiKey,
+		WebhookURL:          l.config.BlockmonWebhookURL,
+		DefaultNetwork:      network,
+		PollIntervalSeconds: pollInterval,
+	}, nil
+}
+
+// GetWalletSecurityConfig returns wallet security monitoring configuration.
+func (l *ConfigLoader) GetWalletSecurityConfig() (skills.WalletSecuritySettingsConfig, error) {
+	pollInterval := l.config.WalletSecurityPollInterval
+	if pollInterval == 0 {
+		pollInterval = 300 // 5 minutes default
+	}
+
+	alertLevel := l.config.WalletSecurityAlertLevel
+	if alertLevel == "" {
+		alertLevel = "medium"
+	}
+
+	return skills.WalletSecuritySettingsConfig{
+		Enabled:      l.config.WalletSecurityEnabled,
+		PollInterval: pollInterval,
+		AlertLevel:   alertLevel,
 	}, nil
 }
 

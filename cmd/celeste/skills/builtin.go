@@ -100,6 +100,9 @@ func RegisterBuiltinSkills(registry *Registry, configLoader ConfigLoader) {
 	registry.RegisterHandler("list_notes", func(args map[string]interface{}) (interface{}, error) {
 		return ListNotesHandler(args)
 	})
+
+	// Register crypto skills (IPFS, Alchemy, Blockchain Monitoring)
+	RegisterCryptoSkills(registry, configLoader)
 }
 
 // ConfigLoader provides access to configuration values.
@@ -109,6 +112,10 @@ type ConfigLoader interface {
 	GetWeatherConfig() (WeatherConfig, error)
 	GetTwitchConfig() (TwitchConfig, error)
 	GetYouTubeConfig() (YouTubeConfig, error)
+	GetIPFSConfig() (IPFSConfig, error)
+	GetAlchemyConfig() (AlchemyConfig, error)
+	GetBlockmonConfig() (BlockmonConfig, error)
+	GetWalletSecurityConfig() (WalletSecuritySettingsConfig, error)
 }
 
 // TarotConfig holds tarot function configuration.
@@ -142,6 +149,38 @@ type TwitchConfig struct {
 type YouTubeConfig struct {
 	APIKey         string
 	DefaultChannel string
+}
+
+// IPFSConfig holds IPFS configuration.
+type IPFSConfig struct {
+	Provider       string
+	APIKey         string
+	APISecret      string
+	ProjectID      string
+	GatewayURL     string
+	TimeoutSeconds int
+}
+
+// AlchemyConfig holds Alchemy API configuration.
+type AlchemyConfig struct {
+	APIKey         string
+	DefaultNetwork string
+	TimeoutSeconds int
+}
+
+// BlockmonConfig holds blockchain monitoring configuration.
+type BlockmonConfig struct {
+	AlchemyAPIKey       string
+	WebhookURL          string
+	DefaultNetwork      string
+	PollIntervalSeconds int
+}
+
+// WalletSecuritySettingsConfig holds wallet security settings.
+type WalletSecuritySettingsConfig struct {
+	Enabled      bool
+	PollInterval int    // seconds
+	AlertLevel   string // minimum severity to alert on
 }
 
 // --- Helper Functions for Error Handling ---

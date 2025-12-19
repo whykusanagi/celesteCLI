@@ -7,6 +7,115 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2025-12-18
+
+### Added
+- **Wallet Security Monitoring** - Comprehensive wallet threat detection and alerting
+  - Monitor multiple wallet addresses across networks (Ethereum, Polygon, Arbitrum, Optimism, Base)
+  - Real-time polling every 5 minutes (configurable)
+  - 6 wallet management operations: add, remove, list, check security, get alerts, acknowledge alerts
+  - 4 threat detection types:
+    - **Dust attacks** - Detect tiny value transfers (< 0.001 ETH) used for address poisoning
+    - **NFT scams** - Flag unsolicited NFT transfers from unknown contracts
+    - **Large transfers** - Alert on significant outgoing funds (> 1 ETH or > 10% of balance)
+    - **Dangerous approvals** - Detect unlimited token approvals (2^256-1) and high-value approvals
+  - Alert system with severity-based classification (critical, high, medium, low)
+  - Persistent alert history stored in `~/.celeste/wallet_alerts.json`
+  - Alert acknowledgment system to track reviewed threats
+  - CLI commands for wallet management via `celeste skill wallet_security`
+- **Background Monitoring Daemon** - Automatic wallet security monitoring
+  - Run wallet checks in background at configurable intervals
+  - Commands: `celeste wallet-monitor start/stop/status`
+  - Fork to background process with PID file management
+  - Graceful shutdown with SIGTERM handling
+  - Configurable poll interval via `wallet_security_poll_interval`
+  - Automatic logging of security events with timestamps
+- **Token Approval Monitoring** - ERC20 approval event tracking
+  - Monitor `Approval(address,address,uint256)` events via `eth_getLogs`
+  - Detect unlimited approvals (max uint256 = 2^256-1)
+  - Flag high-value approvals (> 1 million tokens)
+  - Alert severity: HIGH for unlimited, MEDIUM for high-value
+  - Track spender contracts and approved amounts
+- **IPFS File Upload** - Binary file support for IPFS
+  - Upload files via `--file_path` parameter
+  - Support for all file types: images, PDFs, archives, audio/video, binaries
+  - Automatic file size and name detection
+  - Returns filename, size, type, and CID in response
+  - Preserves original string content upload functionality
+- **Wallet Security Storage**
+  - `~/.celeste/wallet_security.json` - Monitored wallets configuration
+  - `~/.celeste/wallet_alerts.json` - Security alerts history log
+  - `~/.celeste/wallet_monitor.pid` - Daemon process ID
+  - Automatic directory creation and file management
+- **Enhanced Configuration**
+  - Added `WalletSecuritySettingsConfig` with poll interval and alert level settings
+  - Config fields: `wallet_security_enabled`, `wallet_security_poll_interval`, `wallet_security_alert_level`
+
+### Changed
+- Extended Alchemy integration for wallet security monitoring using `alchemy_getAssetTransfers` and `eth_getLogs` APIs
+- Enhanced alert display system with severity-based styling (leveraging existing TUI components)
+- Updated ConfigLoader interface with `GetWalletSecurityConfig()` method
+- IPFS skill description updated to reflect file upload support
+
+### Documentation
+- Added `docs/WALLET_SECURITY.md` - Complete wallet security monitoring guide with:
+  - Setup instructions for wallet monitoring
+  - Threat detection patterns and explanations
+  - Background daemon usage and configuration
+  - Token approval monitoring details
+  - Usage examples for all operations
+- Updated `docs/IPFS_SETUP.md` - Added file upload documentation with examples for binary files
+
+## [1.3.0] - 2025-12-18
+
+### Added
+- **IPFS Integration** - Decentralized content management
+  - Upload and download content via IPFS (returns CID)
+  - Pin management (pin, unpin, list pins)
+  - Multi-provider support (Infura, Pinata, custom nodes)
+  - Gateway URL generation for public access
+  - Official go-ipfs-http-client library integration
+- **Alchemy Blockchain API** - Comprehensive blockchain data access
+  - Wallet operations: ETH/token balances, transaction history, asset transfers
+  - Token data: Real-time metadata and comprehensive token information
+  - NFT APIs: Query NFTs by owner, metadata, collection info
+  - Transaction monitoring: Gas prices, transaction receipts, block information
+  - Multi-network support: Ethereum, Arbitrum, Optimism, Polygon, Base (mainnet + testnets)
+  - JSON-RPC interface with proper error handling
+- **Blockchain Monitoring** - Real-time blockchain event tracking
+  - Watch addresses for new transactions across multiple blocks
+  - Get latest block information with transaction details
+  - Query specific blocks by number (hex or decimal)
+  - Asset transfer tracking (external, internal, ERC20, ERC721, ERC1155)
+  - Network-specific monitoring with configurable poll intervals
+- **Modern Crypto Utilities**
+  - Ethereum address validation using go-ethereum (EIP-55 checksumming)
+  - Wei ↔ Ether ↔ Gwei conversion helpers with big.Int precision
+  - Production-ready rate limiting using golang.org/x/time/rate
+  - Multi-network URL construction and validation
+  - Chain ID support for all major networks
+- **Enhanced Configuration System**
+  - Network-specific settings for L2 support
+  - Environment variable overrides for CI/CD (`CELESTE_IPFS_API_KEY`, `CELESTE_ALCHEMY_API_KEY`)
+  - Flexible provider configuration (Infura, Pinata, custom endpoints)
+  - Crypto-specific config fields in config.json and skills.json
+  - ConfigLoader interface with GetIPFSConfig(), GetAlchemyConfig(), GetBlockmonConfig()
+
+### Changed
+- Upgraded to modern production-grade Go crypto libraries:
+  - `github.com/ethereum/go-ethereum@v1.16.7` - Official Ethereum Go implementation
+  - `github.com/ipfs/go-ipfs-http-client@v0.7.0` - Official IPFS HTTP client
+  - `github.com/ipfs/go-cid@v0.6.0` - Content Identifier handling
+  - `golang.org/x/time@v0.14.0` - Token bucket rate limiting
+- Improved error handling for external API integrations
+- Enhanced skills.json structure for crypto service configuration
+- Better address normalization with proper checksum validation
+
+### Documentation
+- Added `docs/IPFS_SETUP.md` - Infura IPFS configuration guide
+- Added `docs/ALCHEMY_SETUP.md` - Alchemy API setup and usage
+- Added `docs/BLOCKCHAIN_MONITORING.md` - Real-time monitoring guide
+
 ## [1.1.0] - 2025-12-14
 
 ### Added
@@ -132,7 +241,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Release Links
 
-- [Unreleased](https://github.com/whykusanagi/celesteCLI/compare/v1.1.0...HEAD)
+- [Unreleased](https://github.com/whykusanagi/celesteCLI/compare/v1.3.0...HEAD)
+- [1.3.0](https://github.com/whykusanagi/celesteCLI/compare/v1.1.0...v1.3.0)
 - [1.1.0](https://github.com/whykusanagi/celesteCLI/compare/v1.0.2...v1.1.0)
 - [1.0.2](https://github.com/whykusanagi/celesteCLI/releases/tag/v1.0.2)
 - [1.0.0](https://github.com/whykusanagi/celesteCLI/releases/tag/v1.0.0)

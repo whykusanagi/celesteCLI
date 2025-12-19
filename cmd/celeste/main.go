@@ -18,6 +18,7 @@ import (
 	"github.com/whykusanagi/celesteCLI/cmd/celeste/commands"
 	"github.com/whykusanagi/celesteCLI/cmd/celeste/config"
 	"github.com/whykusanagi/celesteCLI/cmd/celeste/llm"
+	"github.com/whykusanagi/celesteCLI/cmd/celeste/monitor"
 	"github.com/whykusanagi/celesteCLI/cmd/celeste/prompts"
 	"github.com/whykusanagi/celesteCLI/cmd/celeste/providers"
 	"github.com/whykusanagi/celesteCLI/cmd/celeste/skills"
@@ -26,7 +27,7 @@ import (
 
 // Version information
 const (
-	Version = "1.2.0-dev"
+	Version = "1.4.0"
 	Build   = "bubbletea-tui"
 )
 
@@ -124,6 +125,9 @@ func main() {
 	case "skill":
 		// Execute a single skill: celeste skill <name> [args...]
 		runSkillExecuteCommand(cmdArgs)
+	case "wallet-monitor":
+		// Manage wallet monitoring daemon: celeste wallet-monitor <start|stop|status|run>
+		runWalletMonitorCommand(cmdArgs)
 	case "skills":
 		runSkillsCommand(cmdArgs)
 	case "providers":
@@ -168,6 +172,7 @@ Commands:
   context                 Show context/token usage
   stats                   Show usage statistics
   export                  Export session data
+  wallet-monitor          Manage wallet security monitoring daemon
   help                    Show this help message
   version                 Show version information
 
@@ -710,6 +715,10 @@ func runConfigCommand(args []string) {
 	simulateTyping := fs.String("simulate-typing", "", "Simulate typing (true/false)")
 	typingSpeed := fs.Int("typing-speed", 0, "Typing speed (chars/sec)")
 
+	// Google Cloud authentication flags
+	setGoogleCredentials := fs.String("set-google-credentials", "", "Set Google Cloud service account JSON file path")
+	useGoogleADC := fs.Bool("use-google-adc", false, "Enable Google Application Default Credentials (auto-detect)")
+
 	// Skill configuration flags
 	setTarotToken := fs.String("set-tarot-token", "", "Set tarot auth token (saved to skills.json)")
 	setVeniceKey := fs.String("set-venice-key", "", "Set Venice.ai API key (saved to skills.json)")
@@ -788,6 +797,24 @@ func runConfigCommand(args []string) {
 		cfg.TypingSpeed = *typingSpeed
 		changed = true
 		fmt.Printf("Typing speed: %d chars/sec\n", cfg.TypingSpeed)
+	}
+
+	// Handle Google Cloud authentication
+	if *setGoogleCredentials != "" {
+		cfg.GoogleCredentialsFile = *setGoogleCredentials
+		cfg.GoogleUseADC = false
+		changed = true
+		fmt.Printf("✓ Google credentials file: %s\n", *setGoogleCredentials)
+		fmt.Println("  Authentication will use the service account JSON file")
+	}
+	if *useGoogleADC {
+		cfg.GoogleUseADC = true
+		cfg.GoogleCredentialsFile = ""
+		cfg.APIKey = "" // Clear manual API key when using ADC
+		changed = true
+		fmt.Println("✓ Google ADC enabled (will auto-detect credentials)")
+		fmt.Println("  Run: gcloud auth application-default login")
+		fmt.Println("  Or set: GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json")
 	}
 
 	// Handle skill configuration
@@ -1461,6 +1488,67 @@ func runExportCommand(args []string) {
 		fmt.Println(result.Message)
 	}
 	if !result.Success {
+		os.Exit(1)
+	}
+}
+
+// runWalletMonitorCommand handles wallet monitoring daemon commands
+func runWalletMonitorCommand(args []string) {
+	if len(args) < 1 {
+		fmt.Fprintln(os.Stderr, "Usage: celeste wallet-monitor <start|stop|status|run>")
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "Commands:")
+		fmt.Fprintln(os.Stderr, "  start   - Start the wallet monitoring daemon in the background")
+		fmt.Fprintln(os.Stderr, "  stop    - Stop the running daemon")
+		fmt.Fprintln(os.Stderr, "  status  - Check daemon status")
+		fmt.Fprintln(os.Stderr, "  run     - Run daemon in foreground (used internally)")
+		os.Exit(1)
+	}
+
+	// Load config
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	configLoader := config.NewConfigLoader(cfg)
+
+	// Create daemon
+	daemon := monitor.NewDaemon(configLoader)
+
+	subcommand := args[0]
+
+	switch subcommand {
+	case "start":
+		if err := daemon.Start(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error starting daemon: %v\n", err)
+			os.Exit(1)
+		}
+
+	case "stop":
+		if err := daemon.Stop(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error stopping daemon: %v\n", err)
+			os.Exit(1)
+		}
+
+	case "status":
+		status, err := daemon.Status()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error getting status: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Wallet monitoring daemon: %s\n", status)
+
+	case "run":
+		// This is used internally when the daemon forks itself
+		// The daemon package handles the actual run loop
+		fmt.Fprintf(os.Stderr, "Error: 'run' command should only be called internally by daemon.Start()\n")
+		os.Exit(1)
+
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown wallet-monitor command: %s\n", subcommand)
+		fmt.Fprintln(os.Stderr, "Valid commands: start, stop, status")
 		os.Exit(1)
 	}
 }
