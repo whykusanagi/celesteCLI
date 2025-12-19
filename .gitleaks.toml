@@ -1,0 +1,15 @@
+# Gitleaks configuration for Celeste CLI
+#
+# This file configures Gitleaks to ignore false positives in our codebase.
+
+[allowlist]
+description = "Allow public blockchain addresses and example data in documentation"
+
+# Allow all blockchain addresses in documentation files
+[[allowlist.regexes]]
+description = "Ethereum addresses in documentation are public contract addresses"
+regex = '''token_address.*0x[a-fA-F0-9]{40}'''
+
+[[allowlist.paths]]
+description = "Documentation examples with sample data"
+regex = '''docs/ALCHEMY_SETUP\.md'''

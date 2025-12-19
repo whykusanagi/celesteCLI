@@ -14,7 +14,7 @@ import (
 	ipath "github.com/ipfs/boxo/coreiface/path"
 	"github.com/ipfs/boxo/files"
 	"github.com/ipfs/go-cid"
-	rpc "github.com/ipfs/go-ipfs-http-client"
+	rpc "github.com/ipfs/go-ipfs-http-client" //nolint:staticcheck // Library deprecated, migration to Kubo planned for future version
 	"github.com/multiformats/go-multiaddr"
 )
 
@@ -122,6 +122,8 @@ func IPFSHandler(args map[string]interface{}, configLoader ConfigLoader) (interf
 }
 
 // createIPFSClient creates an IPFS HTTP API client with authentication
+//
+//nolint:staticcheck // Library deprecated, migration to Kubo planned for future version
 func createIPFSClient(config IPFSConfig) (*rpc.HttpApi, error) {
 	// Determine endpoint based on provider
 	endpoint := config.GatewayURL
