@@ -928,6 +928,17 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// Update chat with current typed content + corruption at cursor
 			displayed := m.typingContent[:m.typingPos]
+
+			// Check if content contains code blocks and apply corrupted-typing effect
+			if strings.Contains(m.typingContent, "```") {
+				// Calculate corruption intensity based on typing position (fade out as we type)
+				progressRatio := float64(m.typingPos) / float64(len(m.typingContent))
+				corruptionIntensity := 0.15 * (1 - progressRatio) // Start at 15%, fade to 0%
+
+				// Apply code block corruption with fading intensity
+				displayed = ApplyCodeBlockCorruption(displayed, m.typingPos, corruptionIntensity)
+			}
+
 			if m.typingPos < len(m.typingContent) {
 				// Add corruption effect at typing cursor
 				displayed += GetRandomCorruption()

@@ -4,6 +4,7 @@ package tui
 
 import (
 	"math/rand"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -350,6 +351,88 @@ func DetectDump(firstChunkSize, totalSize int, elapsed time.Duration) bool {
 
 	ratio := float64(firstChunkSize) / float64(totalSize)
 	return ratio > 0.8 && elapsed < 500*time.Millisecond
+}
+
+// ApplyCodeBlockCorruption detects code blocks (```) and applies corruption styling
+// Used during typing animation to give code blocks a corrupted-typing effect
+func ApplyCodeBlockCorruption(content string, typingPos int, corruptionIntensity float64) string {
+	// Find all code blocks
+	lines := strings.Split(content, "\n")
+	result := make([]string, 0, len(lines))
+	inCodeBlock := false
+
+	for _, line := range lines {
+		// Check if we're entering or leaving a code block
+		if strings.HasPrefix(strings.TrimSpace(line), "```") {
+			inCodeBlock = !inCodeBlock
+			result = append(result, line)
+			continue
+		}
+
+		// If we're in a code block, apply corruption
+		if inCodeBlock {
+			// Apply corruption to code lines
+			corruptedLine := CorruptCodeLine(line, corruptionIntensity)
+			result = append(result, corruptedLine)
+		} else {
+			result = append(result, line)
+		}
+	}
+
+	return strings.Join(result, "\n")
+}
+
+// CorruptCodeLine applies corruption effects specifically for code
+// Uses block characters and glitch symbols for a "corrupted terminal" aesthetic
+func CorruptCodeLine(codeLine string, intensity float64) string {
+	if intensity <= 0 || codeLine == "" {
+		return codeLine
+	}
+
+	runes := []rune(codeLine)
+	result := make([]rune, 0, len(runes))
+
+	for _, r := range runes {
+		// Preserve leading whitespace (indentation)
+		if r == ' ' || r == '\t' {
+			result = append(result, r)
+			continue
+		}
+
+		// Apply corruption with decreasing intensity
+		if rand.Float64() < intensity {
+			roll := rand.Float64()
+			if roll < 0.4 {
+				// Block corruption (40%)
+				result = append(result, corruptChars[rand.Intn(len(corruptChars))])
+			} else if roll < 0.6 {
+				// Symbol corruption (20%)
+				result = append(result, []rune(symbolGlitch[rand.Intn(len(symbolGlitch))])[0])
+			} else if roll < 0.8 {
+				// Katakana insertion (20%)
+				katakana := []rune("アイウエオカキクケコ")
+				result = append(result, katakana[rand.Intn(len(katakana))])
+			} else {
+				// Keep original (20%)
+				result = append(result, r)
+			}
+
+			// Reduce intensity as we go (simulate corruption fading)
+			intensity *= 0.95
+		} else {
+			result = append(result, r)
+		}
+	}
+
+	return string(result)
+}
+
+// GetCodeBlockStyle returns a lipgloss style for code blocks in corrupted theme
+func GetCodeBlockStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#00d4ff")). // Cyan - digital/glitch aesthetic
+		Background(lipgloss.Color("#0f0f1a")). // Darker background
+		Padding(0, 1)
 }
 
 // Helper functions
