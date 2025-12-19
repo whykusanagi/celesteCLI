@@ -350,15 +350,17 @@ Stores security alerts history:
 
 ### Error: "Alchemy API key not configured"
 
-**Solution**: Set your Alchemy API key via environment variable or config:
+**Solution**: Configure your Alchemy API key in `~/.celeste/config.json`:
 
-```bash
-export CELESTE_ALCHEMY_API_KEY="your_key"
+```json
+{
+  "alchemy_api_key": "your_api_key_here"
+}
 ```
 
-Or:
+Or use the CLI config command:
 ```bash
-./celeste config --set-alchemy-api-key YOUR_KEY
+celeste config --set-alchemy-api-key YOUR_KEY
 ```
 
 ### Too Many False Positives
