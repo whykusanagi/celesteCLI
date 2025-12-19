@@ -14,7 +14,7 @@ import (
 	ipath "github.com/ipfs/boxo/coreiface/path"
 	"github.com/ipfs/boxo/files"
 	"github.com/ipfs/go-cid"
-	ipfsapi "github.com/ipfs/go-ipfs-http-client"
+	rpc "github.com/ipfs/go-ipfs-http-client"
 	"github.com/multiformats/go-multiaddr"
 )
 
@@ -122,7 +122,7 @@ func IPFSHandler(args map[string]interface{}, configLoader ConfigLoader) (interf
 }
 
 // createIPFSClient creates an IPFS HTTP API client with authentication
-func createIPFSClient(config IPFSConfig) (*ipfsapi.HttpApi, error) {
+func createIPFSClient(config IPFSConfig) (*rpc.HttpApi, error) {
 	// Determine endpoint based on provider
 	endpoint := config.GatewayURL
 	if endpoint == "" {
@@ -143,7 +143,7 @@ func createIPFSClient(config IPFSConfig) (*ipfsapi.HttpApi, error) {
 	}
 
 	// Create HTTP API client
-	client, err := ipfsapi.NewApi(addr)
+	client, err := rpc.NewApi(addr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create IPFS client: %w", err)
 	}
@@ -168,7 +168,7 @@ func createIPFSClient(config IPFSConfig) (*ipfsapi.HttpApi, error) {
 }
 
 // handleIPFSUpload uploads content to IPFS
-func handleIPFSUpload(ctx context.Context, client *ipfsapi.HttpApi, args map[string]interface{}, config IPFSConfig) (interface{}, error) {
+func handleIPFSUpload(ctx context.Context, client *rpc.HttpApi, args map[string]interface{}, config IPFSConfig) (interface{}, error) {
 	// Check for file_path first, then content
 	filePath, hasFile := args["file_path"].(string)
 	content, hasContent := args["content"].(string)
@@ -287,7 +287,7 @@ func handleIPFSUpload(ctx context.Context, client *ipfsapi.HttpApi, args map[str
 }
 
 // handleIPFSDownload downloads content from IPFS by CID
-func handleIPFSDownload(ctx context.Context, client *ipfsapi.HttpApi, args map[string]interface{}) (interface{}, error) {
+func handleIPFSDownload(ctx context.Context, client *rpc.HttpApi, args map[string]interface{}) (interface{}, error) {
 	// Get CID
 	cidStr, ok := args["cid"].(string)
 	if !ok || cidStr == "" {
@@ -371,7 +371,7 @@ func handleIPFSDownload(ctx context.Context, client *ipfsapi.HttpApi, args map[s
 }
 
 // handleIPFSPin pins content on IPFS
-func handleIPFSPin(ctx context.Context, client *ipfsapi.HttpApi, args map[string]interface{}) (interface{}, error) {
+func handleIPFSPin(ctx context.Context, client *rpc.HttpApi, args map[string]interface{}) (interface{}, error) {
 	// Get CID
 	cidStr, ok := args["cid"].(string)
 	if !ok || cidStr == "" {
@@ -425,7 +425,7 @@ func handleIPFSPin(ctx context.Context, client *ipfsapi.HttpApi, args map[string
 }
 
 // handleIPFSUnpin unpins content from IPFS
-func handleIPFSUnpin(ctx context.Context, client *ipfsapi.HttpApi, args map[string]interface{}) (interface{}, error) {
+func handleIPFSUnpin(ctx context.Context, client *rpc.HttpApi, args map[string]interface{}) (interface{}, error) {
 	// Get CID
 	cidStr, ok := args["cid"].(string)
 	if !ok || cidStr == "" {
@@ -479,7 +479,7 @@ func handleIPFSUnpin(ctx context.Context, client *ipfsapi.HttpApi, args map[stri
 }
 
 // handleIPFSListPins lists all pinned content
-func handleIPFSListPins(ctx context.Context, client *ipfsapi.HttpApi) (interface{}, error) {
+func handleIPFSListPins(ctx context.Context, client *rpc.HttpApi) (interface{}, error) {
 	// List pins
 	pins, err := client.Pin().Ls(ctx)
 	if err != nil {

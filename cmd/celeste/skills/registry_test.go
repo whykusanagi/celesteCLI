@@ -235,7 +235,7 @@ func TestBuiltinSkillsRegistration(t *testing.T) {
 	// Register builtin skills
 	RegisterBuiltinSkills(registry, mockConfig)
 
-	// List expected skill names (21 active skills)
+	// List expected skill names (22 active skills)
 	// Note: nsfw_mode, generate_content, generate_image are disabled (unimplemented)
 	expectedSkills := []string{
 		"tarot_reading",
@@ -259,6 +259,7 @@ func TestBuiltinSkillsRegistration(t *testing.T) {
 		"ipfs",
 		"alchemy",
 		"blockmon",
+		"wallet_security",
 	}
 
 	skills := registry.GetAllSkills()

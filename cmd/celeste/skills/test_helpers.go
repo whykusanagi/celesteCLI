@@ -7,26 +7,26 @@ import (
 
 // MockConfigLoader provides a mock implementation of configuration loading for testing
 type MockConfigLoader struct {
-	TarotCfg           TarotConfig
-	VeniceCfg          VeniceConfig
-	WeatherCfg         WeatherConfig
-	TwitchCfg          TwitchConfig
-	YouTubeCfg         YouTubeConfig
-	IPFSCfg            IPFSConfig
-	AlchemyCfg         AlchemyConfig
-	BlockmonCfg        BlockmonConfig
-	WalletSecurityCfg  WalletSecuritySettingsConfig
+	TarotCfg          TarotConfig
+	VeniceCfg         VeniceConfig
+	WeatherCfg        WeatherConfig
+	TwitchCfg         TwitchConfig
+	YouTubeCfg        YouTubeConfig
+	IPFSCfg           IPFSConfig
+	AlchemyCfg        AlchemyConfig
+	BlockmonCfg       BlockmonConfig
+	WalletSecurityCfg WalletSecuritySettingsConfig
 
 	// Error flags to simulate missing config
-	TarotError           error
-	VeniceError          error
-	WeatherError         error
-	TwitchError          error
-	YouTubeError         error
-	IPFSError            error
-	AlchemyError         error
-	BlockmonError        error
-	WalletSecurityError  error
+	TarotError          error
+	VeniceError         error
+	WeatherError        error
+	TwitchError         error
+	YouTubeError        error
+	IPFSError           error
+	AlchemyError        error
+	BlockmonError       error
+	WalletSecurityError error
 }
 
 // GetTarotConfig returns mock tarot configuration

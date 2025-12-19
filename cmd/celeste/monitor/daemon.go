@@ -73,7 +73,7 @@ func (d *Daemon) Start() error {
 
 		// Save PID
 		if err := d.savePID(process.Pid); err != nil {
-			process.Kill()
+			_ = process.Kill() // Best effort to clean up
 			return fmt.Errorf("failed to save PID: %w", err)
 		}
 

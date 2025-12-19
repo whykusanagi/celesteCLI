@@ -721,8 +721,8 @@ func detectDangerousApproval(approval ApprovalEvent) *SecurityAlert {
 		return nil // Zero approval (revocation) is safe
 	}
 
-	severity := "medium"
-	description := ""
+	var severity string
+	var description string
 
 	if approval.IsUnlimited {
 		// Unlimited approval is highest risk
@@ -1063,7 +1063,7 @@ func appendAlerts(newAlerts []SecurityAlert) error {
 func generateAlertID() string {
 	timestamp := time.Now().Unix()
 	randomBytes := make([]byte, 4)
-	rand.Read(randomBytes)
+	_, _ = rand.Read(randomBytes) // crypto/rand.Read always returns nil error
 	randomHex := hex.EncodeToString(randomBytes)
 	return fmt.Sprintf("alert_%d_%s", timestamp, randomHex)
 }

@@ -1542,22 +1542,8 @@ func runWalletMonitorCommand(args []string) {
 
 	case "run":
 		// This is used internally when the daemon forks itself
-		// Get poll interval from config
-		wsConfig, err := configLoader.GetWalletSecurityConfig()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error loading wallet security config: %v\n", err)
-			os.Exit(1)
-		}
-
-		pollInterval := time.Duration(wsConfig.PollInterval) * time.Second
-		if pollInterval == 0 {
-			pollInterval = 5 * time.Minute
-		}
-
-		// Run daemon (blocks until stopped)
-		// Note: The daemon's run() method is private, so we need to use Start()
-		// which will handle the fork internally
-		fmt.Fprintf(os.Stderr, "Error: 'run' command should only be called internally\n")
+		// The daemon package handles the actual run loop
+		fmt.Fprintf(os.Stderr, "Error: 'run' command should only be called internally by daemon.Start()\n")
 		os.Exit(1)
 
 	default:

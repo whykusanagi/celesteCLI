@@ -253,7 +253,7 @@ func TestGeminiProvider(t *testing.T) {
 
 	assert.Equal(t, "Google Gemini AI (AI Studio)", caps.Name)
 	assert.True(t, caps.SupportsFunctionCalling)
-	assert.True(t, caps.IsOpenAICompatible)
+	assert.False(t, caps.IsOpenAICompatible, "Gemini uses native Google GenAI SDK")
 	assert.Contains(t, caps.BaseURL, "generativelanguage.googleapis.com")
 	assert.Contains(t, caps.Notes, "aistudio.google.com", "Should mention AI Studio")
 }
